@@ -98,64 +98,9 @@ jobs:
           name: android-mapping
           path: build/app/outputs/mapping/release/mapping.txt
 
-  # ─── iOS Build ────────────────────────────────────────
-  ios-build:
-    name: iOS Build
-    runs-on: macos-latest
-    needs: version-check
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.22.0'
-          channel: 'stable'
-          cache: true
-
-      - name: Flutter pub get
-        run: flutter pub get
-
-      - name: Decode GoogleService-Info.plist
-        env:
-          GOOGLE_SERVICE_PLIST: ${{ secrets.GOOGLE_SERVICE_PLIST_IOS }}
-        run: echo "$GOOGLE_SERVICE_PLIST" | base64 -d > ios/Runner/GoogleService-Info.plist
-
-      - name: Import Code Signing Certificate
-        env:
-          P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
-          P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
-        run: |
-          echo "$P12_BASE64" | base64 -d > /tmp/cert.p12
-          security create-keychain -p "" build.keychain
-          security import /tmp/cert.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
-          security set-keychain-settings build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
-
-      - name: Import Provisioning Profile
-        env:
-          PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
-        run: |
-          echo "$PROFILE_BASE64" | base64 -d > /tmp/profile.mobileprovision
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
-
-      - name: Build iOS (release)
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          flutter build ipa --release \
-            --dart-define=GEMINI_API_KEY=$GEMINI_API_KEY \
-            --export-options-plist=ios/ExportOptions.plist
-
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-ipa
-          path: build/ios/ipa/*.ipa
-
-      - name: Upload dSYMs artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-dsyms
-          path: build/ios/archive/Runner.xcarchive/dSYMs
+  # ─── iOS Build（暫停：待取得 Apple Developer 帳號後啟用）────
+  # ios-build:
+  #   name: iOS Build
+  #   runs-on: macos-latest
+  #   needs: version-check
+  #   ...（Phase 2）
