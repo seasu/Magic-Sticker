@@ -1,4 +1,7 @@
 // Top-level build file — plugin versions are declared in settings.gradle
+// Flutter Gradle tooling reads ext.kotlin_version to configure compilation
+ext.kotlin_version = "2.1.0"
+
 allprojects {
     repositories {
         google()
