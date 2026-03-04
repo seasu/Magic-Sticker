@@ -1,4 +1,3 @@
-這是一份針對 Android 與 iOS 雙平台 完整規劃的 PRD（產品需求文件）。這份文件已將 Phase 2: iOS 視覺能力 整合進度，並嚴格遵守你要求的 版本號規範、Firebase 追蹤與 GitHub Actions 自動化。
 📝 產品需求文件 (PRD) - MagicMorning App
 | 屬性 | 描述 |
 |---|---|
