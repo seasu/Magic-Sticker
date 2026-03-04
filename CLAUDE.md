@@ -1,4 +1,4 @@
-# 🤖 Claude 開發指令集 (CLAUDE.md) - v1.3
+# 🤖 Claude 開發指令集 (CLAUDE.md) - v1.4
 
 ## 📌 角色定位
 
@@ -113,25 +113,10 @@ ios/
 
 ---
 
-## 🌿 新功能開發流程 (Branch Workflow)
-
-**開始每個新功能前，必須先同步 main 的最新代碼：**
-
-```bash
-git checkout main
-git pull origin main
-git checkout -b feature/<功能名稱>   # 建立功能分支
-```
-
-完成後再發 PR 合回 main，禁止直接 push 到 main。
-
----
-
 ## 📝 每次任務的執行檢查表 (Checklist)
 
 每次撰寫或修改代碼前，確認以下事項：
 
-- [ ] **同步 main:** 已從 `main` 拉取最新代碼並建立功能分支？
 - [ ] **版本號:** 已遞增 `pubspec.yaml` 的 `version`？
 - [ ] **PRD 同步:** 已根據最新代碼更新 `PRD.md`？
 - [ ] **錯誤處理:** `MethodChannel` 是否含 Firebase Crashlytics 紀錄？
@@ -168,6 +153,7 @@ git checkout -b feature/<功能名稱>   # 建立功能分支
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v1.4 | 2026-03-04 | 移除通用 Git 習慣（pull main）— 不屬於專案特有規範 |
 | v1.3 | 2026-03-04 | 新增「新功能開發流程」區塊、Checklist 補充同步 main 步驟、修正檔案結構（移除已刪除的 flutter-dev-SKILL.md） |
 | v1.2 | 2026-03-04 | 新增 Skill 載入說明、補充目錄結構、整合 PRD 技術規範、加入觸發指令表、目前狀態標註 |
 | v1.1 | — | 加入版本化規範、Crashlytics 防禦性編程指引 |
