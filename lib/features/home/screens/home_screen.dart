@@ -1,3 +1,5 @@
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -47,6 +49,23 @@ class HomeScreen extends ConsumerWidget {
                 outlined: true,
               ),
               const SizedBox(height: 32),
+              // ── 僅 debug 模式顯示 Crashlytics 測試按鈕 ──────────────────
+              if (kDebugMode) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => FirebaseCrashlytics.instance.crash(),
+                  icon: const Icon(Icons.bug_report_outlined),
+                  label: const Text('[DEBUG] 測試 Crashlytics 強制崩潰'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(44),
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
             ],
           ),
         ),
