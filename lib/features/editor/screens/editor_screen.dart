@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -291,6 +292,7 @@ class _CardStack extends StatelessWidget {
               opacity: 0.25,
               child: _StickerCard(
                 subjectBytes: state.subjectBytes,
+                generatedImage: state.generatedImages[currentIndex + 2],
                 text: state.stickerTexts[currentIndex + 2],
                 config: kStickerConfigs[currentIndex + 2],
               ),
@@ -305,6 +307,7 @@ class _CardStack extends StatelessWidget {
               opacity: 0.50,
               child: _StickerCard(
                 subjectBytes: state.subjectBytes,
+                generatedImage: state.generatedImages[currentIndex + 1],
                 text: state.stickerTexts[currentIndex + 1],
                 config: kStickerConfigs[currentIndex + 1],
               ),
@@ -317,11 +320,49 @@ class _CardStack extends StatelessWidget {
           controller: cardController,
           onAccepted: onAccepted,
           onRejected: onRejected,
-          child: _StickerCard(
-            repaintKey: repaintKeys[currentIndex],
-            subjectBytes: state.subjectBytes,
-            text: state.stickerTexts[currentIndex],
-            config: kStickerConfigs[currentIndex],
+          child: Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              _StickerCard(
+                repaintKey: repaintKeys[currentIndex],
+                subjectBytes: state.subjectBytes,
+                generatedImage: state.generatedImages[currentIndex],
+                text: state.stickerTexts[currentIndex],
+                config: kStickerConfigs[currentIndex],
+              ),
+              // AI 插圖生成中提示（僅在尚未收到圖時顯示）
+              if (state.generatedImages[currentIndex] == null)
+                Positioned(
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 10,
+                          height: 10,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'AI 插圖生成中…',
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ],
@@ -332,13 +373,15 @@ class _CardStack extends StatelessWidget {
 /// 貼圖卡片外框：陰影 + 圓角 + 可選 RepaintBoundary
 class _StickerCard extends StatelessWidget {
   final GlobalKey? repaintKey;
-  final dynamic subjectBytes;
+  final Uint8List? subjectBytes;
+  final Uint8List? generatedImage;
   final String text;
   final StickerConfig config;
 
   const _StickerCard({
     this.repaintKey,
     required this.subjectBytes,
+    this.generatedImage,
     required this.text,
     required this.config,
   });
@@ -347,6 +390,7 @@ class _StickerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final canvas = StickerCanvas(
       subjectBytes: subjectBytes,
+      generatedImage: generatedImage,
       text: text,
       config: config,
     );

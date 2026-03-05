@@ -4,18 +4,19 @@ import 'package:flutter/material.dart';
 
 import '../models/sticker_config.dart';
 
-/// LINE 貼圖風格畫布
+/// LINE 貼圖風格畫布（支援雙指縮放 + 拖曳移位）
 ///
 /// 設計語言：
 /// - 白底透明背景（符合 LINE 貼圖 PNG 規格）
 /// - 彩色粗外框線（6px rounded rect border）
-/// - 主體去背圖像居中
+/// - 主體去背圖像居中；支援 pinch-to-zoom + drag
 /// - 大字、粗外框 outline 文字（類 LINE 貼圖感）
 /// - 散落裝飾符號（emoji/unicode，微旋轉）
 ///
 /// 畫布比例 740 : 640（LINE 高解析標準）
-class StickerCanvas extends StatelessWidget {
+class StickerCanvas extends StatefulWidget {
   final Uint8List? subjectBytes;
+  final Uint8List? generatedImage;
   final String text;
   final StickerConfig config;
 
@@ -24,37 +25,98 @@ class StickerCanvas extends StatelessWidget {
   const StickerCanvas({
     super.key,
     required this.subjectBytes,
+    this.generatedImage,
     required this.text,
     required this.config,
   });
 
   @override
+  State<StickerCanvas> createState() => _StickerCanvasState();
+}
+
+class _StickerCanvasState extends State<StickerCanvas> {
+  Offset _offset = Offset.zero;
+  double _scale = 1.0;
+
+  // 手勢開始時的快照
+  double _startScale = 1.0;
+  Offset _startFocalPoint = Offset.zero;
+  Offset _startOffset = Offset.zero;
+
+  @override
+  void didUpdateWidget(StickerCanvas old) {
+    super.didUpdateWidget(old);
+    // AI 圖首次到達時重置位置，避免用上一張的偏移
+    if (old.generatedImage == null && widget.generatedImage != null) {
+      _offset = Offset.zero;
+      _scale = 1.0;
+    }
+  }
+
+  void _onScaleStart(ScaleStartDetails d) {
+    _startScale = _scale;
+    _startFocalPoint = d.localFocalPoint;
+    _startOffset = _offset;
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails d) {
+    setState(() {
+      _scale = (_startScale * d.scale).clamp(0.25, 4.0);
+      _offset = _startOffset + (d.localFocalPoint - _startFocalPoint);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AspectRatio(
-      aspectRatio: aspectRatio,
+      aspectRatio: StickerCanvas.aspectRatio,
       child: Container(
         color: Colors.white,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // ── 彩色粗外框 ─────────────────────────────────────────
-            _BorderFrame(color: config.colorScheme.borderColor),
+            if (widget.generatedImage != null) ...[
+              // ── AI 生成插圖（可縮放拖曳）────────────────────────────
+              ClipRect(
+                child: GestureDetector(
+                  onScaleStart: _onScaleStart,
+                  onScaleUpdate: _onScaleUpdate,
+                  child: Transform.translate(
+                    offset: _offset,
+                    child: Transform.scale(
+                      scale: _scale,
+                      child: Image.memory(
+                        widget.generatedImage!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                        filterQuality: FilterQuality.high,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ] else ...[
+              // ── 彩色粗外框 ─────────────────────────────────────────
+              _BorderFrame(color: widget.config.colorScheme.borderColor),
 
-            // ── 背景裝飾（主體後方） ──────────────────────────────
-            ..._buildDecorations(foreground: false),
+              // ── 背景裝飾（主體後方） ──────────────────────────────
+              ..._buildDecorations(foreground: false),
 
-            // ── 主體去背圖像 ─────────────────────────────────────
-            _buildSubject(),
+              // ── 主體去背圖像（可縮放拖曳） ──────────────────────
+              _buildSubject(),
 
-            // ── 前景裝飾（主體前方，部分重疊） ───────────────────
-            ..._buildDecorations(foreground: true),
+              // ── 前景裝飾（主體前方，部分重疊） ───────────────────
+              ..._buildDecorations(foreground: true),
+            ],
 
-            // ── LINE 貼圖風格大字 ─────────────────────────────────
+            // ── LINE 貼圖風格大字（永遠疊在最上層）──────────────────
             Positioned(
               left: 14,
               right: 14,
               bottom: 12,
-              child: _OutlinedStickerText(text: text, config: config),
+              child: _OutlinedStickerText(
+                  text: widget.text, config: widget.config),
             ),
           ],
         ),
@@ -63,10 +125,10 @@ class StickerCanvas extends StatelessWidget {
   }
 
   Widget _buildSubject() {
-    if (subjectBytes == null) {
+    if (widget.subjectBytes == null) {
       return Center(
         child: CircularProgressIndicator(
-          color: config.colorScheme.borderColor,
+          color: widget.config.colorScheme.borderColor,
         ),
       );
     }
@@ -75,10 +137,20 @@ class StickerCanvas extends StatelessWidget {
       left: 10,
       right: 10,
       bottom: 62,
-      child: Image.memory(
-        subjectBytes!,
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.high,
+      child: GestureDetector(
+        onScaleStart: _onScaleStart,
+        onScaleUpdate: _onScaleUpdate,
+        child: Transform.translate(
+          offset: _offset,
+          child: Transform.scale(
+            scale: _scale,
+            child: Image.memory(
+              widget.subjectBytes!,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -86,11 +158,11 @@ class StickerCanvas extends StatelessWidget {
   List<Widget> _buildDecorations({required bool foreground}) {
     // 偶數索引 = 背景層；奇數索引 = 前景層
     final results = <Widget>[];
-    for (int i = 0; i < config.decorations.length; i++) {
+    for (int i = 0; i < widget.config.decorations.length; i++) {
       final isForeground = i.isOdd;
       if (isForeground != foreground) continue;
 
-      final d = config.decorations[i];
+      final d = widget.config.decorations[i];
       results.add(
         Positioned(
           top: d.top > 0 ? d.top : null,
@@ -104,7 +176,7 @@ class StickerCanvas extends StatelessWidget {
               style: TextStyle(
                 fontSize: d.size,
                 height: 1,
-                color: config.colorScheme.accentColor,
+                color: widget.config.colorScheme.accentColor,
               ),
             ),
           ),
