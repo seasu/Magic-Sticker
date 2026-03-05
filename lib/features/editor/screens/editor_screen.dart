@@ -15,6 +15,12 @@ import '../widgets/caption_editor.dart';
 import '../widgets/sticker_canvas.dart';
 import '../widgets/sticker_swipe_card.dart';
 
+// ── 顏色常數 ──────────────────────────────────────────────────────────────
+
+const _kBg = Color(0xFFF8F9FA);
+const _kNopeColor = Color(0xFFEF4444);
+const _kLikeColor = Color(0xFF22C55E);
+
 class EditorScreen extends ConsumerStatefulWidget {
   final String imagePath;
 
@@ -25,12 +31,11 @@ class EditorScreen extends ConsumerStatefulWidget {
 }
 
 class _EditorScreenState extends ConsumerState<EditorScreen> {
-  // 每張貼圖各有一個 RepaintBoundary key（用於匯出）
   final _repaintKeys = List.generate(3, (_) => GlobalKey());
   final _cardController = StickerSwipeCardController();
 
-  int _currentIndex = 0; // 目前顯示第幾張（0–2），3 = 全部完成
-  int _keptCount = 0;    // 已保留張數
+  int _currentIndex = 0;
+  int _keptCount = 0;
   bool _isExporting = false;
 
   @override
@@ -43,11 +48,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   // ─── Actions ──────────────────────────────────────────────────────
 
-  /// 右滑「保留」：匯出目前貼圖，成功後前進到下一張
   Future<void> _accept() async {
     FirebaseService.log('EditorScreen._accept: sticker ${_currentIndex + 1}');
     setState(() => _isExporting = true);
-
     try {
       final boundary = _repaintKeys[_currentIndex].currentContext!
           .findRenderObject() as RenderRepaintBoundary;
@@ -56,19 +59,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           await image.toByteData(format: ui.ImageByteFormat.png);
       await Gal.putImageBytes(byteData!.buffer.asUint8List());
       await FirebaseAnalytics.instance.logEvent(name: 'sticker_generated');
-
       setState(() {
         _keptCount++;
         _isExporting = false;
         _currentIndex++;
       });
     } catch (e, stack) {
-      await FirebaseService.recordError(
-        e, stack, reason: 'editor_export_failed',
-      );
+      await FirebaseService.recordError(e, stack,
+          reason: 'editor_export_failed');
       setState(() {
         _isExporting = false;
-        _currentIndex++; // 匯出失敗仍前進，避免卡住
+        _currentIndex++;
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -77,18 +78,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
   }
 
-  /// 左滑「跳過」：不儲存，直接前進
   void _reject() => setState(() => _currentIndex++);
 
-  /// 重新生成所有貼圖文字並重置滑動進度
   void _regenerate() {
     setState(() {
       _currentIndex = 0;
       _keptCount = 0;
     });
-    ref
-        .read(editorStateProvider(widget.imagePath).notifier)
-        .regenerateTexts();
+    ref.read(editorStateProvider(widget.imagePath).notifier).regenerateTexts();
   }
 
   // ─── Build ────────────────────────────────────────────────────────
@@ -102,103 +99,244 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final isDone = isReady && _currentIndex >= 3;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('選擇貼圖'),
-        actions: [
-          if (isReady && !isDone)
-            IconButton(
-              onPressed: _regenerate,
-              icon: const Icon(Icons.refresh_rounded),
-              tooltip: '重新生成',
+      backgroundColor: _kBg,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── 頂部列 ──────────────────────────────────────────────
+            _TopBar(
+              onBack: () => context.go('/'),
+              onRefresh: (isReady && !isDone) ? _regenerate : null,
             ),
-        ],
-      ),
-      body: Column(
-        children: [
-          if (isLoading)
-            Expanded(child: _LoadingView(status: state.status))
-          else if (state.errorMessage != null)
-            Expanded(child: _ErrorView(message: state.errorMessage!))
-          else if (isDone)
-            Expanded(
-              child: _CompletionView(
-                keptCount: _keptCount,
-                onRegenerate: _regenerate,
-                onFinish: () => context.go('/'),
-              ),
-            )
-          else if (isReady) ...[
-            // ── 進度指示器 ──────────────────────────────────────────
-            const SizedBox(height: 16),
-            _ProgressDots(current: _currentIndex),
-            const SizedBox(height: 8),
 
-            // ── 貼圖卡片區（目前 + 下一張預覽）────────────────────
-            Expanded(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // 下一張（縮小、半透明，製造景深效果）
-                  if (_currentIndex + 1 < 3)
-                    _NextCardPreview(
-                      state: state,
-                      index: _currentIndex + 1,
-                    ),
-                  // 目前可滑動的卡片
-                  StickerSwipeCard(
-                    key: ValueKey(_currentIndex),
-                    controller: _cardController,
-                    onAccepted: _accept,
-                    onRejected: _reject,
-                    child: Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 28),
-                      child: _StickerCardFrame(
-                        repaintKey: _repaintKeys[_currentIndex],
-                        subjectBytes: state.subjectBytes,
-                        text: state.stickerTexts[_currentIndex],
-                        config: kStickerConfigs[_currentIndex],
-                      ),
-                    ),
+            if (isLoading)
+              Expanded(child: _LoadingView(status: state.status))
+            else if (state.errorMessage != null)
+              Expanded(child: _ErrorView(message: state.errorMessage!))
+            else if (isDone)
+              Expanded(
+                child: _CompletionView(
+                  keptCount: _keptCount,
+                  onRegenerate: _regenerate,
+                  onFinish: () => context.go('/'),
+                ),
+              )
+            else if (isReady) ...[
+              // ── 進度 ─────────────────────────────────────────────
+              _ProgressBar(current: _currentIndex),
+              const SizedBox(height: 4),
+
+              // ── 卡片區 ────────────────────────────────────────────
+              Expanded(
+                child: _CardStack(
+                  state: state,
+                  currentIndex: _currentIndex,
+                  repaintKeys: _repaintKeys,
+                  cardController: _cardController,
+                  onAccepted: _accept,
+                  onRejected: _reject,
+                ),
+              ),
+
+              // ── 提示文字 ──────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '左滑跳過　右滑保留',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade400,
+                    letterSpacing: 0.5,
                   ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
 
-            // ── 操作按鈕 ────────────────────────────────────────────
-            _ActionButtons(
-              isExporting: _isExporting,
-              onAccept: _isExporting ? null : () => _cardController.accept(),
-              onReject: _isExporting ? null : () => _cardController.reject(),
-            ),
-            const SizedBox(height: 8),
+              // ── Tinder 圓形按鈕 ───────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: _TinderButtons(
+                  isExporting: _isExporting,
+                  onNope: _isExporting ? null : () => _cardController.reject(),
+                  onLike: _isExporting ? null : () => _cardController.accept(),
+                ),
+              ),
 
-            // ── 文字編輯面板 ─────────────────────────────────────────
-            CaptionEditor(
-              text: state.stickerTexts[_currentIndex],
-              stickerIndex: _currentIndex,
-              onTextChanged: (text) => ref
-                  .read(editorStateProvider(widget.imagePath).notifier)
-                  .updateStickerText(_currentIndex, text),
-            ),
+              // ── 文字編輯（簡潔內嵌） ──────────────────────────────
+              _InlineTextEditor(
+                text: state.stickerTexts[_currentIndex],
+                stickerIndex: _currentIndex,
+                onChanged: (t) => ref
+                    .read(editorStateProvider(widget.imagePath).notifier)
+                    .updateStickerText(_currentIndex, t),
+              ),
+              const SizedBox(height: 8),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── 頂部列 ────────────────────────────────────────────────────────────────
+
+class _TopBar extends StatelessWidget {
+  final VoidCallback onBack;
+  final VoidCallback? onRefresh;
+
+  const _TopBar({required this.onBack, this.onRefresh});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: onBack,
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            style: IconButton.styleFrom(foregroundColor: Colors.black87),
+          ),
+          const Spacer(),
+          Text(
+            '選擇貼圖',
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
+          ),
+          const Spacer(),
+          if (onRefresh != null)
+            IconButton(
+              onPressed: onRefresh,
+              icon: const Icon(Icons.refresh_rounded),
+              style: IconButton.styleFrom(foregroundColor: Colors.black54),
+              tooltip: '重新生成',
+            )
+          else
+            const SizedBox(width: 48),
         ],
       ),
     );
   }
 }
 
-// ─── 貼圖卡片外框 ─────────────────────────────────────────────────────────
+// ─── 進度條 ────────────────────────────────────────────────────────────────
 
-/// 帶陰影圓角框 + 可選的 RepaintBoundary（供匯出用）
-class _StickerCardFrame extends StatelessWidget {
+class _ProgressBar extends StatelessWidget {
+  final int current;
+
+  const _ProgressBar({required this.current});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(3, (i) {
+          final isActive = i == current;
+          final isPast = i < current;
+          return Expanded(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              height: 4,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: isPast
+                    ? _kLikeColor.withOpacity(0.6)
+                    : isActive
+                        ? Colors.black87
+                        : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+// ─── 卡片層疊 ──────────────────────────────────────────────────────────────
+
+class _CardStack extends StatelessWidget {
+  final EditorState state;
+  final int currentIndex;
+  final List<GlobalKey> repaintKeys;
+  final StickerSwipeCardController cardController;
+  final VoidCallback onAccepted;
+  final VoidCallback onRejected;
+
+  const _CardStack({
+    required this.state,
+    required this.currentIndex,
+    required this.repaintKeys,
+    required this.cardController,
+    required this.onAccepted,
+    required this.onRejected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // 下下張（最底層，更小）
+        if (currentIndex + 2 < 3)
+          Transform.scale(
+            scale: 0.88,
+            child: Opacity(
+              opacity: 0.25,
+              child: _StickerCard(
+                subjectBytes: state.subjectBytes,
+                text: state.stickerTexts[currentIndex + 2],
+                config: kStickerConfigs[currentIndex + 2],
+              ),
+            ),
+          ),
+
+        // 下一張（中層）
+        if (currentIndex + 1 < 3)
+          Transform.scale(
+            scale: 0.94,
+            child: Opacity(
+              opacity: 0.50,
+              child: _StickerCard(
+                subjectBytes: state.subjectBytes,
+                text: state.stickerTexts[currentIndex + 1],
+                config: kStickerConfigs[currentIndex + 1],
+              ),
+            ),
+          ),
+
+        // 目前張（可滑動）
+        StickerSwipeCard(
+          key: ValueKey(currentIndex),
+          controller: cardController,
+          onAccepted: onAccepted,
+          onRejected: onRejected,
+          child: _StickerCard(
+            repaintKey: repaintKeys[currentIndex],
+            subjectBytes: state.subjectBytes,
+            text: state.stickerTexts[currentIndex],
+            config: kStickerConfigs[currentIndex],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 貼圖卡片外框：陰影 + 圓角 + 可選 RepaintBoundary
+class _StickerCard extends StatelessWidget {
   final GlobalKey? repaintKey;
   final dynamic subjectBytes;
   final String text;
   final StickerConfig config;
 
-  const _StickerCardFrame({
+  const _StickerCard({
     this.repaintKey,
     required this.subjectBytes,
     required this.text,
@@ -212,14 +350,21 @@ class _StickerCardFrame extends StatelessWidget {
       text: text,
       config: config,
     );
+
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.20),
+            color: Colors.black.withOpacity(0.16),
             blurRadius: 24,
-            offset: const Offset(0, 10),
+            offset: const Offset(0, 12),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -231,170 +376,140 @@ class _StickerCardFrame extends StatelessWidget {
   }
 }
 
-// ─── 下一張預覽（景深層）────────────────────────────────────────────────
+// ─── Tinder 大圓形按鈕 ─────────────────────────────────────────────────────
 
-class _NextCardPreview extends StatelessWidget {
-  final EditorState state;
-  final int index;
+class _TinderButtons extends StatelessWidget {
+  final bool isExporting;
+  final VoidCallback? onNope;
+  final VoidCallback? onLike;
 
-  const _NextCardPreview({required this.state, required this.index});
-
-  @override
-  Widget build(BuildContext context) {
-    return Transform.scale(
-      scale: 0.91,
-      child: Opacity(
-        opacity: 0.45,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: _StickerCardFrame(
-            subjectBytes: state.subjectBytes,
-            text: state.stickerTexts[index],
-            config: kStickerConfigs[index],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── 進度點點 ─────────────────────────────────────────────────────────────
-
-class _ProgressDots extends StatelessWidget {
-  final int current;
-
-  const _ProgressDots({required this.current});
+  const _TinderButtons({
+    required this.isExporting,
+    required this.onNope,
+    required this.onLike,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(
-          '${current + 1} / 3',
-          style: Theme.of(context)
-              .textTheme
-              .labelLarge
-              ?.copyWith(color: scheme.onSurfaceVariant),
+        // ❌ Nope（空心圓，紅邊）
+        _CircleButton(
+          size: 64,
+          icon: Icons.close_rounded,
+          iconSize: 30,
+          iconColor: _kNopeColor,
+          bgColor: Colors.white,
+          borderColor: _kNopeColor,
+          shadowColor: _kNopeColor,
+          onTap: onNope,
         ),
-        const SizedBox(width: 12),
-        ...List.generate(
-          3,
-          (i) => AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            width: current == i ? 20 : 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: current == i ? scheme.primary : scheme.outlineVariant,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
+        const SizedBox(width: 52),
+        // ❤️ Like（實心圓，綠底）
+        _CircleButton(
+          size: 76,
+          icon: isExporting ? null : Icons.favorite_rounded,
+          iconSize: 36,
+          iconColor: Colors.white,
+          bgColor: _kLikeColor,
+          shadowColor: _kLikeColor,
+          isLoading: isExporting,
+          onTap: onLike,
         ),
       ],
     );
   }
 }
 
-// ─── 操作按鈕 ─────────────────────────────────────────────────────────────
-
-class _ActionButtons extends StatelessWidget {
-  final bool isExporting;
-  final VoidCallback? onAccept;
-  final VoidCallback? onReject;
-
-  const _ActionButtons({
-    required this.isExporting,
-    required this.onAccept,
-    required this.onReject,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _ActionButton(
-            icon: Icons.close_rounded,
-            label: '跳過',
-            color: Colors.red.shade400,
-            onTap: onReject,
-          ),
-          _ActionButton(
-            icon: Icons.favorite_rounded,
-            label: '保留',
-            color: Colors.green.shade400,
-            onTap: onAccept,
-            isLoading: isExporting,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
+class _CircleButton extends StatelessWidget {
+  final double size;
+  final IconData? icon;
+  final double iconSize;
+  final Color iconColor;
+  final Color bgColor;
+  final Color? borderColor;
+  final Color shadowColor;
   final VoidCallback? onTap;
   final bool isLoading;
 
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
+  const _CircleButton({
+    required this.size,
+    this.icon,
+    required this.iconSize,
+    required this.iconColor,
+    required this.bgColor,
+    this.borderColor,
+    required this.shadowColor,
+    this.onTap,
     this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    final effectiveColor = enabled ? color : Colors.grey.shade400;
-
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+        width: size,
+        height: size,
         decoration: BoxDecoration(
-          color: enabled
-              ? effectiveColor.withOpacity(0.10)
-              : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(50),
-          border: Border.all(color: effectiveColor, width: 2),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isLoading)
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: effectiveColor,
-                ),
-              )
-            else
-              Icon(icon, color: effectiveColor, size: 22),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: effectiveColor,
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
+          shape: BoxShape.circle,
+          color: enabled ? bgColor : Colors.grey.shade200,
+          border: borderColor != null && enabled
+              ? Border.all(color: borderColor!, width: 2.5)
+              : null,
+          boxShadow: [
+            if (enabled)
+              BoxShadow(
+                color: shadowColor.withOpacity(0.30),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+                spreadRadius: 1,
               ),
-            ),
           ],
         ),
+        child: Center(
+          child: isLoading
+              ? SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: iconColor,
+                  ),
+                )
+              : Icon(
+                  icon,
+                  size: iconSize,
+                  color: enabled ? iconColor : Colors.grey.shade400,
+                ),
+        ),
       ),
+    );
+  }
+}
+
+// ─── 內嵌文字編輯器（簡潔版） ─────────────────────────────────────────────
+
+class _InlineTextEditor extends StatelessWidget {
+  final String text;
+  final int stickerIndex;
+  final ValueChanged<String> onChanged;
+
+  const _InlineTextEditor({
+    required this.text,
+    required this.stickerIndex,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CaptionEditor(
+      text: text,
+      stickerIndex: stickerIndex,
+      onTextChanged: onChanged,
     );
   }
 }
@@ -417,38 +532,62 @@ class _CompletionView extends StatelessWidget {
     final hasKept = keptCount > 0;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              hasKept ? Icons.check_circle_outline : Icons.sentiment_neutral,
-              size: 72,
-              color: hasKept ? Colors.green : Colors.grey,
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: hasKept ? _kLikeColor : Colors.grey.shade200,
+              ),
+              child: Icon(
+                hasKept ? Icons.favorite_rounded : Icons.sentiment_neutral,
+                size: 48,
+                color: Colors.white,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Text(
-              hasKept ? '儲存了 $keptCount 張貼圖！' : '全部跳過',
-              style: Theme.of(context).textTheme.headlineSmall,
+              hasKept ? '儲存了 $keptCount 張貼圖 🎉' : '全部跳過',
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: Colors.black87,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              hasKept ? '貼圖已存入相簿' : '下次再試試吧！',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+              hasKept ? '貼圖已存入相簿' : '試試重新生成？',
+              style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
             ),
-            const SizedBox(height: 32),
-            FilledButton.icon(
-              onPressed: onRegenerate,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('重新生成'),
+            const SizedBox(height: 40),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: onRegenerate,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('重新生成'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                  backgroundColor: Colors.black87,
+                  foregroundColor: Colors.white,
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             TextButton(
               onPressed: onFinish,
-              child: const Text('回到首頁'),
+              child: Text(
+                '回到首頁',
+                style: TextStyle(color: Colors.grey.shade500),
+              ),
             ),
           ],
         ),
@@ -457,7 +596,7 @@ class _CompletionView extends StatelessWidget {
   }
 }
 
-// ─── Loading / Error views ────────────────────────────────────────────────
+// ─── Loading / Error ──────────────────────────────────────────────────────
 
 class _LoadingView extends StatelessWidget {
   final EditorStatus status;
@@ -473,9 +612,19 @@ class _LoadingView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text(label, style: Theme.of(context).textTheme.bodyLarge),
+          const CircularProgressIndicator(
+            color: Colors.black87,
+            strokeWidth: 3,
+          ),
+          const SizedBox(height: 20),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 15,
+              color: Colors.black54,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
@@ -493,9 +642,12 @@ class _ErrorView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 12),
-          Text(message, style: Theme.of(context).textTheme.bodyLarge),
+          Icon(Icons.error_outline, size: 56, color: Colors.red.shade300),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: const TextStyle(fontSize: 15, color: Colors.black54),
+          ),
         ],
       ),
     );
