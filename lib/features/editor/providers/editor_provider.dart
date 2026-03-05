@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,19 +20,24 @@ class _EditorFamilyNotifier
   @override
   EditorState build(String arg) => EditorState(originalImagePath: arg);
 
+  /// Step 1 去背 → Step 2 Gemini 生成 3 組短文字
   Future<void> initialize() async {
-    // 去背
     state = state.copyWith(status: EditorStatus.removingBackground);
+
+    Uint8List? resized;
     try {
       final imageFile = File(state.originalImagePath);
-      final resized = await ImageProcessor.resizeForNative(imageFile);
-      final subjectBytes = await BackgroundRemovalChannel.removeBackground(resized);
+      resized = await ImageProcessor.resizeForNative(imageFile);
+      final subjectBytes =
+          await BackgroundRemovalChannel.removeBackground(resized);
       state = state.copyWith(
         subjectBytes: subjectBytes,
-        status: EditorStatus.generatingCaption,
+        status: EditorStatus.generatingTexts,
       );
     } catch (e, stack) {
-      await FirebaseService.recordError(e, stack, reason: 'editor_remove_bg_failed');
+      await FirebaseService.recordError(
+        e, stack, reason: 'editor_remove_bg_failed',
+      );
       state = state.copyWith(
         status: EditorStatus.idle,
         errorMessage: '去背失敗，請重試',
@@ -39,21 +45,36 @@ class _EditorFamilyNotifier
       return;
     }
 
-    // AI 文案
+    await _fetchTexts(resized);
+  }
+
+  /// 重新呼叫 Gemini 取得新的 3 組短文字
+  Future<void> regenerateTexts() async {
+    state = state.copyWith(status: EditorStatus.generatingTexts);
     try {
-      final caption = await GeminiService().generateCaption(
+      final resized = await ImageProcessor.resizeForNative(
         File(state.originalImagePath),
       );
-      state = state.copyWith(caption: caption, status: EditorStatus.ready);
+      await _fetchTexts(resized);
     } catch (e, stack) {
-      await FirebaseService.recordError(e, stack, reason: 'editor_caption_failed');
-      state = state.copyWith(
-        caption: '早安！願你今天充滿活力，笑顏常開。',
-        status: EditorStatus.ready,
+      await FirebaseService.recordError(
+        e, stack, reason: 'editor_regen_texts_failed',
       );
+      state = state.copyWith(status: EditorStatus.ready);
     }
   }
 
-  void updateCaption(String text) => state = state.copyWith(caption: text);
-  void updateFontSize(double size) => state = state.copyWith(captionFontSize: size);
+  /// 使用者手動修改第 [index] 張貼圖的文字
+  void updateStickerText(int index, String text) {
+    final updated = List<String>.from(state.stickerTexts);
+    updated[index] = text;
+    state = state.copyWith(stickerTexts: updated);
+  }
+
+  // ─── private ────────────────────────────────────────────
+  Future<void> _fetchTexts(Uint8List imageBytes) async {
+    // generateStickerTexts 內部已處理所有例外並回傳 Fallback，不會 throw
+    final texts = await GeminiService().generateStickerTexts(imageBytes);
+    state = state.copyWith(stickerTexts: texts, status: EditorStatus.ready);
+  }
 }

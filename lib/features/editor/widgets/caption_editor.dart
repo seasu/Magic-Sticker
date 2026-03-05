@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 
+/// 單張貼圖文字編輯面板
+///
+/// 顯示目前頁貼圖的文字，使用者可直接修改；
+/// 文字改變時即時回呼 [onTextChanged]。
 class CaptionEditor extends StatefulWidget {
-  final String caption;
-  final double fontSize;
-  final ValueChanged<String> onCaptionChanged;
-  final ValueChanged<double> onFontSizeChanged;
+  final String text;
+  final int stickerIndex; // 目前第幾張貼圖（0-based），用於顯示標題
+  final ValueChanged<String> onTextChanged;
 
   const CaptionEditor({
     super.key,
-    required this.caption,
-    required this.fontSize,
-    required this.onCaptionChanged,
-    required this.onFontSizeChanged,
+    required this.text,
+    required this.stickerIndex,
+    required this.onTextChanged,
   });
 
   @override
@@ -24,15 +26,18 @@ class _CaptionEditorState extends State<CaptionEditor> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.caption);
+    _controller = TextEditingController(text: widget.text);
   }
 
   @override
   void didUpdateWidget(CaptionEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.caption != widget.caption &&
-        _controller.text != widget.caption) {
-      _controller.text = widget.caption;
+    // 換頁或 AI 重新生成時同步文字
+    if (widget.text != _controller.text) {
+      _controller.text = widget.text;
+      _controller.selection = TextSelection.collapsed(
+        offset: widget.text.length,
+      );
     }
   }
 
@@ -54,36 +59,25 @@ class _CaptionEditorState extends State<CaptionEditor> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('編輯文案', style: Theme.of(context).textTheme.titleSmall),
+          Text(
+            '貼圖 ${widget.stickerIndex + 1} 文字',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
           const SizedBox(height: 8),
           TextField(
             controller: _controller,
-            maxLines: 2,
-            onChanged: widget.onCaptionChanged,
+            maxLines: 1,
+            maxLength: 10,
+            onChanged: widget.onTextChanged,
+            textAlign: TextAlign.center,
             decoration: InputDecoration(
-              hintText: '輸入早安祝福語…',
+              hintText: '輸入 2–6 字…',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
               isDense: true,
+              counterText: '',
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(Icons.format_size, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Slider(
-                  value: widget.fontSize,
-                  min: 16,
-                  max: 48,
-                  divisions: 16,
-                  label: widget.fontSize.toStringAsFixed(0),
-                  onChanged: widget.onFontSizeChanged,
-                ),
-              ),
-            ],
           ),
         ],
       ),
