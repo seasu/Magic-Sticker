@@ -32,13 +32,36 @@
 | 輸出格式 | PNG（透明背景） |
 | 單檔上限 | 1 MB |
 
+**短文字由 Gemini AI 依照照片內容自動生成**
+
+去背前，先將原圖（Base64）傳入 Gemini API，一次取回 3 組符合情境的短文字，再套入 3 張貼圖。
+
+**Gemini Prompt 規範**
+```
+你是 LINE 貼圖文字設計師。
+請根據這張照片的內容與氛圍，產出 3 組繁體中文短文字，格式如下：
+- 每組 2–6 字，口語化、有趣、適合貼圖
+- 風格：正向、可愛、日常
+- 禁止重複
+- 僅回傳 JSON 陣列，例如：["好棒喔！", "讚啦", "超可愛✨"]
+```
+
+**Gemini API 呼叫規格**
+| 項目 | 規格 |
+|---|---|
+| 模型 | `gemini-1.5-flash`（速度優先） |
+| 輸入 | 原圖 Base64（resize 至 512px 以節省 token） |
+| 輸出 | JSON 陣列，長度固定為 3 |
+| Fallback | API 失敗或解析錯誤時，使用預設值 `["好棒！", "讚喔", "超可愛✨"]` |
+| 逾時 | 10 秒，超時直接走 Fallback |
+
 **3 張貼圖的差異化設計**
 
-| 貼圖編號 | 短文字 | 小圖示位置 | 配色風格 |
+| 貼圖編號 | 短文字來源 | 小圖示位置 | 配色風格 |
 |---|---|---|---|
-| Sticker 1 | OK | 右上角 | 暖橘 / 陽光黃 |
-| Sticker 2 | 好喔！ | 左下角 | 粉紅 / 珊瑚色 |
-| Sticker 3 | 很棒 ✨ | 右下角 | 薄荷綠 / 天空藍 |
+| Sticker 1 | Gemini 回傳第 1 組 | 右上角 | 暖橘 / 陽光黃 |
+| Sticker 2 | Gemini 回傳第 2 組 | 左下角 | 粉紅 / 珊瑚色 |
+| Sticker 3 | Gemini 回傳第 3 組 | 右下角 | 薄荷綠 / 天空藍 |
 
 **自動疊加的可愛小圖示（預設資源集）**
 - 愛心 ❤️、星星 ⭐、閃光 ✨、花朵 🌸、笑臉 😊
@@ -61,10 +84,26 @@
 2. 透過 `image_gallery_saver` 或 `gal` 套件儲存至相簿
 3. 顯示「已儲存 3 張貼圖」成功提示，引導使用者前往 LINE → 貼圖 → 我的貼圖 → 新增
 
-2.3 文字與樣式客製（選配）
- * 使用者可在編輯器中修改短文字內容（預設值為 OK / 好喔！/ 很棒）
+2.3 AI 文字生成流程（核心）
+
+```
+選圖 → resize to 512px → Base64
+  → Gemini API (gemini-1.5-flash, multimodal)
+  → 解析 JSON ["文字A", "文字B", "文字C"]
+  → 注入 3 張貼圖 Canvas
+  → 若失敗 → Fallback ["好棒！", "讚喔", "超可愛✨"]
+```
+
+**實作位置**：`core/services/gemini_service.dart`
+```dart
+// 方法簽名
+Future<List<String>> generateStickerTexts(Uint8List imageBytes);
+```
+
+2.4 文字與樣式客製（選配）
+ * 使用者可在編輯器中修改 AI 產出的短文字（點擊文字泡泡即可編輯）
  * 字型：Google Fonts 動態載入（預設：Noto Sans TC 或 Nunito）
- * 未來擴充：透過 Gemini API 依照主體內容自動推薦短文字組合
+ * 「重新生成文字」按鈕：重新呼叫 Gemini API 取得新的 3 組文字
 
 3. 開發規範 (Strict Engineering Standards)
 
@@ -79,6 +118,7 @@
    * iOS 使用 Crashlytics.crashlytics().record(error:)。
  * 日誌埋點: 在 MethodChannel 呼叫開始與結束時，手動調用 Crashlytics.log() 記錄執行參數。
  * 貼圖合成埋點: 每張貼圖產生成功/失敗均記錄 Analytics event（`sticker_generated` / `sticker_export_failed`）。
+ * Gemini 埋點: 記錄 `ai_text_generated`（成功）與 `ai_text_fallback`（走 Fallback），方便監控 API 成功率。
 
 4. GitHub Actions 自動化 Build 規範
 專案必須包含 .github/workflows/main_build.yml，定義以下流程：
@@ -132,5 +172,6 @@ ios/                                # Swift Vision Framework 實作
 7. 版本歷史 (Changelog)
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v1.2 | 2026-03-05 | 短文字改為 Gemini API 依照照片內容自動生成（3 組），加入 Fallback 機制、重新生成按鈕、`ai_text_generated` Analytics 埋點 |
 | v1.1 | 2026-03-05 | 核心功能調整：由早安貼圖改為自動產出 3 張 LINE 貼圖，新增可愛圖示疊加、短文字（OK/好喔！/很棒）、740×640px 規格輸出 |
 | v1.0 | 2026-03-04 | 初版：去背核心、AI 早安文案、GitHub Actions CI/CD |
