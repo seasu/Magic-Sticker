@@ -1,36 +1,40 @@
 import 'dart:typed_data';
 
-enum EditorStatus { idle, removingBackground, generatingCaption, ready, exporting }
+enum EditorStatus {
+  idle,
+  removingBackground,
+  generatingTexts,
+  ready,
+  exporting,
+}
+
+const _kFallbackTexts = ['好棒！', '讚喔', '超可愛✨'];
 
 class EditorState {
   final String originalImagePath;
-  final Uint8List? subjectBytes; // 去背結果 PNG
-  final String caption;
-  final double captionFontSize;
+  final Uint8List? subjectBytes; // 去背結果 PNG（透明背景）
+  final List<String> stickerTexts; // 3 組 AI 短文字
   final EditorStatus status;
   final String? errorMessage;
 
-  const EditorState({
+  EditorState({
     required this.originalImagePath,
     this.subjectBytes,
-    this.caption = '',
-    this.captionFontSize = 28,
+    List<String>? stickerTexts,
     this.status = EditorStatus.idle,
     this.errorMessage,
-  });
+  }) : stickerTexts = stickerTexts ?? List.from(_kFallbackTexts);
 
   EditorState copyWith({
     Uint8List? subjectBytes,
-    String? caption,
-    double? captionFontSize,
+    List<String>? stickerTexts,
     EditorStatus? status,
     String? errorMessage,
   }) {
     return EditorState(
       originalImagePath: originalImagePath,
       subjectBytes: subjectBytes ?? this.subjectBytes,
-      caption: caption ?? this.caption,
-      captionFontSize: captionFontSize ?? this.captionFontSize,
+      stickerTexts: stickerTexts ?? this.stickerTexts,
       status: status ?? this.status,
       errorMessage: errorMessage,
     );
