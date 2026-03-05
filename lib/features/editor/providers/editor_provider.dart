@@ -45,7 +45,7 @@ class _EditorFamilyNotifier
       return;
     }
 
-    await _fetchTexts(resized!);
+    await _fetchTexts(resized);
   }
 
   /// 重新呼叫 Gemini 取得新的 3 組短文字

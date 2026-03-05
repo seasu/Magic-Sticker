@@ -58,10 +58,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             await image.toByteData(format: ui.ImageByteFormat.png);
         final pngBytes = byteData!.buffer.asUint8List();
 
-        await Gal.putImageBytes(
-          pngBytes,
-          name: 'magic_morning_sticker_${i + 1}.png',
-        );
+        await Gal.putImageBytes(pngBytes);
         await FirebaseAnalytics.instance.logEvent(name: 'sticker_generated');
         FirebaseService.log('EditorScreen._exportAll: sticker ${i + 1} saved');
       }
