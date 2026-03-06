@@ -4,18 +4,20 @@ enum EditorStatus {
   idle,
   removingBackground,
   generatingTexts,
-  ready, // 文字已就緒；AI 圖片可能仍在後台生成
+  ready, // AI 圖片可能仍在後台生成
   exporting,
 }
 
-const _kFallbackTexts = ['好棒！', '讚喔', '超可愛✨'];
+const _kFallbackTexts = [
+  '哈囉！', '太棒了！', '真的嗎？', '尷尬了...',
+  '哼！', '開心！', '我想想...', '再見囉！',
+];
 
 class EditorState {
   final String originalImagePath;
-  final Uint8List? subjectBytes;          // 去背結果 PNG
-  final List<String> stickerTexts;        // 3 組 AI 短文字
-  final List<Uint8List?> generatedImages; // 3 張 Gemini 生成插圖（null = 仍在生成）
-  final List<int> frameIndices;           // 每張貼圖選用的邊框索引（kFrameStyles）
+  final Uint8List? subjectBytes;          // 去背結果 PNG（保留作 fallback）
+  final List<String> stickerTexts;        // 8 組情感標語（fallback 用）
+  final List<Uint8List?> generatedImages; // 8 張 Gemini 生成圓形貼圖（null = 仍在生成）
   final EditorStatus status;
   final String? errorMessage;
 
@@ -24,18 +26,15 @@ class EditorState {
     this.subjectBytes,
     List<String>? stickerTexts,
     List<Uint8List?>? generatedImages,
-    List<int>? frameIndices,
     this.status = EditorStatus.idle,
     this.errorMessage,
   })  : stickerTexts = stickerTexts ?? List.from(_kFallbackTexts),
-        generatedImages = generatedImages ?? [null, null, null],
-        frameIndices = frameIndices ?? [0, 5, 8]; // 花朵, 雲朵, 愛心
+        generatedImages = generatedImages ?? List.filled(8, null);
 
   EditorState copyWith({
     Uint8List? subjectBytes,
     List<String>? stickerTexts,
     List<Uint8List?>? generatedImages,
-    List<int>? frameIndices,
     EditorStatus? status,
     String? errorMessage,
   }) {
@@ -44,7 +43,6 @@ class EditorState {
       subjectBytes: subjectBytes ?? this.subjectBytes,
       stickerTexts: stickerTexts ?? this.stickerTexts,
       generatedImages: generatedImages ?? this.generatedImages,
-      frameIndices: frameIndices ?? this.frameIndices,
       status: status ?? this.status,
       errorMessage: errorMessage,
     );

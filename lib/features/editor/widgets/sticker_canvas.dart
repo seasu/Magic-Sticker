@@ -2,36 +2,28 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import '../models/frame_style.dart';
 import '../models/sticker_config.dart';
-import 'frame_painter.dart';
 
-/// LINE 貼圖風格畫布（支援雙指縮放 + 拖曳移位）
+/// LINE 貼圖畫布
 ///
-/// 設計語言：
-/// - 透明背景（符合 LINE Creators Market PNG 規格：透明底 + 10px 留白）
-/// - 彩色粗外框線（6px rounded rect border），作為貼圖輪廓設計元素
-/// - 主體去背圖像居中；支援 pinch-to-zoom + drag
-/// - 大字、粗外框 outline 文字（類 LINE 貼圖感）
-/// - 散落裝飾符號（emoji/unicode，微旋轉）
+/// - AI 圖到達時：直接全幅顯示，不疊加任何 Flutter 元素
+/// - AI 圖未到達時（loading fallback）：簡單彩色背景 + 文字標籤
 ///
 /// 畫布比例 740 : 640 → 輸出 370×320 px（LINE Creators Market 規格）
 class StickerCanvas extends StatefulWidget {
-  final Uint8List? subjectBytes;
+  final Uint8List? subjectBytes; // 保留供 fallback 顯示（選用）
   final Uint8List? generatedImage;
   final String text;
-  final StickerConfig config;
-  final FrameStyle? frameStyle;  // null = 使用舊的矩形框
+  final StickerConfig config; // 僅 fallback 模式使用配色
 
   static const double aspectRatio = 740 / 640;
 
   const StickerCanvas({
     super.key,
-    required this.subjectBytes,
+    this.subjectBytes,
     this.generatedImage,
     required this.text,
     required this.config,
-    this.frameStyle,
   });
 
   @override
@@ -39,10 +31,8 @@ class StickerCanvas extends StatefulWidget {
 }
 
 class _StickerCanvasState extends State<StickerCanvas> {
-  Offset _offset = Offset.zero;
   double _scale = 1.0;
-
-  // 手勢開始時的快照
+  Offset _offset = Offset.zero;
   double _startScale = 1.0;
   Offset _startFocalPoint = Offset.zero;
   Offset _startOffset = Offset.zero;
@@ -50,7 +40,6 @@ class _StickerCanvasState extends State<StickerCanvas> {
   @override
   void didUpdateWidget(StickerCanvas old) {
     super.didUpdateWidget(old);
-    // AI 圖首次到達時重置位置，避免用上一張的偏移
     if (old.generatedImage == null && widget.generatedImage != null) {
       _offset = Offset.zero;
       _scale = 1.0;
@@ -65,7 +54,7 @@ class _StickerCanvasState extends State<StickerCanvas> {
 
   void _onScaleUpdate(ScaleUpdateDetails d) {
     setState(() {
-      _scale = (_startScale * d.scale).clamp(0.25, 4.0);
+      _scale = (_startScale * d.scale).clamp(0.5, 4.0);
       _offset = _startOffset + (d.localFocalPoint - _startFocalPoint);
     });
   }
@@ -74,88 +63,31 @@ class _StickerCanvasState extends State<StickerCanvas> {
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: StickerCanvas.aspectRatio,
-      child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (widget.generatedImage != null && widget.generatedImage!.isNotEmpty) ...[
-              // ── AI 生成插圖（可縮放拖曳）────────────────────────────
-              ClipRect(
-                child: GestureDetector(
-                  onScaleStart: _onScaleStart,
-                  onScaleUpdate: _onScaleUpdate,
-                  child: Transform.translate(
-                    offset: _offset,
-                    child: Transform.scale(
-                      scale: _scale,
-                      child: Image.memory(
-                        widget.generatedImage!,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
-                        filterQuality: FilterQuality.high,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // ── 花型 / 自訂邊框疊在插圖上層 ─────────────────────
-              if (widget.frameStyle != null)
-                CustomPaint(painter: FramePainter(style: widget.frameStyle!)),
-            ] else ...[
-              // ── 背景裝飾（主體後方） ──────────────────────────────
-              ..._buildDecorations(foreground: false),
-
-              // ── 主體去背圖像（可縮放拖曳） ──────────────────────
-              _buildSubject(),
-
-              // ── 前景裝飾（主體前方，部分重疊） ───────────────────
-              ..._buildDecorations(foreground: true),
-
-              // ── 花型 / 自訂邊框（最上層，在裝飾之上） ────────────
-              if (widget.frameStyle != null)
-                CustomPaint(painter: FramePainter(style: widget.frameStyle!))
-              else
-                _BorderFrame(color: widget.config.colorScheme.borderColor),
-            ],
-
-            // ── LINE 貼圖風格大字（永遠疊在最上層）──────────────────
-            Positioned(
-              left: 14,
-              right: 14,
-              bottom: 12,
-              child: _OutlinedStickerText(
-                  text: widget.text, config: widget.config),
-            ),
-          ],
-      ),
+      child: _hasAiImage
+          ? _buildAiImage()
+          : _buildFallback(),
     );
   }
 
-  Widget _buildSubject() {
-    if (widget.subjectBytes == null) {
-      return Center(
-        child: CircularProgressIndicator(
-          color: widget.config.colorScheme.borderColor,
-        ),
-      );
-    }
-    // 整張 canvas 都可拖曳 / 縮放主體（不只侷限圖片本身的邊界）
-    return Positioned.fill(
+  bool get _hasAiImage =>
+      widget.generatedImage != null && widget.generatedImage!.isNotEmpty;
+
+  /// AI 圖直接全幅顯示，可縮放拖曳，零 Flutter 疊加
+  Widget _buildAiImage() {
+    return ClipRect(
       child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
         onScaleStart: _onScaleStart,
         onScaleUpdate: _onScaleUpdate,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 62),
-          child: Transform.translate(
-            offset: _offset,
-            child: Transform.scale(
-              scale: _scale,
-              child: Image.memory(
-                widget.subjectBytes!,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
-              ),
+        child: Transform.translate(
+          offset: _offset,
+          child: Transform.scale(
+            scale: _scale,
+            child: Image.memory(
+              widget.generatedImage!,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              filterQuality: FilterQuality.high,
             ),
           ),
         ),
@@ -163,52 +95,22 @@ class _StickerCanvasState extends State<StickerCanvas> {
     );
   }
 
-  List<Widget> _buildDecorations({required bool foreground}) {
-    // 偶數索引 = 背景層；奇數索引 = 前景層
-    final results = <Widget>[];
-    for (int i = 0; i < widget.config.decorations.length; i++) {
-      final isForeground = i.isOdd;
-      if (isForeground != foreground) continue;
-
-      final d = widget.config.decorations[i];
-      results.add(
-        Positioned(
-          top: d.top > 0 ? d.top : null,
-          bottom: d.bottom != null ? d.bottom : null,
-          left: d.left,
-          right: d.right,
-          child: Transform.rotate(
-            angle: d.angle,
-            child: Text(
-              d.symbol,
-              style: TextStyle(
-                fontSize: d.size,
-                height: 1,
-                color: widget.config.colorScheme.accentColor,
-              ),
-            ),
+  /// 純文字 fallback（AI 圖尚未到達）
+  Widget _buildFallback() {
+    final color = widget.config.colorScheme.borderColor;
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: _OutlinedStickerText(
+            text: widget.text,
+            config: widget.config,
           ),
         ),
-      );
-    }
-    return results;
-  }
-}
-
-// ─── 彩色外框 ─────────────────────────────────────────────────────────────
-
-class _BorderFrame extends StatelessWidget {
-  final Color color;
-
-  const _BorderFrame({required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(5),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color, width: 5),
       ),
     );
   }
@@ -216,10 +118,6 @@ class _BorderFrame extends StatelessWidget {
 
 // ─── LINE 貼圖風格：粗 outline 文字 ──────────────────────────────────────
 
-/// 外框文字效果：
-///   1. 先畫 Paint.stroke（白色粗框）
-///   2. 再畫 Paint.fill（主色填充）
-///   3. 整體放在彩色膠囊背景上
 class _OutlinedStickerText extends StatelessWidget {
   final String text;
   final StickerConfig config;
@@ -250,7 +148,6 @@ class _OutlinedStickerText extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // 白色粗外框（stroke）
           Text(
             text,
             textAlign: TextAlign.center,
@@ -264,7 +161,6 @@ class _OutlinedStickerText extends StatelessWidget {
                 ..color = Colors.white,
             ),
           ),
-          // 主色填充（fill）
           Text(
             text,
             textAlign: TextAlign.center,
