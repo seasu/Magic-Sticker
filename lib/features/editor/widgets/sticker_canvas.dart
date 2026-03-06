@@ -73,7 +73,7 @@ class _StickerCanvasState extends State<StickerCanvas> {
       child: Stack(
           fit: StackFit.expand,
           children: [
-            if (widget.generatedImage != null) ...[
+            if (widget.generatedImage != null && widget.generatedImage!.isNotEmpty) ...[
               // ── AI 生成插圖（可縮放拖曳）────────────────────────────
               ClipRect(
                 child: GestureDetector(

@@ -86,13 +86,19 @@ class _EditorFamilyNotifier
   }
 
   /// 背景並行生成 3 張 AI 插圖；每張完成後立即更新對應卡片（非阻塞）
+  ///
+  /// sentinel 規則（Uint8List?）：
+  ///   null          → 生成中（顯示 "AI 插圖生成中…" badge）
+  ///   Uint8List(0)  → 生成完但 API 失敗/無圖（隱藏 badge，顯示去背 fallback）
+  ///   Uint8List(>0) → 成功，顯示 AI 插圖
   void _generateImagesInBackground(Uint8List photoBytes) {
     for (int i = 0; i < 3; i++) {
       final index = i;
       StickerGenerationService().generateOne(photoBytes, index).then((img) {
         try {
           final updated = List<Uint8List?>.from(state.generatedImages);
-          updated[index] = img;
+          // img == null 代表 API 失敗，改用空 bytes 作 sentinel，讓 badge 消失
+          updated[index] = img ?? Uint8List(0);
           state = state.copyWith(generatedImages: updated);
         } catch (_) {
           // provider 已 dispose，忽略
