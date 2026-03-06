@@ -7,13 +7,13 @@ import '../models/sticker_config.dart';
 /// LINE 貼圖風格畫布（支援雙指縮放 + 拖曳移位）
 ///
 /// 設計語言：
-/// - 白底透明背景（符合 LINE 貼圖 PNG 規格）
-/// - 彩色粗外框線（6px rounded rect border）
+/// - 透明背景（符合 LINE Creators Market PNG 規格：透明底 + 10px 留白）
+/// - 彩色粗外框線（6px rounded rect border），作為貼圖輪廓設計元素
 /// - 主體去背圖像居中；支援 pinch-to-zoom + drag
 /// - 大字、粗外框 outline 文字（類 LINE 貼圖感）
 /// - 散落裝飾符號（emoji/unicode，微旋轉）
 ///
-/// 畫布比例 740 : 640（LINE 高解析標準）
+/// 畫布比例 740 : 640 → 輸出 370×320 px（LINE Creators Market 規格）
 class StickerCanvas extends StatefulWidget {
   final Uint8List? subjectBytes;
   final Uint8List? generatedImage;
@@ -70,9 +70,7 @@ class _StickerCanvasState extends State<StickerCanvas> {
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: StickerCanvas.aspectRatio,
-      child: Container(
-        color: Colors.white,
-        child: Stack(
+      child: Stack(
           fit: StackFit.expand,
           children: [
             if (widget.generatedImage != null) ...[
@@ -119,7 +117,6 @@ class _StickerCanvasState extends State<StickerCanvas> {
                   text: widget.text, config: widget.config),
             ),
           ],
-        ),
       ),
     );
   }

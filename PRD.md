@@ -25,12 +25,17 @@
 
 去背完成後，Flutter 端自動合成 3 張獨立貼圖，每張規格如下：
 
-**尺寸規格**
-| 項目 | 規格 |
-|---|---|
-| 畫布尺寸 | 740×640 px（LINE 高解析標準） |
-| 輸出格式 | PNG（透明背景） |
-| 單檔上限 | 1 MB |
+**尺寸規格（LINE Creators Market 官方規格）**
+| 項目 | 規格 | 說明 |
+|---|---|---|
+| 輸出尺寸 | **370×320 px** | LINE Creators Market 標準貼圖尺寸（最大值） |
+| 畫布比例 | 37 : 32（740×640 @2x master） | 渲染用的邏輯畫布尺寸，輸出時依比例縮至 370×320 |
+| 輸出格式 | **PNG（透明背景）** | 貼圖背景須透明，才能貼在任何顏色的對話框上 |
+| 單檔上限 | **1 MB** | 超過時記錄 `sticker_export_oversized` log |
+| 邊距 | 10 px（四周留白） | 圖案與畫布邊緣的最小安全距離 |
+| 一組數量 | 最少 8 張 / 最多 40 張 | App 產出 3 張預覽組，累積 8 張後可上架 |
+| 主圖 (main.png) | 240×240 px | 上架時另外提供（本 App 不自動產生） |
+| 分頁縮圖 (tab.png) | 96×74 px | 上架時另外提供（本 App 不自動產生） |
 
 **短文字由 Gemini AI 依照照片內容自動生成**
 
@@ -46,9 +51,11 @@
 | 逾時 | 10 秒，超時直接走 Fallback |
 
 **匯出流程**
-1. 使用 `RepaintBoundary` → `toImage()` → `toByteData(format: ImageByteFormat.png)` 依序產出 3 張
-2. 透過 `image_gallery_saver` 或 `gal` 套件儲存至相簿
-3. 顯示「已儲存 3 張貼圖」成功提示，引導使用者前往 LINE → 貼圖 → 我的貼圖 → 新增
+1. 使用 `RepaintBoundary` → `toImage(pixelRatio: 370 / boundary.size.width)` 確保輸出恰好 370×320 px
+2. `toByteData(format: ImageByteFormat.png)` 產出透明背景 PNG
+3. 驗證檔案大小 < 1 MB（超過記錄 log，仍儲存）
+4. 透過 `gal` 套件儲存至相簿
+5. 完成畫面提示「累積 8 張後可至 LINE Creators Market 上架」
 
 2.3 AI 文字生成流程（核心）
 
@@ -123,7 +130,7 @@ ios/                                # Swift Vision Framework 實作
 
 6. 驗收標準 (Acceptance Criteria)
  * 效能: 去背 + 3 張貼圖合成總時間 < 3 秒（高階手機）。
- * 貼圖規格: 輸出 PNG 透明背景，尺寸 740×640px，單檔 < 1MB。
+ * 貼圖規格: 輸出 PNG 透明背景，尺寸 **370×320 px**（LINE Creators Market 規格），單檔 < 1MB。
  * 穩定性: Firebase Crashlytics 的 Crash-free users 需高於 99%。
  * 相容性: Android 8.0+ / iOS 15.0+ (iOS 17+ 享用進階去背)。
  * 可用性: 3 張貼圖一次儲存至相簿，系統提示引導加入 LINE。
@@ -131,6 +138,7 @@ ios/                                # Swift Vision Framework 實作
 7. 版本歷史 (Changelog)
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v1.4 | 2026-03-06 | LINE Creators Market 規格合規：透明背景、輸出尺寸修正為 370×320 px、1MB 大小驗證、完成畫面加入上架說明 |
 | v1.3 | 2026-03-06 | 移除貼圖視覺設計規範（配色、圖示清單、層次結構、Prompt 細節），讓 AI 自由創作視覺風格 |
 | v1.2 | 2026-03-05 | 短文字改為 Gemini API 依照照片內容自動生成（3 組），加入 Fallback 機制、重新生成按鈕、`ai_text_generated` Analytics 埋點 |
 | v1.1 | 2026-03-05 | 核心功能調整：由早安貼圖改為自動產出 3 張 LINE 貼圖，新增可愛圖示疊加、短文字（OK/好喔！/很棒）、740×640px 規格輸出 |

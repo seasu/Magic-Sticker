@@ -49,16 +49,33 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   // ─── Actions ──────────────────────────────────────────────────────
 
+  /// 匯出貼圖：固定輸出 370×320 px 透明背景 PNG（LINE Creators Market 規格）
   Future<void> _accept() async {
     FirebaseService.log('EditorScreen._accept: sticker ${_currentIndex + 1}');
     setState(() => _isExporting = true);
     try {
       final boundary = _repaintKeys[_currentIndex].currentContext!
           .findRenderObject() as RenderRepaintBoundary;
-      final image = await boundary.toImage(pixelRatio: 2.0);
+
+      // 計算讓輸出寬度恰好 370px 所需的 pixelRatio
+      // LINE Creators Market 規格：370×320 px（比例 37:32）
+      const double targetWidth = 370.0;
+      final double pixelRatio = targetWidth / boundary.size.width;
+
+      final image = await boundary.toImage(pixelRatio: pixelRatio);
       final byteData =
           await image.toByteData(format: ui.ImageByteFormat.png);
-      await Gal.putImageBytes(byteData!.buffer.asUint8List());
+      final bytes = byteData!.buffer.asUint8List();
+
+      // LINE 規格：單檔上限 1 MB
+      const int maxBytes = 1 * 1024 * 1024;
+      if (bytes.lengthInBytes > maxBytes) {
+        FirebaseService.log(
+          'sticker_export_oversized: ${bytes.lengthInBytes} bytes',
+        );
+      }
+
+      await Gal.putImageBytes(bytes);
       await FirebaseAnalytics.instance.logEvent(name: 'sticker_generated');
       setState(() {
         _keptCount++;
@@ -605,9 +622,17 @@ class _CompletionView extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              hasKept ? '貼圖已存入相簿' : '試試重新生成？',
+              hasKept ? '貼圖已存入相簿（370×320 px PNG）' : '試試重新生成？',
               style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
             ),
+            if (hasKept) ...[
+              const SizedBox(height: 6),
+              Text(
+                '累積 8 張後，可至 LINE Creators Market 上架',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                textAlign: TextAlign.center,
+              ),
+            ],
             const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
