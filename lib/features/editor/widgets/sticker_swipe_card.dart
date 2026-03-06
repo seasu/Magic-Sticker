@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// 外部控制器，可程式化觸發右滑（保留）或左滑（跳過）
 class StickerSwipeCardController {
@@ -89,6 +90,7 @@ class _StickerSwipeCardState extends State<StickerSwipeCard>
   // ─── Animations ───────────────────────────────────────────────────
 
   void _flyOff({required bool rightward, required VoidCallback onDone}) {
+    HapticFeedback.mediumImpact();
     final target = Offset(
       rightward ? _kFlyDist : -_kFlyDist,
       _offset.dy + 80,

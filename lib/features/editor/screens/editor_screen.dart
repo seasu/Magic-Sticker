@@ -4,11 +4,14 @@ import 'dart:ui' as ui;
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/services/firebase_service.dart';
+import '../../../core/theme/app_colors.dart';
 import '../models/editor_state.dart';
 import '../models/sticker_config.dart';
 import '../providers/editor_provider.dart';
@@ -16,11 +19,11 @@ import '../widgets/caption_editor.dart';
 import '../widgets/sticker_canvas.dart';
 import '../widgets/sticker_swipe_card.dart';
 
-// ── 顏色常數 ──────────────────────────────────────────────────────────────
+// ── 顏色常數（使用 AppColors 統一管理） ──────────────────────────────────────
 
-const _kBg = Color(0xFFF8F9FA);
-const _kNopeColor = Color(0xFFEF4444);
-const _kLikeColor = Color(0xFF22C55E);
+const _kBg = AppColors.surface;
+const _kNopeColor = AppColors.nope;
+const _kLikeColor = AppColors.like;
 
 class EditorScreen extends ConsumerStatefulWidget {
   final String imagePath;
@@ -483,7 +486,7 @@ class _TinderButtons extends StatelessWidget {
   }
 }
 
-class _CircleButton extends StatelessWidget {
+class _CircleButton extends StatefulWidget {
   final double size;
   final IconData? icon;
   final double iconSize;
@@ -507,45 +510,87 @@ class _CircleButton extends StatelessWidget {
   });
 
   @override
+  State<_CircleButton> createState() => _CircleButtonState();
+}
+
+class _CircleButtonState extends State<_CircleButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      reverseDuration: const Duration(milliseconds: 220),
+    );
+    _scale = Tween(begin: 1.0, end: 0.86).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final enabled = onTap != null;
+    final enabled = widget.onTap != null && !widget.isLoading;
     return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: enabled ? bgColor : Colors.grey.shade200,
-          border: borderColor != null && enabled
-              ? Border.all(color: borderColor!, width: 2.5)
-              : null,
-          boxShadow: [
-            if (enabled)
-              BoxShadow(
-                color: shadowColor.withOpacity(0.30),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-                spreadRadius: 1,
-              ),
-          ],
-        ),
-        child: Center(
-          child: isLoading
-              ? SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: iconColor,
-                  ),
-                )
-              : Icon(
-                  icon,
-                  size: iconSize,
-                  color: enabled ? iconColor : Colors.grey.shade400,
+      onTapDown: enabled ? (_) => _ctrl.forward() : null,
+      onTapUp: enabled
+          ? (_) {
+              _ctrl.reverse();
+              HapticFeedback.lightImpact();
+              widget.onTap!();
+            }
+          : null,
+      onTapCancel: enabled ? () => _ctrl.reverse() : null,
+      child: AnimatedBuilder(
+        animation: _scale,
+        builder: (_, child) =>
+            Transform.scale(scale: _scale.value, child: child),
+        child: Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: enabled ? widget.bgColor : Colors.grey.shade200,
+            border: widget.borderColor != null && enabled
+                ? Border.all(color: widget.borderColor!, width: 2.5)
+                : null,
+            boxShadow: [
+              if (enabled)
+                BoxShadow(
+                  color: widget.shadowColor.withOpacity(0.28),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
+                  spreadRadius: 1,
                 ),
+            ],
+          ),
+          child: Center(
+            child: widget.isLoading
+                ? SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: widget.iconColor,
+                    ),
+                  )
+                : Icon(
+                    widget.icon,
+                    size: widget.iconSize,
+                    color: enabled
+                        ? widget.iconColor
+                        : Colors.grey.shade400,
+                  ),
+          ),
         ),
       ),
     );
@@ -575,9 +620,9 @@ class _InlineTextEditor extends StatelessWidget {
   }
 }
 
-// ─── 完成畫面 ─────────────────────────────────────────────────────────────
+// ─── 完成畫面（動畫版）────────────────────────────────────────────────────
 
-class _CompletionView extends StatelessWidget {
+class _CompletionView extends StatefulWidget {
   final int keptCount;
   final VoidCallback onRegenerate;
   final VoidCallback onFinish;
@@ -589,73 +634,151 @@ class _CompletionView extends StatelessWidget {
   });
 
   @override
+  State<_CompletionView> createState() => _CompletionViewState();
+}
+
+class _CompletionViewState extends State<_CompletionView>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulseScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _pulseScale = Tween(begin: 1.0, end: 1.12).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final hasKept = keptCount > 0;
+    final hasKept = widget.keptCount > 0;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: hasKept ? _kLikeColor : Colors.grey.shade200,
+            // ── 脈動 icon（有保留時漸層圓 + 陰影）────────────────────
+            AnimatedBuilder(
+              animation: _pulseScale,
+              builder: (_, child) => Transform.scale(
+                scale: hasKept ? _pulseScale.value : 1.0,
+                child: child,
               ),
-              child: Icon(
-                hasKept ? Icons.favorite_rounded : Icons.sentiment_neutral,
-                size: 48,
-                color: Colors.white,
+              child: Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: hasKept ? AppColors.gradient : null,
+                  color: hasKept ? null : Colors.grey.shade200,
+                  boxShadow: hasKept
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFFFF5864).withOpacity(0.35),
+                            blurRadius: 28,
+                            offset: const Offset(0, 10),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Icon(
+                  hasKept ? Icons.favorite_rounded : Icons.sentiment_neutral,
+                  size: 48,
+                  color: Colors.white,
+                ),
               ),
             ),
             const SizedBox(height: 24),
             Text(
-              hasKept ? '儲存了 $keptCount 張貼圖 🎉' : '全部跳過',
-              style: const TextStyle(
-                fontSize: 24,
+              hasKept ? '儲存了 ${widget.keptCount} 張貼圖 🎉' : '全部跳過',
+              style: GoogleFonts.nunito(
+                fontSize: 26,
                 fontWeight: FontWeight.w800,
-                color: Colors.black87,
+                color: AppColors.textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               hasKept ? '貼圖已存入相簿（370×320 px PNG）' : '試試重新生成？',
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
+              style: GoogleFonts.nunito(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textSecondary,
+              ),
             ),
             if (hasKept) ...[
               const SizedBox(height: 6),
               Text(
                 '累積 8 張後，可至 LINE Creators Market 上架',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                style: GoogleFonts.nunito(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textSecondary.withOpacity(0.6),
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
             const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: onRegenerate,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('重新生成'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(50),
+            // ── 漸層重新生成按鈕 ─────────────────────────────────────
+            GestureDetector(
+              onTap: widget.onRegenerate,
+              child: Container(
+                width: double.infinity,
+                height: 56,
+                decoration: BoxDecoration(
+                  gradient: AppColors.gradient,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF5864).withOpacity(0.30),
+                      blurRadius: 22,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.refresh_rounded,
+                          color: Colors.white, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        '重新生成',
+                        style: GoogleFonts.nunito(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
-                  backgroundColor: Colors.black87,
-                  foregroundColor: Colors.white,
                 ),
               ),
             ),
             const SizedBox(height: 12),
             TextButton(
-              onPressed: onFinish,
+              onPressed: widget.onFinish,
               child: Text(
                 '回到首頁',
-                style: TextStyle(color: Colors.grey.shade500),
+                style: GoogleFonts.nunito(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
           ],
@@ -665,37 +788,120 @@ class _CompletionView extends StatelessWidget {
   }
 }
 
-// ─── Loading / Error ──────────────────────────────────────────────────────
+// ─── Loading（Shimmer 骨架）/ Error ───────────────────────────────────────
 
-class _LoadingView extends StatelessWidget {
+class _LoadingView extends StatefulWidget {
   final EditorStatus status;
 
   const _LoadingView({required this.status});
 
   @override
+  State<_LoadingView> createState() => _LoadingViewState();
+}
+
+class _LoadingViewState extends State<_LoadingView>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _shimmerCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _shimmerCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final label = status == EditorStatus.removingBackground
+    final label = widget.status == EditorStatus.removingBackground
         ? '正在去除背景…'
         : '正在生成貼圖文字…';
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(
-            color: Colors.black87,
-            strokeWidth: 3,
-          ),
-          const SizedBox(height: 20),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 15,
-              color: Colors.black54,
-              fontWeight: FontWeight.w500,
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Shimmer 骨架卡（與正式卡尺寸一致）
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: AspectRatio(
+            aspectRatio: 740 / 640,
+            child: AnimatedBuilder(
+              animation: _shimmerCtrl,
+              builder: (_, __) {
+                final x = -1.0 + 3.0 * _shimmerCtrl.value;
+                return Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: LinearGradient(
+                      begin: Alignment(x - 1, 0),
+                      end: Alignment(x + 1, 0),
+                      colors: const [
+                        Color(0xFFEEEEEE),
+                        Color(0xFFF6F6F6),
+                        Color(0xFFEEEEEE),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 24),
+        // 狀態文字 + 小 dots 動畫
+        _ShimmerLabel(label: label, controller: _shimmerCtrl),
+      ],
+    );
+  }
+}
+
+/// 狀態文字旁的三個小光點（複用 shimmer controller）
+class _ShimmerLabel extends StatelessWidget {
+  final String label;
+  final AnimationController controller;
+
+  const _ShimmerLabel({required this.label, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.nunito(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(width: 6),
+        ...List.generate(3, (i) {
+          return AnimatedBuilder(
+            animation: controller,
+            builder: (_, __) {
+              final phase = ((controller.value - i * 0.15) % 1.0).clamp(0.0, 1.0);
+              final opacity = (0.3 + 0.7 * (phase < 0.5 ? phase * 2 : (1 - phase) * 2))
+                  .clamp(0.0, 1.0);
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.textSecondary.withOpacity(opacity),
+                ),
+              );
+            },
+          );
+        }),
+      ],
     );
   }
 }

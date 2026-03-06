@@ -1,26 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import 'app_colors.dart';
 
 class AppTheme {
-  // Tinder-inspired：乾淨黑白，強調色僅用於 CTA
-  static const _seedColor = Color(0xFF22C55E); // 喜歡（綠）作為主色
+  // 品牌主色：珊瑚粉（Tinder 風格 CTA 漸層起點）
+  static const _brandSeed = Color(0xFFFD297B);
 
   static ThemeData light() => ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: _seedColor,
+          seedColor: _brandSeed,
           brightness: Brightness.light,
         ),
-        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFF8F9FA),
+        scaffoldBackgroundColor: AppColors.background,
+        // Nunito 全域字型（粗體感、圓潤、類 LINE 貼圖感）
+        textTheme: GoogleFonts.nunitoTextTheme(),
+        appBarTheme: AppBarTheme(
+          backgroundColor: AppColors.background,
           elevation: 0,
           scrolledUnderElevation: 0,
           systemOverlayStyle: SystemUiOverlayStyle.dark,
-          titleTextStyle: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
+          titleTextStyle: GoogleFonts.nunito(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
           ),
         ),
         cardTheme: CardTheme(
@@ -30,17 +35,15 @@ class AppTheme {
             borderRadius: BorderRadius.circular(20),
           ),
         ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            shape: const StadiumBorder(),
-            minimumSize: const Size.fromHeight(52),
-            backgroundColor: Colors.black87,
-            foregroundColor: Colors.white,
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-        ),
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            foregroundColor: Colors.black54,
+          backgroundColor: AppColors.textPrimary,
+          contentTextStyle: GoogleFonts.nunito(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
@@ -48,34 +51,27 @@ class AppTheme {
           fillColor: Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade200),
+            borderSide: const BorderSide(color: AppColors.divider),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade200),
+            borderSide: const BorderSide(color: AppColors.divider),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.black87),
+            borderSide: const BorderSide(color: AppColors.textPrimary),
           ),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        snackBarTheme: SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          backgroundColor: Colors.black87,
-          contentTextStyle: const TextStyle(color: Colors.white),
         ),
       );
 
   static ThemeData dark() => ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: _seedColor,
+          seedColor: _brandSeed,
           brightness: Brightness.dark,
         ),
+        textTheme: GoogleFonts.nunitoTextTheme(ThemeData.dark().textTheme),
       );
 }
