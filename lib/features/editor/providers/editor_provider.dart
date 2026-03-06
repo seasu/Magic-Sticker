@@ -3,7 +3,9 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/models/sticker_spec.dart';
 import '../../../core/services/firebase_service.dart';
+import '../../../core/services/gemini_service.dart';
 import '../../../core/services/sticker_generation_service.dart';
 import '../../../core/utils/image_processor.dart';
 import '../models/editor_state.dart';
@@ -16,15 +18,20 @@ final editorStateProvider =
 
 class _EditorFamilyNotifier
     extends AutoDisposeFamilyNotifier<EditorState, String> {
+  /// AI 自由規格暫存（不放進 state 以免觸發多餘 rebuild）
+  List<StickerSpec>? _specs;
+
   @override
   EditorState build(String arg) => EditorState(originalImagePath: arg);
 
-  /// 初始化：直接讓 Gemini 從原始照片生成 8 張圓形貼圖
+  /// 初始化：兩步流程
   ///
-  /// 新流程（v1.9+）：
-  /// 1. Resize 照片（防 OOM）
-  /// 2. 後台並行生成 8 張圓形卡通貼圖（含文字，跳過 ML Kit 去背）
-  /// 3. 每張完成後即時更新對應卡片
+  /// Step 1 (generatingTexts)：Gemini 文字模型分析照片，
+  ///   自由決定 8 張貼圖的【情感主題、中文標語、背景色】
+  ///   → 立即顯示文字標籤在卡片上（fallback canvas）
+  ///
+  /// Step 2 (ready, 後台)：Gemini 圖片模型依 AI 規格並行生成圓形貼圖
+  ///   → 每張完成後即時更新對應卡片
   Future<void> initialize() async {
     state = state.copyWith(status: EditorStatus.generatingTexts);
 
@@ -43,11 +50,16 @@ class _EditorFamilyNotifier
       return;
     }
 
-    state = state.copyWith(status: EditorStatus.ready);
-    _generateImagesInBackground(resized);
+    // Step 1：讓 AI 自由決定 8 組貼圖規格（文字 + 情感 + 顏色）
+    _specs = await GeminiService().generateStickerSpecs(resized);
+    final texts = _specs!.map((s) => s.text).toList();
+    state = state.copyWith(stickerTexts: texts, status: EditorStatus.ready);
+
+    // Step 2：後台並行生成 8 張圓形貼圖圖片
+    _generateImagesInBackground(resized, _specs!);
   }
 
-  /// 重新生成全部 8 張貼圖
+  /// 重新讓 AI 自由發揮，生成全新 8 組規格 + 圖片
   Future<void> regenerateTexts() async {
     state = state.copyWith(
       status: EditorStatus.generatingTexts,
@@ -57,8 +69,10 @@ class _EditorFamilyNotifier
       final resized = await ImageProcessor.resizeForNative(
         File(state.originalImagePath),
       );
-      state = state.copyWith(status: EditorStatus.ready);
-      _generateImagesInBackground(resized);
+      _specs = await GeminiService().generateStickerSpecs(resized);
+      final texts = _specs!.map((s) => s.text).toList();
+      state = state.copyWith(stickerTexts: texts, status: EditorStatus.ready);
+      _generateImagesInBackground(resized, _specs!);
     } catch (e, stack) {
       await FirebaseService.recordError(
         e, stack, reason: 'editor_regen_failed',
@@ -74,7 +88,7 @@ class _EditorFamilyNotifier
     state = state.copyWith(stickerTexts: updated);
   }
 
-  /// 使用者切換第 [stickerIndex] 張貼圖的邊框樣式（kFrameStyles 中的索引）
+  /// 使用者切換第 [stickerIndex] 張貼圖的邊框樣式
   void updateFrameIndex(int stickerIndex, int frameIndex) {
     final updated = List<int>.from(state.frameIndices);
     updated[stickerIndex] = frameIndex;
@@ -83,16 +97,17 @@ class _EditorFamilyNotifier
 
   // ─── private ────────────────────────────────────────────
 
-  /// 後台並行生成 8 張 AI 貼圖；每張完成後立即更新對應卡片（非阻塞）
+  /// 後台並行生成 8 張 AI 圓形貼圖；每張完成後立即更新對應卡片（非阻塞）
   ///
   /// sentinel 規則（Uint8List?）：
-  ///   null          → 生成中（顯示 "AI 生成中…" badge）
+  ///   null          → 生成中（顯示 "Gemini 貼圖生成中…" badge）
   ///   Uint8List(0)  → 生成完但 API 失敗/無圖（顯示 fallback 文字貼圖）
   ///   Uint8List(>0) → 成功，顯示 AI 圓形貼圖
-  void _generateImagesInBackground(Uint8List photoBytes) {
-    for (int i = 0; i < 8; i++) {
+  void _generateImagesInBackground(Uint8List photoBytes, List<StickerSpec> specs) {
+    for (int i = 0; i < specs.length; i++) {
       final index = i;
-      StickerGenerationService().generateOne(photoBytes, index).then((img) {
+      final spec = specs[i];
+      StickerGenerationService().generateOne(photoBytes, spec, index).then((img) {
         try {
           final updated = List<Uint8List?>.from(state.generatedImages);
           updated[index] = img ?? Uint8List(0);
