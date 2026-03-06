@@ -139,22 +139,23 @@ class _StickerCanvasState extends State<StickerCanvas> {
         ),
       );
     }
-    return Positioned(
-      top: 10,
-      left: 10,
-      right: 10,
-      bottom: 62,
+    // 整張 canvas 都可拖曳 / 縮放主體（不只侷限圖片本身的邊界）
+    return Positioned.fill(
       child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
         onScaleStart: _onScaleStart,
         onScaleUpdate: _onScaleUpdate,
-        child: Transform.translate(
-          offset: _offset,
-          child: Transform.scale(
-            scale: _scale,
-            child: Image.memory(
-              widget.subjectBytes!,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.high,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 62),
+          child: Transform.translate(
+            offset: _offset,
+            child: Transform.scale(
+              scale: _scale,
+              child: Image.memory(
+                widget.subjectBytes!,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+              ),
             ),
           ),
         ),

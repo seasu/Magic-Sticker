@@ -72,12 +72,12 @@ class _StickerSwipeCardState extends State<StickerSwipeCard>
 
   // ─── Gesture callbacks ────────────────────────────────────────────
 
-  void _onPanUpdate(DragUpdateDetails d) {
+  void _onDragUpdate(DragUpdateDetails d) {
     if (_ctrl.isAnimating) return;
-    setState(() => _offset += d.delta);
+    setState(() => _offset += Offset(d.delta.dx, 0));
   }
 
-  void _onPanEnd(DragEndDetails _) {
+  void _onDragEnd(DragEndDetails d) {
     if (_offset.dx >= _kThreshold) {
       _flyOff(rightward: true, onDone: widget.onAccepted);
     } else if (_offset.dx <= -_kThreshold) {
@@ -134,8 +134,8 @@ class _StickerSwipeCardState extends State<StickerSwipeCard>
     return SizedBox.expand(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque, // 空白處也觸發
-        onPanUpdate: _onPanUpdate,
-        onPanEnd: _onPanEnd,
+        onHorizontalDragUpdate: _onDragUpdate,
+        onHorizontalDragEnd: _onDragEnd,
         child: Center(
           child: Transform(
             transform: Matrix4.identity()
