@@ -202,7 +202,6 @@ Path _star(Rect bounds, {required int points, required double innerRatio}) {
 // Cloud: overlapping circles across the top
 Path _cloud(Rect bounds, {int bumps = 7, double bumpScale = 0.22}) {
   final path = Path();
-  final cx = _center(bounds).dx;
   final cy = _center(bounds).dy;
   final w  = bounds.width;
   final h  = bounds.height;
