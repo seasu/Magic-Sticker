@@ -351,7 +351,10 @@ class _CardStack extends StatelessWidget {
               if (state.generatedImages[currentIndex]?.isEmpty == true)
                 Positioned(
                   top: 8,
-                  child: _StatusBadge.failed(onRetry: onRetry),
+                  child: _StatusBadge.failed(
+                    reason: state.imageErrors[currentIndex],
+                    onRetry: onRetry,
+                  ),
                 ),
             ],
           ),
@@ -415,17 +418,20 @@ class _StickerCard extends StatelessWidget {
 
 class _StatusBadge extends StatelessWidget {
   final bool isFailed;
+  final String? reason;
   final VoidCallback? onRetry;
 
   const _StatusBadge.loading()
       : isFailed = false,
+        reason = null,
         onRetry = null;
 
-  const _StatusBadge.failed({this.onRetry}) : isFailed = true;
+  const _StatusBadge.failed({this.reason, this.onRetry}) : isFailed = true;
 
   @override
   Widget build(BuildContext context) {
     if (isFailed) {
+      final label = reason != null ? '$reason，點此重試' : 'AI 生成失敗，點此重試';
       return GestureDetector(
         onTap: () {
           HapticFeedback.mediumImpact();
@@ -444,17 +450,17 @@ class _StatusBadge extends StatelessWidget {
               ),
             ],
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 13, color: Colors.white),
-              SizedBox(width: 5),
+              const Icon(Icons.error_outline, size: 13, color: Colors.white),
+              const SizedBox(width: 5),
               Text(
-                'AI 生成失敗，點此重試',
-                style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
+                label,
+                style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
               ),
-              SizedBox(width: 5),
-              Icon(Icons.refresh, size: 13, color: Colors.white),
+              const SizedBox(width: 5),
+              const Icon(Icons.refresh, size: 13, color: Colors.white),
             ],
           ),
         ),

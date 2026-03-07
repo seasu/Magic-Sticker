@@ -25,13 +25,6 @@ class _EditorFamilyNotifier
   EditorState build(String arg) => EditorState(originalImagePath: arg);
 
   /// 初始化：兩步流程
-  ///
-  /// Step 1 (generatingTexts)：Gemini 文字模型分析照片，
-  ///   自由決定 8 張貼圖的【情感主題、中文標語、背景色】
-  ///   → 立即顯示文字標籤在卡片上（fallback canvas）
-  ///
-  /// Step 2 (ready, 後台)：Gemini 圖片模型依 AI 規格並行生成圓形貼圖
-  ///   → 每張完成後即時更新對應卡片
   Future<void> initialize() async {
     state = state.copyWith(status: EditorStatus.generatingTexts);
 
@@ -50,12 +43,9 @@ class _EditorFamilyNotifier
       return;
     }
 
-    // Step 1：讓 AI 自由決定 8 組貼圖規格（文字 + 情感 + 顏色）
     _specs = await GeminiService().generateStickerSpecs(resized);
     final texts = _specs!.map((s) => s.text).toList();
     state = state.copyWith(stickerTexts: texts, status: EditorStatus.ready);
-
-    // Step 2：後台並行生成 8 張圓形貼圖圖片
     _generateImagesInBackground(resized, _specs!);
   }
 
@@ -64,6 +54,7 @@ class _EditorFamilyNotifier
     state = state.copyWith(
       status: EditorStatus.generatingTexts,
       generatedImages: List.filled(8, null),
+      imageErrors: List.filled(8, null),
     );
     try {
       final resized = await ImageProcessor.resizeForNative(
@@ -74,9 +65,7 @@ class _EditorFamilyNotifier
       state = state.copyWith(stickerTexts: texts, status: EditorStatus.ready);
       _generateImagesInBackground(resized, _specs!);
     } catch (e, stack) {
-      await FirebaseService.recordError(
-        e, stack, reason: 'editor_regen_failed',
-      );
+      await FirebaseService.recordError(e, stack, reason: 'editor_regen_failed');
       state = state.copyWith(status: EditorStatus.ready);
     }
   }
@@ -92,38 +81,39 @@ class _EditorFamilyNotifier
   Future<void> retryImageGeneration(int index) async {
     if (_specs == null || index >= _specs!.length) return;
 
-    // 重設為 null（loading 狀態）
+    // 重設為 null + 清除錯誤（loading 狀態）
     final reset = List<Uint8List?>.from(state.generatedImages);
     reset[index] = null;
-    state = state.copyWith(generatedImages: reset);
+    final clearErrors = List<String?>.from(state.imageErrors);
+    clearErrors[index] = null;
+    state = state.copyWith(generatedImages: reset, imageErrors: clearErrors);
 
     try {
-      final resized = await ImageProcessor.resizeForNative(
-        File(state.originalImagePath),
-      );
-      final img = await StickerGenerationService()
-          .generateOne(resized, _specs![index], index);
+      final resized = await ImageProcessor.resizeForNative(File(state.originalImagePath));
+      final img = await StickerGenerationService().generateOne(resized, _specs![index], index);
       final updated = List<Uint8List?>.from(state.generatedImages);
       updated[index] = img ?? Uint8List(0);
-      state = state.copyWith(generatedImages: updated);
+      final updatedErrors = List<String?>.from(state.imageErrors);
+      if (img == null) updatedErrors[index] = 'API 未回傳圖片';
+      state = state.copyWith(generatedImages: updated, imageErrors: updatedErrors);
     } catch (e, stack) {
-      await FirebaseService.recordError(
-        e, stack, reason: 'retry_image_generation_failed',
-      );
+      await FirebaseService.recordError(e, stack, reason: 'retry_image_generation_failed');
       final failed = List<Uint8List?>.from(state.generatedImages);
       failed[index] = Uint8List(0);
-      state = state.copyWith(generatedImages: failed);
+      final errors = List<String?>.from(state.imageErrors);
+      errors[index] = _classifyError(e);
+      state = state.copyWith(generatedImages: failed, imageErrors: errors);
     }
   }
 
   // ─── private ────────────────────────────────────────────
 
-  /// 後台並行生成 8 張 AI 圓形貼圖；每張完成後立即更新對應卡片（非阻塞）
+  /// 後台並行生成 8 張 AI 圓形貼圖；每張完成後即時更新對應卡片（非阻塞）
   ///
   /// sentinel 規則（Uint8List?）：
-  ///   null          → 生成中（顯示 "Gemini 貼圖生成中…" badge）
-  ///   Uint8List(0)  → 生成完但 API 失敗/無圖（顯示 fallback 文字貼圖）
-  ///   Uint8List(>0) → 成功，顯示 AI 圓形貼圖
+  ///   null          → 生成中
+  ///   Uint8List(0)  → 失敗（imageErrors[i] 有原因）
+  ///   Uint8List(>0) → 成功
   void _generateImagesInBackground(Uint8List photoBytes, List<StickerSpec> specs) {
     for (int i = 0; i < specs.length; i++) {
       final index = i;
@@ -132,11 +122,44 @@ class _EditorFamilyNotifier
         try {
           final updated = List<Uint8List?>.from(state.generatedImages);
           updated[index] = img ?? Uint8List(0);
-          state = state.copyWith(generatedImages: updated);
+          final errors = List<String?>.from(state.imageErrors);
+          if (img == null) errors[index] = 'API 未回傳圖片';
+          state = state.copyWith(generatedImages: updated, imageErrors: errors);
         } catch (_) {
           // provider 已 dispose，忽略
         }
+      }).catchError((Object e, StackTrace stack) {
+        try {
+          FirebaseService.recordError(e, stack, reason: 'background_image_gen_failed');
+          final failed = List<Uint8List?>.from(state.generatedImages);
+          failed[index] = Uint8List(0);
+          final errors = List<String?>.from(state.imageErrors);
+          errors[index] = _classifyError(e);
+          state = state.copyWith(generatedImages: failed, imageErrors: errors);
+        } catch (_) {}
       });
     }
+  }
+
+  /// 將例外轉換為使用者看得懂的中文訊息
+  /// Crashlytics 另外記錄完整 stack trace，此處只給 UI 用
+  static String _classifyError(Object e) {
+    final msg = e.toString().toLowerCase();
+    if (e is SocketException || msg.contains('network') || msg.contains('socket')) {
+      return '網路連線失敗';
+    }
+    if (msg.contains('timeout') || msg.contains('timed out')) {
+      return '請求逾時';
+    }
+    if (msg.contains('quota') || msg.contains('rate') || msg.contains('429')) {
+      return 'API 配額已用盡';
+    }
+    if (msg.contains('401') || msg.contains('403') || msg.contains('unauthorized')) {
+      return 'API 金鑰無效';
+    }
+    if (msg.contains('500') || msg.contains('503') || msg.contains('server')) {
+      return 'Gemini 服務異常';
+    }
+    return '生成失敗';
   }
 }
