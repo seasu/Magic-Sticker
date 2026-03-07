@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:flutter/painting.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/sticker_spec.dart';
@@ -9,8 +11,8 @@ import 'firebase_service.dart';
 
 /// Gemini 2.0 Flash 圖片生成服務
 ///
-/// 接收由 GeminiService.generateStickerSpecs() 取得的 AI 自由規格，
-/// 生成對應的圓形 LINE 貼圖圖片（卡通頭像 + 彩色背景 + 嵌入文字）。
+/// 一次 API 呼叫生成 2×4 grid 圖（共 8 張貼圖），收到後裁切回傳 8 張。
+/// 只消耗 1 個 API 請求，大幅降低 rate-limit 壓力。
 ///
 /// 注意：需在 dart-define 設定 GEMINI_API_KEY
 class StickerGenerationService {
@@ -20,117 +22,211 @@ class StickerGenerationService {
       'https://generativelanguage.googleapis.com/v1beta'
       '/models/gemini-2.0-flash-exp:generateContent';
 
-  /// 並行生成全部 8 張貼圖
-  Future<List<Uint8List?>> generateAll(
+  /// 一次呼叫生成 8 張貼圖（2 欄 × 4 列 grid），裁切後回傳 List<Uint8List?>
+  ///
+  /// 回傳長度固定為 8，對應索引 0–7。
+  /// 失敗時對應位置為 null。
+  Future<List<Uint8List?>> generateAllAsGrid(
     Uint8List photoBytes,
     List<StickerSpec> specs,
   ) async {
-    FirebaseService.log('StickerGenerationService.generateAll: start (8 stickers)');
-    final results = await Future.wait(
-      List.generate(specs.length, (i) => generateOne(photoBytes, specs[i], i)),
+    assert(specs.length == 8, 'generateAllAsGrid expects exactly 8 specs');
+    FirebaseService.log('StickerGenerationService.generateAllAsGrid: start');
+
+    const maxRetries = 3;
+
+    for (int attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        final body = jsonEncode({
+          'contents': [
+            {
+              'parts': [
+                {'text': _buildGridPrompt(specs)},
+                {
+                  'inlineData': {
+                    'mimeType': 'image/jpeg',
+                    'data': base64Encode(photoBytes),
+                  }
+                },
+              ],
+            }
+          ],
+          'generationConfig': {
+            'responseModalities': ['IMAGE', 'TEXT'],
+          },
+        });
+
+        final response = await http
+            .post(
+              Uri.parse('$_endpoint?key=$_apiKey'),
+              headers: {'Content-Type': 'application/json'},
+              body: body,
+            )
+            .timeout(const Duration(seconds: 90)); // grid 較大，給更長 timeout
+
+        if (response.statusCode == 429) {
+          if (attempt < maxRetries) {
+            final delay = _parseRetryDelay(response.body) ??
+                Duration(seconds: (attempt + 1) * 15);
+            FirebaseService.log(
+              'StickerGenerationService: grid rate-limited, '
+              'retry ${attempt + 1}/$maxRetries in ${delay.inSeconds}s',
+            );
+            await Future.delayed(delay);
+            continue;
+          }
+          return List.filled(8, null);
+        }
+
+        if (response.statusCode != 200) {
+          FirebaseService.log(
+            'StickerGenerationService: HTTP ${response.statusCode} '
+            '— ${response.body.substring(0, 300.clamp(0, response.body.length))}',
+          );
+          return List.filled(8, null);
+        }
+
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final parts =
+            json['candidates'][0]['content']['parts'] as List<dynamic>;
+
+        for (final part in parts) {
+          if (part is Map<String, dynamic> && part.containsKey('inlineData')) {
+            final mimeType = part['inlineData']['mimeType'] as String;
+            if (mimeType.startsWith('image/')) {
+              final gridBytes =
+                  base64Decode(part['inlineData']['data'] as String);
+              FirebaseService.log(
+                'StickerGenerationService: grid received '
+                '(${gridBytes.lengthInBytes} bytes), cropping…',
+              );
+              final crops = await _cropGrid(gridBytes, cols: 2, rows: 4);
+              await FirebaseAnalytics.instance
+                  .logEvent(name: 'sticker_images_generated');
+              return crops;
+            }
+          }
+        }
+
+        FirebaseService.log('StickerGenerationService: no image part in grid response');
+        return List.filled(8, null);
+
+      } catch (e, stack) {
+        await FirebaseService.recordError(
+          e, stack, reason: 'sticker_grid_gen_failed',
+        );
+        return List.filled(8, null);
+      }
+    }
+
+    return List.filled(8, null);
+  }
+
+  // ─── private ────────────────────────────────────────────────────────────
+
+  /// grid 圖裁切：將大圖均分為 cols×rows 個格子，回傳 PNG bytes list
+  /// 順序：左→右、上→下（與 prompt 編號一致）
+  Future<List<Uint8List?>> _cropGrid(
+    Uint8List imageBytes, {
+    required int cols,
+    required int rows,
+  }) async {
+    // 解碼完整圖片
+    final codec = await ui.instantiateImageCodec(imageBytes);
+    final frame = await codec.getNextFrame();
+    final fullImage = frame.image;
+
+    final cellW = fullImage.width ~/ cols;
+    final cellH = fullImage.height ~/ rows;
+
+    FirebaseService.log(
+      'StickerGenerationService._cropGrid: '
+      '${fullImage.width}×${fullImage.height} → ${cellW}×$cellH per cell',
     );
-    await FirebaseAnalytics.instance
-        .logEvent(name: 'sticker_images_generated');
+
+    final results = <Uint8List?>[];
+
+    for (int row = 0; row < rows; row++) {
+      for (int col = 0; col < cols; col++) {
+        try {
+          final recorder = ui.PictureRecorder();
+          final canvas = ui.Canvas(recorder);
+
+          canvas.drawImageRect(
+            fullImage,
+            Rect.fromLTWH(
+              (col * cellW).toDouble(),
+              (row * cellH).toDouble(),
+              cellW.toDouble(),
+              cellH.toDouble(),
+            ),
+            Rect.fromLTWH(0, 0, cellW.toDouble(), cellH.toDouble()),
+            ui.Paint(),
+          );
+
+          final picture = recorder.endRecording();
+          final cropped = await picture.toImage(cellW, cellH);
+          final byteData =
+              await cropped.toByteData(format: ui.ImageByteFormat.png);
+          results.add(byteData?.buffer.asUint8List());
+        } catch (e) {
+          FirebaseService.log(
+            'StickerGenerationService._cropGrid: crop error at [$row,$col]: $e',
+          );
+          results.add(null);
+        }
+      }
+    }
+
     return results;
   }
 
-  /// 生成單張貼圖，規格由 AI 自由決定的 [spec] 提供
-  Future<Uint8List?> generateOne(
-    Uint8List photoBytes,
-    StickerSpec spec,
-    int index,
-  ) async {
-    FirebaseService.log(
-        'StickerGenerationService.generateOne: #$index "${spec.text}"');
-    try {
-      final body = jsonEncode({
-        'contents': [
-          {
-            'parts': [
-              {'text': _buildPrompt(spec)},
-              {
-                'inlineData': {
-                  'mimeType': 'image/jpeg',
-                  'data': base64Encode(photoBytes),
-                }
-              },
-            ],
-          }
-        ],
-        'generationConfig': {
-          'responseModalities': ['IMAGE', 'TEXT'],
-        },
-      });
-
-      final response = await http
-          .post(
-            Uri.parse('$_endpoint?key=$_apiKey'),
-            headers: {'Content-Type': 'application/json'},
-            body: body,
-          )
-          .timeout(const Duration(seconds: 30));
-
-      if (response.statusCode != 200) {
-        FirebaseService.log(
-          'StickerGenerationService: HTTP ${response.statusCode} '
-          'for #$index — ${response.body.substring(0, 200)}',
-        );
-        return null;
-      }
-
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final parts =
-          json['candidates'][0]['content']['parts'] as List<dynamic>;
-
-      for (final part in parts) {
-        if (part is Map<String, dynamic> &&
-            part.containsKey('inlineData')) {
-          final mimeType = part['inlineData']['mimeType'] as String;
-          if (mimeType.startsWith('image/')) {
-            final bytes =
-                base64Decode(part['inlineData']['data'] as String);
-            FirebaseService.log(
-                'StickerGenerationService: #$index done '
-                '(${bytes.lengthInBytes} bytes)');
-            return bytes;
-          }
-        }
-      }
-
-      FirebaseService.log(
-          'StickerGenerationService: no image part for #$index');
-      return null;
-    } catch (e, stack) {
-      await FirebaseService.recordError(
-        e, stack, reason: 'sticker_image_gen_failed',
-      );
-      return null;
-    }
+  /// 從 Gemini 錯誤訊息解析「retry in X.Xs」秒數
+  static Duration? _parseRetryDelay(String body) {
+    final m = RegExp(r'retry in (\d+(?:\.\d+)?)s', caseSensitive: false)
+        .firstMatch(body);
+    if (m == null) return null;
+    final seconds = double.tryParse(m.group(1)!);
+    if (seconds == null) return null;
+    return Duration(milliseconds: ((seconds + 1) * 1000).round());
   }
 
-  /// 根據 AI 自由規格建立 Gemini 圖片生成 prompt
-  String _buildPrompt(StickerSpec spec) => '''
-You are a professional LINE sticker illustrator. Create ONE circular LINE sticker based on the person's face in the provided photo.
+  /// 建立 2×4 grid prompt，明確編號每個格子的貼圖規格
+  String _buildGridPrompt(List<StickerSpec> specs) {
+    final cells = List.generate(8, (i) {
+      final s = specs[i];
+      final row = i ~/ 2 + 1;
+      final col = i % 2 + 1;
+      return 'Cell ${i + 1} (row $row, col $col): '
+          'background=${s.bgColor}, expression=${s.emotion}, '
+          'Chinese text="${s.text}"';
+    }).join('\n');
 
-STICKER DESIGN SPECIFICATIONS:
-- Canvas: 370 × 370 px square, pure WHITE background outside the circle
-- Main shape: A large filled circle (340px diameter, centered) with solid background color: ${spec.bgColor}
-- Face: Draw a CUTE CHIBI/Q-VERSION cartoon face of the person in the photo
-  * Simplify the face into rounded cute features: big sparkly eyes, small nose, chubby cheeks
-  * The cartoon face should fill about 60-70% of the circle area (upper portion)
-  * Expression: ${spec.emotion}
-  * Style: clean flat illustration, thick outlines (2-3px), no photo-realism
-- Chinese text: Write "${spec.text}" in bold rounded Chinese font
-  * Position: bottom 25% area INSIDE the circle
-  * Text color: WHITE with dark drop shadow for readability
-  * Font size: large (approx 36-40px equivalent), bold, clearly legible
-- Decorations inside the circle: add 3-5 small sparkle/star elements (✦ ★ ✨ small hearts or themed icons matching the emotion)
-  * Scatter around the face and near the text
-  * Colors should complement the background
+    return '''
+You are a professional LINE sticker illustrator. Create a single image containing a 2-column × 4-row grid of 8 circular LINE stickers based on the person's face in the photo.
 
-STYLE REFERENCES: LINE Friends, Chiikawa, Molang — professional sticker quality with clean illustration
-IMPORTANT: The circle must have a thick white outline (4px) to separate it from white background. Do NOT add text outside the circle. Keep design simple and cute.
+GRID LAYOUT:
+- 2 columns, 4 rows = 8 cells total
+- Cells are arranged left-to-right, top-to-bottom (cell 1 = top-left, cell 2 = top-right, cell 3 = row2-left, …, cell 8 = bottom-right)
+- Each cell is EXACTLY equal in size. NO borders, labels, numbers, or gaps between cells — pure seamless white space only at outer edges
+- Total canvas: white background
 
-Output: The sticker image only. No captions or explanations.
+EACH CELL DESIGN:
+- A large filled circle (occupying ~90% of the cell) centered in the cell
+- Pure white outside the circle
+- Cartoon chibi face of the person in the photo (cute, simplified, Q-version)
+  * Big sparkly eyes, small nose, chubby cheeks
+  * Face fills ~65% of the circle (upper portion)
+  * Clean flat illustration, thick outlines, no photo-realism
+- Chinese text in bold rounded font, bottom 25% inside the circle, white with shadow
+- 3–5 small sparkles/stars/themed icons scattered inside the circle
+- White outline (4px) around each circle
+
+CELL SPECIFICATIONS (left→right, top→bottom):
+$cells
+
+STYLE: LINE Friends / Chiikawa quality. Each sticker must look different from the others.
+CRITICAL: Output ONLY the grid image. No text, no labels, no borders outside the cells.
 ''';
+  }
 }

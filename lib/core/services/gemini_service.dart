@@ -33,50 +33,85 @@ class GeminiService {
 
   /// 根據照片，讓 AI 自由決定 8 張貼圖的【情感主題、中文標語、背景色】
   ///
-  /// AI 會分析照片中人物的氛圍、個性、場景，創意發揮 8 種情感組合。
-  /// 回傳 List<StickerSpec>（長度固定 8）；失敗時使用 fallback。
+  /// 自動重試：rate-limit 時解析 "retry in Xs"，最多重試 3 次。
   Future<List<StickerSpec>> generateStickerSpecs(Uint8List imageBytes) async {
     FirebaseService.log('GeminiService.generateStickerSpecs: start');
-    try {
-      final response = await _model.generateContent([
-        Content.multi([
-          TextPart(
-            '你是一位創意 LINE 貼圖設計師，擅長根據照片人物的個性與氛圍，'
-            '設計出最適合的貼圖情感組合。\n\n'
-            '請仔細觀察照片中人物的外型、氣質、表情與場景，'
-            '為他們設計專屬的 8 張 LINE 貼圖規格。\n\n'
-            '每張貼圖請【自由發揮】，無需使用固定情感模板。'
-            '可以根據人物特色選擇有趣、幽默、溫馨或獨特的情感表達。\n\n'
-            '輸出格式：僅回傳 JSON 陣列（8 個物件），每個物件包含：\n'
-            '- "text": 繁體中文標語（2–6 字，口語化有趣，適合貼圖）\n'
-            '- "emotion": 英文情感描述（用於繪製卡通表情，例如 "laughing with tears", "smugly confident"）\n'
-            '- "bgColor": 背景色描述（英文色名 + hex，例如 "coral red #FF6B6B"）\n\n'
-            '範例格式（不要照抄，請根據照片創作）：\n'
-            '[{"text":"哈囉！","emotion":"cheerfully waving hello","bgColor":"warm peach #F4A261"}]',
-          ),
-          DataPart('image/jpeg', imageBytes),
-        ]),
-      ]).timeout(const Duration(seconds: 15));
+    const maxRetries = 3;
 
-      final raw = response.text ?? '';
-      final match = RegExp(r'\[.*?\]', dotAll: true).firstMatch(raw);
-      if (match != null) {
-        final list = (jsonDecode(match.group(0)!) as List)
-            .cast<Map<String, dynamic>>();
-        if (list.length >= 8) {
-          final specs = list.take(8).map(StickerSpec.fromJson).toList();
-          FirebaseService.log('GeminiService.generateStickerSpecs: done');
-          await FirebaseAnalytics.instance.logEvent(name: 'ai_specs_generated');
-          return specs;
+    for (int attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        final response = await _model.generateContent([
+          Content.multi([
+            TextPart(
+              '你是一位創意 LINE 貼圖設計師，擅長根據照片人物的個性與氛圍，'
+              '設計出最適合的貼圖情感組合。\n\n'
+              '請仔細觀察照片中人物的外型、氣質、表情與場景，'
+              '為他們設計專屬的 8 張 LINE 貼圖規格。\n\n'
+              '每張貼圖請【自由發揮】，無需使用固定情感模板。'
+              '可以根據人物特色選擇有趣、幽默、溫馨或獨特的情感表達。\n\n'
+              '輸出格式：僅回傳 JSON 陣列（8 個物件），每個物件包含：\n'
+              '- "text": 繁體中文標語（2–6 字，口語化有趣，適合貼圖）\n'
+              '- "emotion": 英文情感描述（用於繪製卡通表情，例如 "laughing with tears", "smugly confident"）\n'
+              '- "bgColor": 背景色描述（英文色名 + hex，例如 "coral red #FF6B6B"）\n\n'
+              '範例格式（不要照抄，請根據照片創作）：\n'
+              '[{"text":"哈囉！","emotion":"cheerfully waving hello","bgColor":"warm peach #F4A261"}]',
+            ),
+            DataPart('image/jpeg', imageBytes),
+          ]),
+        ]).timeout(const Duration(seconds: 20));
+
+        final raw = response.text ?? '';
+        final match = RegExp(r'\[.*?\]', dotAll: true).firstMatch(raw);
+        if (match != null) {
+          final list = (jsonDecode(match.group(0)!) as List)
+              .cast<Map<String, dynamic>>();
+          if (list.length >= 8) {
+            final specs = list.take(8).map(StickerSpec.fromJson).toList();
+            FirebaseService.log('GeminiService.generateStickerSpecs: done');
+            await FirebaseAnalytics.instance.logEvent(name: 'ai_specs_generated');
+            return specs;
+          }
         }
+        throw FormatException('Unexpected response format: $raw');
+
+      } catch (e, stack) {
+        final errStr = e.toString();
+        final isRateLimit = errStr.contains('quota') ||
+            errStr.contains('rate') ||
+            errStr.contains('429') ||
+            errStr.contains('retry');
+
+        if (isRateLimit && attempt < maxRetries) {
+          final delay = _parseRetryDelay(errStr) ??
+              Duration(seconds: (attempt + 1) * 10);
+          FirebaseService.log(
+            'GeminiService: rate-limited, retry ${attempt + 1}/$maxRetries '
+            'in ${delay.inSeconds}s',
+          );
+          await Future.delayed(delay);
+          continue;
+        }
+
+        await FirebaseService.recordError(
+          e, stack, reason: 'gemini_sticker_specs_failed',
+        );
+        await FirebaseAnalytics.instance.logEvent(name: 'ai_specs_fallback');
+        return _kFallbackSpecs.map(StickerSpec.fromJson).toList();
       }
-      throw FormatException('Unexpected response format: $raw');
-    } catch (e, stack) {
-      await FirebaseService.recordError(
-        e, stack, reason: 'gemini_sticker_specs_failed',
-      );
-      await FirebaseAnalytics.instance.logEvent(name: 'ai_specs_fallback');
-      return _kFallbackSpecs.map(StickerSpec.fromJson).toList();
     }
+
+    // 超過重試次數，回傳 fallback
+    return _kFallbackSpecs.map(StickerSpec.fromJson).toList();
+  }
+
+  /// 從 Gemini 錯誤訊息解析「Please retry in X.Xs」中的秒數
+  static Duration? _parseRetryDelay(String message) {
+    final m = RegExp(r'retry in (\d+(?:\.\d+)?)s', caseSensitive: false)
+        .firstMatch(message);
+    if (m == null) return null;
+    final seconds = double.tryParse(m.group(1)!);
+    if (seconds == null) return null;
+    // 多加 1 秒緩衝
+    return Duration(milliseconds: ((seconds + 1) * 1000).round());
   }
 }

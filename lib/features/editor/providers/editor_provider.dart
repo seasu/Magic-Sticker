@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -46,7 +47,7 @@ class _EditorFamilyNotifier
     _specs = await GeminiService().generateStickerSpecs(resized);
     final texts = _specs!.map((s) => s.text).toList();
     state = state.copyWith(stickerTexts: texts, status: EditorStatus.ready);
-    _generateImagesInBackground(resized, _specs!);
+    unawaited(_generateImagesInBackground(resized, _specs!));
   }
 
   /// 重新讓 AI 自由發揮，生成全新 8 組規格 + 圖片
@@ -63,7 +64,7 @@ class _EditorFamilyNotifier
       _specs = await GeminiService().generateStickerSpecs(resized);
       final texts = _specs!.map((s) => s.text).toList();
       state = state.copyWith(stickerTexts: texts, status: EditorStatus.ready);
-      _generateImagesInBackground(resized, _specs!);
+      unawaited(_generateImagesInBackground(resized, _specs!));
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack, reason: 'editor_regen_failed');
       state = state.copyWith(status: EditorStatus.ready);
@@ -90,12 +91,16 @@ class _EditorFamilyNotifier
 
     try {
       final resized = await ImageProcessor.resizeForNative(File(state.originalImagePath));
-      final img = await StickerGenerationService().generateOne(resized, _specs![index], index);
+      // 重新跑完整 grid，取出對應索引的裁切圖
+      final crops = await StickerGenerationService()
+          .generateAllAsGrid(resized, _specs!);
       final updated = List<Uint8List?>.from(state.generatedImages);
-      updated[index] = img ?? Uint8List(0);
-      final updatedErrors = List<String?>.from(state.imageErrors);
-      if (img == null) updatedErrors[index] = 'API 未回傳圖片';
-      state = state.copyWith(generatedImages: updated, imageErrors: updatedErrors);
+      final errors = List<String?>.from(state.imageErrors);
+      for (int i = 0; i < crops.length; i++) {
+        updated[i] = crops[i] ?? Uint8List(0);
+        if (crops[i] == null) errors[i] = 'API 未回傳圖片';
+      }
+      state = state.copyWith(generatedImages: updated, imageErrors: errors);
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack, reason: 'retry_image_generation_failed');
       final failed = List<Uint8List?>.from(state.generatedImages);
@@ -108,36 +113,31 @@ class _EditorFamilyNotifier
 
   // ─── private ────────────────────────────────────────────
 
-  /// 後台並行生成 8 張 AI 圓形貼圖；每張完成後即時更新對應卡片（非阻塞）
+  /// 一次 API 呼叫生成 2×4 grid 圖，裁切後一次更新全部 8 張（非阻塞）
   ///
   /// sentinel 規則（Uint8List?）：
-  ///   null          → 生成中
+  ///   null          → 生成中（loading）
   ///   Uint8List(0)  → 失敗（imageErrors[i] 有原因）
   ///   Uint8List(>0) → 成功
-  void _generateImagesInBackground(Uint8List photoBytes, List<StickerSpec> specs) {
-    for (int i = 0; i < specs.length; i++) {
-      final index = i;
-      final spec = specs[i];
-      StickerGenerationService().generateOne(photoBytes, spec, index).then((img) {
-        try {
-          final updated = List<Uint8List?>.from(state.generatedImages);
-          updated[index] = img ?? Uint8List(0);
-          final errors = List<String?>.from(state.imageErrors);
-          if (img == null) errors[index] = 'API 未回傳圖片';
-          state = state.copyWith(generatedImages: updated, imageErrors: errors);
-        } catch (_) {
-          // provider 已 dispose，忽略
-        }
-      }).catchError((Object e, StackTrace stack) {
-        try {
-          FirebaseService.recordError(e, stack, reason: 'background_image_gen_failed');
-          final failed = List<Uint8List?>.from(state.generatedImages);
-          failed[index] = Uint8List(0);
-          final errors = List<String?>.from(state.imageErrors);
-          errors[index] = _classifyError(e);
-          state = state.copyWith(generatedImages: failed, imageErrors: errors);
-        } catch (_) {}
-      });
+  Future<void> _generateImagesInBackground(
+      Uint8List photoBytes, List<StickerSpec> specs) async {
+    try {
+      final crops =
+          await StickerGenerationService().generateAllAsGrid(photoBytes, specs);
+
+      final updated = List<Uint8List?>.from(state.generatedImages);
+      final errors = List<String?>.from(state.imageErrors);
+      for (int i = 0; i < crops.length; i++) {
+        updated[i] = crops[i] ?? Uint8List(0);
+        if (crops[i] == null) errors[i] = 'API 未回傳圖片';
+      }
+      state = state.copyWith(generatedImages: updated, imageErrors: errors);
+    } catch (e, stack) {
+      await FirebaseService.recordError(
+          e, stack, reason: 'background_image_gen_failed');
+      final failed = List.filled(8, Uint8List(0));
+      final errors = List.filled(8, _classifyError(e));
+      state = state.copyWith(generatedImages: failed, imageErrors: errors);
     }
   }
 
