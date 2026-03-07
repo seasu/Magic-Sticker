@@ -154,33 +154,38 @@ class _OutlinedStickerText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: _kFontSize,
-            fontWeight: FontWeight.w900,
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 5
-              ..strokeJoin = StrokeJoin.round
-              ..color = Colors.white,
-          ),
+    const baseStyle = TextStyle(
+      fontSize: _kFontSize,
+      fontWeight: FontWeight.w900,
+      height: 1.2,
+    );
+    final outlineText = Text(
+      text,
+      textAlign: TextAlign.center,
+      style: baseStyle.copyWith(
+        foreground: Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 5
+          ..strokeJoin = StrokeJoin.round
+          ..color = Colors.white,
+      ),
+    );
+    final fillText = Text(
+      text,
+      textAlign: TextAlign.center,
+      style: baseStyle.copyWith(color: config.colorScheme.textFill),
+    );
+
+    return SizedBox(
+      width: double.infinity,
+      child: FittedBox(
+        fit: BoxFit.fitWidth,
+        child: Stack(
+          alignment: Alignment.center,
+          textDirection: TextDirection.ltr,
+          children: [outlineText, fillText],
         ),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: _kFontSize,
-            fontWeight: FontWeight.w900,
-            color: config.colorScheme.textFill,
-            height: 1.2,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
