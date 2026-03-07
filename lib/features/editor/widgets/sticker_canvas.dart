@@ -65,12 +65,18 @@ class _StickerCanvasState extends State<StickerCanvas> {
       aspectRatio: StickerCanvas.aspectRatio,
       child: _hasAiImage
           ? _buildAiImage()
-          : _buildFallback(),
+          : _hasFailed
+              ? _buildFailedPlaceholder()
+              : _buildFallback(),
     );
   }
 
   bool get _hasAiImage =>
       widget.generatedImage != null && widget.generatedImage!.isNotEmpty;
+
+  /// generatedImage 不為 null 但是 empty → 生成失敗
+  bool get _hasFailed =>
+      widget.generatedImage != null && widget.generatedImage!.isEmpty;
 
   /// AI 圖直接全幅顯示，可縮放拖曳，零 Flutter 疊加
   Widget _buildAiImage() {
@@ -95,7 +101,18 @@ class _StickerCanvasState extends State<StickerCanvas> {
     );
   }
 
-  /// 純文字 fallback（AI 圖尚未到達）
+  /// 生成失敗：純色底，不顯示任何文字泡泡（錯誤 badge 由外層 _CardStack 疊加）
+  Widget _buildFailedPlaceholder() {
+    final color = widget.config.colorScheme.borderColor;
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(20),
+      ),
+    );
+  }
+
+  /// 生成中 fallback（AI 圖尚未到達）：顯示文字泡泡作為佔位
   Widget _buildFallback() {
     final color = widget.config.colorScheme.borderColor;
     return Container(
