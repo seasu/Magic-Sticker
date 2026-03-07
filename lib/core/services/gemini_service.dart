@@ -26,7 +26,7 @@ class GeminiService {
 
   GeminiService() {
     _model = GenerativeModel(
-      model: 'gemini-3.0-flash-exp',
+      model: 'gemini-3-flash-preview',
       apiKey: _apiKey,
     );
   }

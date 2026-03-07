@@ -297,19 +297,33 @@ class _StickerPreviewStack extends StatelessWidget {
 
   // 從後到前排列：index 0 = 最底層，index 2 = 最上層
   static const _cards = [
-    _CardData(emoji: '🌟', text: '元氣滿滿！', color: Color(0xFF22C55E), angle: -0.14),
-    _CardData(emoji: '💫', text: '好棒棒～', color: Color(0xFF3B82F6), angle: 0.09),
-    _CardData(emoji: '❤️', text: '早安！', color: Color(0xFFFD297B), angle: 0.0),
+    _CardData(
+      emoji: '🌟',
+      text: '元氣滿滿！',
+      gradientColors: [Color(0xFF22C55E), Color(0xFF16A34A)],
+      angle: -0.14,
+    ),
+    _CardData(
+      emoji: '💫',
+      text: '好棒棒～',
+      gradientColors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
+      angle: 0.09,
+    ),
+    _CardData(
+      emoji: '❤️',
+      text: '早安！',
+      gradientColors: [Color(0xFFFD297B), Color(0xFFFF5E5E)],
+      angle: 0.0,
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 210,
+      height: 220,
       child: Stack(
         alignment: Alignment.center,
         children: List.generate(_cards.length, (i) {
-          // 後面的卡（低 index）delay 較小，先進場
           final delay = (_cards.length - 1 - i) * 0.08;
           return AnimatedBuilder(
             animation: controller,
@@ -341,18 +355,18 @@ class _StickerPreviewStack extends StatelessWidget {
 class _CardData {
   final String emoji;
   final String text;
-  final Color color;
+  final List<Color> gradientColors;
   final double angle;
 
   const _CardData({
     required this.emoji,
     required this.text,
-    required this.color,
+    required this.gradientColors,
     required this.angle,
   });
 }
 
-/// 小型貼圖預覽卡（保持 740:640 比例，白底+彩色外框）
+/// LINE 貼圖樣式：漸層背景 + 大 emoji + 底部文字
 class _MiniStickerCard extends StatelessWidget {
   final _CardData data;
 
@@ -361,43 +375,41 @@ class _MiniStickerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 190,
-      height: 165, // 190 × (640/740) ≈ 164.3
+      width: 160,
+      height: 160,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: data.color, width: 4),
+        gradient: LinearGradient(
+          colors: data.gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: data.color.withOpacity(0.22),
-            blurRadius: 28,
+            color: data.gradientColors.last.withOpacity(0.45),
+            blurRadius: 24,
             offset: const Offset(0, 10),
-          ),
-          const BoxShadow(
-            color: Color(0x10000000),
-            blurRadius: 6,
-            offset: Offset(0, 2),
           ),
         ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(data.emoji, style: const TextStyle(fontSize: 48)),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-            decoration: BoxDecoration(
-              color: data.color,
-              borderRadius: BorderRadius.circular(50),
-            ),
-            child: Text(
-              data.text,
-              style: GoogleFonts.nunito(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-              ),
+          Text(data.emoji, style: const TextStyle(fontSize: 64)),
+          const SizedBox(height: 8),
+          Text(
+            data.text,
+            style: GoogleFonts.nunito(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              shadows: [
+                const Shadow(
+                  color: Color(0x55000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 1),
+                ),
+              ],
             ),
           ),
         ],

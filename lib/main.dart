@@ -12,9 +12,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    }
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
     // 全域 Flutter 錯誤攔截 → Crashlytics + LogService
     FlutterError.onError = (details) {
@@ -31,8 +29,12 @@ Future<void> main() async {
       LogService.instance.error('$error', tag: 'PlatformDispatcher');
       return true;
     };
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') {
+      // Firebase 尚未設定（佔位憑證）—— app 仍正常啟動，僅略過崩潰監控
+      LogService.instance.warning('Firebase initializeApp failed: $e', tag: 'Firebase');
+    }
   } catch (e) {
-    // Firebase 尚未設定（佔位憑證）—— app 仍正常啟動，僅略過崩潰監控
     LogService.instance.warning('Firebase initializeApp failed: $e', tag: 'Firebase');
   }
 
