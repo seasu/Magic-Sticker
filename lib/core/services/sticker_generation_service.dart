@@ -1,10 +1,7 @@
 import 'dart:convert';
-import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:flutter/painting.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/sticker_spec.dart';
@@ -12,9 +9,8 @@ import 'firebase_service.dart';
 
 /// Gemini 貼圖生成服務
 ///
-/// 一次 API 呼叫生成 1×8 直欄圖（共 8 張貼圖，垂直堆疊），
-/// 收到後沿水平線均切 8 份，裁切最可靠（無欄位對齊問題）。
-/// 只消耗 1 個 API 請求，大幅降低 rate-limit 壓力。
+/// 每張貼圖獨立呼叫 API（1 call per sticker），不再依賴 grid 切割。
+/// 好處：Gemini 不需要遵守多欄/多列排版，每次只畫 1 個圓形貼圖，結果最穩定。
 ///
 /// 注意：需在 dart-define 設定 GEMINI_API_KEY
 class StickerGenerationService {
@@ -24,16 +20,16 @@ class StickerGenerationService {
       'https://generativelanguage.googleapis.com/v1beta'
       '/models/gemini-2.5-flash-image:generateContent';
 
-  /// 一次呼叫生成 8 張貼圖（1 欄 × 8 列，垂直堆疊），裁切後回傳 List<Uint8List?>
-  ///
-  /// 回傳長度固定為 8，對應索引 0–7（上→下）。
-  /// 失敗時對應位置為 null。
-  Future<List<Uint8List?>> generateAllAsGrid(
+  /// 生成單張貼圖，回傳 PNG bytes；失敗回傳 null
+  Future<Uint8List?> generateSingle(
     Uint8List photoBytes,
-    List<StickerSpec> specs,
-  ) async {
-    assert(specs.length == 8, 'generateAllAsGrid expects exactly 8 specs');
-    FirebaseService.log('StickerGenerationService.generateAllAsGrid: start');
+    StickerSpec spec, {
+    int index = 0,
+  }) async {
+    FirebaseService.log(
+      'StickerGenerationService.generateSingle: index=$index '
+      'emotion=${spec.emotion}',
+    );
 
     const maxRetries = 3;
 
@@ -43,7 +39,7 @@ class StickerGenerationService {
           'contents': [
             {
               'parts': [
-                {'text': _buildGridPrompt(specs)},
+                {'text': _buildSinglePrompt(spec)},
                 {
                   'inlineData': {
                     'mimeType': 'image/jpeg',
@@ -64,29 +60,28 @@ class StickerGenerationService {
               headers: {'Content-Type': 'application/json'},
               body: body,
             )
-            .timeout(const Duration(seconds: 90)); // grid 較大，給更長 timeout
+            .timeout(const Duration(seconds: 60));
 
         if (response.statusCode == 429) {
           if (attempt < maxRetries) {
             final delay = _parseRetryDelay(response.body) ??
                 Duration(seconds: (attempt + 1) * 15);
             FirebaseService.log(
-              'StickerGenerationService: grid rate-limited, '
+              'StickerGenerationService: rate-limited index=$index, '
               'retry ${attempt + 1}/$maxRetries in ${delay.inSeconds}s',
             );
             await Future.delayed(delay);
             continue;
           }
-          _logApiError(429, response.body, attempt);
+          _logApiError(429, response.body, attempt, index: index);
           throw StickerApiException(429, response.body);
         }
 
         if (response.statusCode != 200) {
-          _logApiError(response.statusCode, response.body, attempt);
-          // 5xx server error → retry；4xx（除 429）→ 直接失敗
+          _logApiError(response.statusCode, response.body, attempt,
+              index: index);
           if (response.statusCode >= 500 && attempt < maxRetries) {
-            final delay = Duration(seconds: (attempt + 1) * 5);
-            await Future.delayed(delay);
+            await Future.delayed(Duration(seconds: (attempt + 1) * 5));
             continue;
           }
           throw StickerApiException(response.statusCode, response.body);
@@ -100,123 +95,80 @@ class StickerGenerationService {
           if (part is Map<String, dynamic> && part.containsKey('inlineData')) {
             final mimeType = part['inlineData']['mimeType'] as String;
             if (mimeType.startsWith('image/')) {
-              final gridBytes =
+              final bytes =
                   base64Decode(part['inlineData']['data'] as String);
               FirebaseService.log(
-                'StickerGenerationService: grid received '
-                '(${gridBytes.lengthInBytes} bytes), cropping…',
+                'StickerGenerationService: index=$index OK '
+                '(${bytes.lengthInBytes} bytes)',
               );
-              final crops = await _cropGrid(gridBytes, cols: 1, rows: 8);
               await FirebaseAnalytics.instance
-                  .logEvent(name: 'sticker_images_generated');
-              return crops;
+                  .logEvent(name: 'sticker_image_generated');
+              return bytes;
             }
           }
         }
 
-        _logApiError(200, response.body, attempt, label: 'no image part');
-        throw StickerApiException(200, 'API 回傳無圖片（response body）:\n${response.body}');
-
+        _logApiError(200, response.body, attempt,
+            index: index, label: 'no image part');
+        throw StickerApiException(
+            200, 'API 回傳無圖片 index=$index:\n${response.body}');
       } catch (e, stack) {
+        if (e is StickerApiException) rethrow;
         await FirebaseService.recordError(
-          e, stack, reason: 'sticker_grid_gen_failed',
+          e, stack,
+          reason: 'sticker_single_gen_failed_index$index',
         );
-        return List.filled(8, null);
+        return null;
       }
     }
 
-    return List.filled(8, null);
+    return null;
   }
 
   // ─── private ────────────────────────────────────────────────────────────
 
-  /// grid 圖裁切：將大圖均分為 cols×rows 個格子，回傳正方形 PNG bytes list
-  ///
-  /// 每格輸出為正方形（邊長 = max(cellW, cellH)），內容置中、白底 padding。
-  /// 這樣無論 Gemini 回傳 1024×1024（每格扁）或 1024×8192（每格方）都能正確顯示。
-  /// 順序：左→右、上→下（與 prompt 編號一致）
-  Future<List<Uint8List?>> _cropGrid(
-    Uint8List imageBytes, {
-    required int cols,
-    required int rows,
-  }) async {
-    final codec = await ui.instantiateImageCodec(imageBytes);
-    final frame = await codec.getNextFrame();
-    final fullImage = frame.image;
+  /// 單張貼圖 prompt：只產生一個圓形貼圖，最簡單最穩定
+  String _buildSinglePrompt(StickerSpec spec) {
+    return '''
+You are a professional LINE sticker illustrator. Draw ONE single circular sticker based on the person's face in the reference photo.
 
-    final cellW = fullImage.width ~/ cols;
-    final cellH = fullImage.height ~/ rows;
-    // 輸出為正方形，避免 Gemini 回傳非 1:N 長寬比時格子扭曲
-    final cellSize = math.max(cellW, cellH);
+DESIGN REQUIREMENTS:
+- A single large filled circle, centered, occupying ~90% of the square canvas
+- Circle background color: ${spec.bgColor}
+- Character expression / pose: ${spec.emotion}
+- Cartoon chibi-style face of the person (cute Q-version)
+  * Big sparkly eyes, small nose, chubby cheeks
+  * Clean flat illustration, thick black outlines, no photo-realism
+  * Face and upper body fill the circle (leave ~20% gap at bottom for text)
+- DO NOT draw any text or letters inside the image
+- 3–5 small sparkles / stars scattered inside the circle
+- White outline (4 px) around the circle
+- White background outside the circle
 
-    FirebaseService.log(
-      'StickerGenerationService._cropGrid: '
-      '${fullImage.width}×${fullImage.height} → ${cellW}×$cellH per cell, '
-      'output ${cellSize}×$cellSize (square)',
-    );
-
-    final results = <Uint8List?>[];
-
-    for (int row = 0; row < rows; row++) {
-      for (int col = 0; col < cols; col++) {
-        try {
-          final recorder = ui.PictureRecorder();
-          final canvas = ui.Canvas(recorder);
-
-          // 白底
-          canvas.drawRect(
-            Rect.fromLTWH(0, 0, cellSize.toDouble(), cellSize.toDouble()),
-            ui.Paint()..color = const ui.Color(0xFFFFFFFF),
-          );
-
-          // 內容置中（若 cellH < cellSize，則在正方形中垂直置中）
-          final dstX = ((cellSize - cellW) / 2.0);
-          final dstY = ((cellSize - cellH) / 2.0);
-          canvas.drawImageRect(
-            fullImage,
-            Rect.fromLTWH(
-              (col * cellW).toDouble(),
-              (row * cellH).toDouble(),
-              cellW.toDouble(),
-              cellH.toDouble(),
-            ),
-            Rect.fromLTWH(dstX, dstY, cellW.toDouble(), cellH.toDouble()),
-            ui.Paint(),
-          );
-
-          final picture = recorder.endRecording();
-          final cropped = await picture.toImage(cellSize, cellSize);
-          final byteData =
-              await cropped.toByteData(format: ui.ImageByteFormat.png);
-          results.add(byteData?.buffer.asUint8List());
-        } catch (e) {
-          FirebaseService.log(
-            'StickerGenerationService._cropGrid: crop error at [$row,$col]: $e',
-          );
-          results.add(null);
-        }
-      }
-    }
-
-    return results;
+OUTPUT: A single square image containing exactly this ONE sticker.
+STYLE: LINE Friends / Chiikawa quality.
+''';
   }
 
-  /// API 錯誤時：同時寫入 Crashlytics log（完整 body）供事後查閱
-  ///
-  /// Crashlytics log 上限約 64 KB；body 超過 4000 字元時截斷並標注。
+  /// API 錯誤時寫入 Crashlytics log
   static void _logApiError(
     int statusCode,
     String body,
     int attempt, {
+    int index = -1,
     String label = '',
   }) {
     const maxLen = 4000;
     final truncated = body.length > maxLen;
     final bodySnippet =
         truncated ? '${body.substring(0, maxLen)}…[truncated]' : body;
-    final tag = label.isNotEmpty ? ' ($label)' : '';
+    final tag = [
+      if (index >= 0) 'index=$index',
+      if (label.isNotEmpty) label,
+    ].join(' ');
     FirebaseService.log(
-      '[API ERROR] HTTP $statusCode attempt=${attempt + 1}$tag\n$bodySnippet',
+      '[API ERROR] HTTP $statusCode attempt=${attempt + 1}'
+      '${tag.isNotEmpty ? " ($tag)" : ""}\n$bodySnippet',
     );
   }
 
@@ -228,43 +180,6 @@ class StickerGenerationService {
     final seconds = double.tryParse(m.group(1)!);
     if (seconds == null) return null;
     return Duration(milliseconds: ((seconds + 1) * 1000).round());
-  }
-
-  /// 建立 1×8 垂直堆疊 prompt
-  /// 注意：不要求 AI 畫文字，文字由 Flutter 端 overlay 渲染，避免 AI 中文亂字
-  String _buildGridPrompt(List<StickerSpec> specs) {
-    final cells = List.generate(8, (i) {
-      final s = specs[i];
-      return 'Row ${i + 1}: circle background color=${s.bgColor}, '
-          'character expression=${s.emotion}';
-    }).join('\n');
-
-    return '''
-You are a professional LINE sticker illustrator. Create a single tall image containing 8 circular LINE stickers stacked vertically (1 column × 8 rows) based on the person's face in the photo.
-
-LAYOUT:
-- 1 column, 8 rows = 8 cells total, stacked top-to-bottom
-- Each cell is a PERFECT SQUARE of identical size
-- NO gaps, borders, numbers, or labels between rows
-- NO padding at top or bottom — cells fill the entire canvas edge-to-edge
-- White background outside each circle
-
-EACH CELL DESIGN:
-- A large filled circle occupying ~90% of the cell, centered
-- Cartoon chibi face of the person in the photo (cute, Q-version)
-  * Big sparkly eyes, small nose, chubby cheeks
-  * Face fills ~80% of the circle (leave bottom 20% empty for text overlay)
-  * Clean flat illustration, thick black outlines, no photo-realism
-- DO NOT draw any text inside the circle (text will be added programmatically)
-- 3–5 small sparkles/stars/themed icons scattered inside the circle (top area only)
-- White outline (4 px) around each circle
-
-ROW SPECIFICATIONS (top to bottom):
-$cells
-
-STYLE: LINE Friends / Chiikawa quality. Each sticker must look different.
-CRITICAL: Output ONLY this 1×8 stacked image. No text, no labels, no extra borders.
-''';
   }
 }
 

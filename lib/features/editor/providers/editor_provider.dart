@@ -82,7 +82,6 @@ class _EditorFamilyNotifier
   Future<void> retryImageGeneration(int index) async {
     if (_specs == null || index >= _specs!.length) return;
 
-    // 重設為 null + 清除錯誤（loading 狀態）
     final reset = List<Uint8List?>.from(state.generatedImages);
     reset[index] = null;
     final clearErrors = List<String?>.from(state.imageErrors);
@@ -90,19 +89,18 @@ class _EditorFamilyNotifier
     state = state.copyWith(generatedImages: reset, imageErrors: clearErrors);
 
     try {
-      final resized = await ImageProcessor.resizeForNative(File(state.originalImagePath));
-      // 重新跑完整 grid，取出對應索引的裁切圖
-      final crops = await StickerGenerationService()
-          .generateAllAsGrid(resized, _specs!);
+      final resized = await ImageProcessor.resizeForNative(
+          File(state.originalImagePath));
+      final bytes = await StickerGenerationService()
+          .generateSingle(resized, _specs![index], index: index);
       final updated = List<Uint8List?>.from(state.generatedImages);
       final errors = List<String?>.from(state.imageErrors);
-      for (int i = 0; i < crops.length; i++) {
-        updated[i] = crops[i] ?? Uint8List(0);
-        if (crops[i] == null) errors[i] = 'API 未回傳圖片';
-      }
+      updated[index] = bytes ?? Uint8List(0);
+      if (bytes == null) errors[index] = 'API 未回傳圖片';
       state = state.copyWith(generatedImages: updated, imageErrors: errors);
     } catch (e, stack) {
-      await FirebaseService.recordError(e, stack, reason: 'retry_image_generation_failed');
+      await FirebaseService.recordError(e, stack,
+          reason: 'retry_image_generation_failed');
       final failed = List<Uint8List?>.from(state.generatedImages);
       failed[index] = Uint8List(0);
       final errors = List<String?>.from(state.imageErrors);
@@ -113,7 +111,7 @@ class _EditorFamilyNotifier
 
   // ─── private ────────────────────────────────────────────
 
-  /// 一次 API 呼叫生成 2×4 grid 圖，裁切後一次更新全部 8 張（非阻塞）
+  /// 逐張生成 8 張貼圖，每完成一張立即更新 state（用戶可即時看到）
   ///
   /// sentinel 規則（Uint8List?）：
   ///   null          → 生成中（loading）
@@ -121,25 +119,25 @@ class _EditorFamilyNotifier
   ///   Uint8List(>0) → 成功
   Future<void> _generateImagesInBackground(
       Uint8List photoBytes, List<StickerSpec> specs) async {
-    try {
-      final crops =
-          await StickerGenerationService().generateAllAsGrid(photoBytes, specs);
-
-      final updated = List<Uint8List?>.from(state.generatedImages);
-      final errors = List<String?>.from(state.imageErrors);
-      for (int i = 0; i < crops.length; i++) {
-        updated[i] = crops[i] ?? Uint8List(0);
-        if (crops[i] == null) errors[i] = 'API 未回傳圖片';
+    final service = StickerGenerationService();
+    for (int i = 0; i < specs.length; i++) {
+      try {
+        final bytes =
+            await service.generateSingle(photoBytes, specs[i], index: i);
+        final updated = List<Uint8List?>.from(state.generatedImages);
+        final errors = List<String?>.from(state.imageErrors);
+        updated[i] = bytes ?? Uint8List(0);
+        if (bytes == null) errors[i] = 'API 未回傳圖片';
+        state = state.copyWith(generatedImages: updated, imageErrors: errors);
+      } catch (e, stack) {
+        await FirebaseService.recordError(e, stack,
+            reason: 'background_image_gen_failed_index$i');
+        final failed = List<Uint8List?>.from(state.generatedImages);
+        failed[i] = Uint8List(0);
+        final errors = List<String?>.from(state.imageErrors);
+        errors[i] = kDebugMode ? e.toString() : _classifyError(e);
+        state = state.copyWith(generatedImages: failed, imageErrors: errors);
       }
-      state = state.copyWith(generatedImages: updated, imageErrors: errors);
-    } catch (e, stack) {
-      await FirebaseService.recordError(
-          e, stack, reason: 'background_image_gen_failed');
-      final failed = List.filled(8, Uint8List(0));
-      // Debug 模式：imageErrors 存完整錯誤訊息方便診斷
-      final errMsg = kDebugMode ? e.toString() : _classifyError(e);
-      final errors = List.filled(8, errMsg);
-      state = state.copyWith(generatedImages: failed, imageErrors: errors);
     }
   }
 
