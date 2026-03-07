@@ -5,6 +5,7 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/sticker_spec.dart';
+import '../models/sticker_style.dart';
 import 'firebase_service.dart';
 
 /// Gemini 貼圖生成服務
@@ -21,14 +22,18 @@ class StickerGenerationService {
       '/models/gemini-2.5-flash-image:generateContent';
 
   /// 生成單張貼圖，回傳 PNG bytes；失敗回傳 null
+  ///
+  /// [styleIndex] 對應 [StickerStyle.values] 的索引（預設 0 = Q版卡通）
   Future<Uint8List?> generateSingle(
     Uint8List photoBytes,
     StickerSpec spec, {
     int index = 0,
+    int styleIndex = 0,
   }) async {
+    final style = StickerStyle.values[styleIndex.clamp(0, StickerStyle.values.length - 1)];
     FirebaseService.log(
       'StickerGenerationService.generateSingle: index=$index '
-      'emotion=${spec.emotion}',
+      'emotion=${spec.emotion} style=${style.label}',
     );
 
     const maxRetries = 3;
@@ -39,7 +44,7 @@ class StickerGenerationService {
           'contents': [
             {
               'parts': [
-                {'text': _buildSinglePrompt(spec)},
+                {'text': _buildSinglePrompt(spec, style)},
                 {
                   'inlineData': {
                     'mimeType': 'image/jpeg',
@@ -128,7 +133,7 @@ class StickerGenerationService {
   // ─── private ────────────────────────────────────────────────────────────
 
   /// 單張貼圖 prompt：只產生一個圓形貼圖，最簡單最穩定
-  String _buildSinglePrompt(StickerSpec spec) {
+  String _buildSinglePrompt(StickerSpec spec, StickerStyle style) {
     return '''
 You are a professional LINE sticker illustrator. Draw ONE single circular sticker based on the person's face in the reference photo.
 
@@ -136,17 +141,14 @@ DESIGN REQUIREMENTS:
 - A single large filled circle, centered, occupying ~90% of the square canvas
 - Circle background color: ${spec.bgColor}
 - Character expression / pose: ${spec.emotion}
-- Cartoon chibi-style face of the person (cute Q-version)
-  * Big sparkly eyes, small nose, chubby cheeks
-  * Clean flat illustration, thick black outlines, no photo-realism
-  * Face and upper body fill the circle naturally (no need to leave empty space)
+- ${style.characterDesc}
 - DO NOT draw any text or letters inside the image
 - 3–5 small sparkles / stars scattered inside the circle
 - White outline (4 px) around the circle
 - White background outside the circle
 
 OUTPUT: A single square image containing exactly this ONE sticker.
-STYLE: LINE Friends / Chiikawa quality.
+STYLE: ${style.promptSuffix}
 ''';
   }
 

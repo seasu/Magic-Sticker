@@ -1,27 +1,34 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../../core/models/sticker_style.dart';
 import '../models/sticker_config.dart';
+import '../models/sticker_font.dart';
 import 'sticker_canvas.dart';
 
 /// 點圖後彈出的編輯 Bottom Sheet
 ///
-/// 提供三種編輯功能：
+/// 提供五種編輯功能：
 /// - 圖片縮放/位移（pinch-zoom + pan）
-/// - 文字編輯
+/// - 文字編輯（即時預覽）
+/// - 字型選擇（5 種繁中字體）
 /// - 配色選擇（8 組預設色系）
+/// - 產圖風格（Q版卡通 / 普普風 / 像素風 / 素描 / 水彩）
 class StickerEditSheet extends StatefulWidget {
   final int stickerIndex;
   final String initialText;
   final int initialSchemeIndex;
   final double initialScale;
   final Offset initialOffset;
+  final int initialFontIndex;
+  final int initialStyleIndex;
   final Uint8List? subjectBytes;
   final Uint8List? generatedImage;
   final ValueChanged<String> onTextChanged;
   final ValueChanged<int> onSchemeChanged;
   final void Function(double scale, Offset offset) onTransformChanged;
+  final ValueChanged<int> onFontChanged;
+  final ValueChanged<int> onStyleChanged;
 
   const StickerEditSheet({
     super.key,
@@ -30,11 +37,15 @@ class StickerEditSheet extends StatefulWidget {
     required this.initialSchemeIndex,
     required this.initialScale,
     required this.initialOffset,
+    this.initialFontIndex = 0,
+    this.initialStyleIndex = 0,
     this.subjectBytes,
     this.generatedImage,
     required this.onTextChanged,
     required this.onSchemeChanged,
     required this.onTransformChanged,
+    required this.onFontChanged,
+    required this.onStyleChanged,
   });
 
   @override
@@ -44,12 +55,16 @@ class StickerEditSheet extends StatefulWidget {
 class _StickerEditSheetState extends State<StickerEditSheet> {
   late final TextEditingController _textCtrl;
   late int _schemeIndex;
+  late int _fontIndex;
+  late int _styleIndex;
 
   @override
   void initState() {
     super.initState();
     _textCtrl = TextEditingController(text: widget.initialText);
     _schemeIndex = widget.initialSchemeIndex;
+    _fontIndex = widget.initialFontIndex;
+    _styleIndex = widget.initialStyleIndex;
   }
 
   @override
@@ -104,6 +119,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                   config: config,
                   initialScale: widget.initialScale,
                   initialOffset: widget.initialOffset,
+                  fontIndex: _fontIndex,
                   onTransformChanged: widget.onTransformChanged,
                 ),
               ),
@@ -116,15 +132,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '文字',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
+                  _SectionLabel('文字'),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _textCtrl,
@@ -149,21 +157,69 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
             ),
             const SizedBox(height: 20),
 
+            // ── 字型選擇 ──────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel('字型'),
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: List.generate(kStickerFonts.length, (i) {
+                        final font = kStickerFonts[i];
+                        final isSelected = i == _fontIndex;
+                        return GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _fontIndex = i);
+                            widget.onFontChanged(i);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.black87
+                                  : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: isSelected
+                                    ? Colors.black87
+                                    : Colors.grey.shade300,
+                              ),
+                            ),
+                            child: Text(
+                              font.label,
+                              style: font.apply(TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.black87,
+                              )),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
             // ── 配色選擇 ──────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '配色',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
+                  _SectionLabel('配色'),
                   const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -172,6 +228,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                       final isSelected = i == _schemeIndex;
                       return GestureDetector(
                         onTap: () {
+                          HapticFeedback.selectionClick();
                           setState(() => _schemeIndex = i);
                           widget.onSchemeChanged(i);
                         },
@@ -203,6 +260,79 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+
+            // ── 產圖風格 ──────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel('產圖風格'),
+                  const SizedBox(height: 4),
+                  Text(
+                    '變更後將重新生成貼圖',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: List.generate(StickerStyle.values.length, (i) {
+                        final style = StickerStyle.values[i];
+                        final isSelected = i == _styleIndex;
+                        return GestureDetector(
+                          onTap: () {
+                            if (i == _styleIndex) return;
+                            HapticFeedback.mediumImpact();
+                            setState(() => _styleIndex = i);
+                            widget.onStyleChanged(i);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.black87
+                                  : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: isSelected
+                                    ? Colors.black87
+                                    : Colors.grey.shade300,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(style.emoji,
+                                    style: const TextStyle(fontSize: 15)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  style.label,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 24),
 
             // ── 完成按鈕 ──────────────────────────────────────────────
@@ -230,6 +360,24 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: Colors.grey.shade600,
+        letterSpacing: 0.5,
       ),
     );
   }

@@ -25,6 +25,8 @@ class EditorState {
   final List<int> colorSchemeIndices;     // 每張貼圖使用哪組配色 (0-7)
   final List<double> imageScales;         // 每張貼圖的縮放值
   final List<Offset> imageOffsets;        // 每張貼圖的位移量
+  final List<int> fontIndices;            // 每張貼圖的字型索引 (0-4)
+  final List<int> styleIndices;           // 每張貼圖的產圖風格索引 (0-4)
 
   EditorState({
     required this.originalImagePath,
@@ -37,12 +39,16 @@ class EditorState {
     List<int>? colorSchemeIndices,
     List<double>? imageScales,
     List<Offset>? imageOffsets,
+    List<int>? fontIndices,
+    List<int>? styleIndices,
   })  : stickerTexts = stickerTexts ?? List.from(_kFallbackTexts),
         generatedImages = generatedImages ?? List.filled(8, null),
         imageErrors = imageErrors ?? List.filled(8, null),
         colorSchemeIndices = colorSchemeIndices ?? List.generate(8, (i) => i),
         imageScales = imageScales ?? List.filled(8, 1.0),
-        imageOffsets = imageOffsets ?? List.filled(8, Offset.zero);
+        imageOffsets = imageOffsets ?? List.filled(8, Offset.zero),
+        fontIndices = fontIndices ?? List.filled(8, 0),
+        styleIndices = styleIndices ?? List.filled(8, 0);
 
   EditorState copyWith({
     Uint8List? subjectBytes,
@@ -54,6 +60,8 @@ class EditorState {
     List<int>? colorSchemeIndices,
     List<double>? imageScales,
     List<Offset>? imageOffsets,
+    List<int>? fontIndices,
+    List<int>? styleIndices,
   }) {
     return EditorState(
       originalImagePath: originalImagePath,
@@ -66,6 +74,8 @@ class EditorState {
       colorSchemeIndices: colorSchemeIndices ?? this.colorSchemeIndices,
       imageScales: imageScales ?? this.imageScales,
       imageOffsets: imageOffsets ?? this.imageOffsets,
+      fontIndices: fontIndices ?? this.fontIndices,
+      styleIndices: styleIndices ?? this.styleIndices,
     );
   }
 }

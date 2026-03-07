@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../models/sticker_config.dart';
+import '../models/sticker_font.dart';
 
 /// LINE 貼圖畫布
 ///
@@ -22,6 +23,9 @@ class StickerCanvas extends StatefulWidget {
   /// 初始位移量（由父層傳入）
   final Offset initialOffset;
 
+  /// 字型索引（對應 kStickerFonts，0 = 黑體預設）
+  final int fontIndex;
+
   /// 點圖回呼（用於打開編輯 popup）
   final VoidCallback? onTap;
 
@@ -38,6 +42,7 @@ class StickerCanvas extends StatefulWidget {
     required this.config,
     this.initialScale = 1.0,
     this.initialOffset = Offset.zero,
+    this.fontIndex = 0,
     this.onTap,
     this.onTransformChanged,
   });
@@ -148,6 +153,7 @@ class _StickerCanvasState extends State<StickerCanvas> {
             child: _OutlinedStickerText(
               text: widget.text,
               config: widget.config,
+              fontIndex: widget.fontIndex,
             ),
           ),
         ],
@@ -184,8 +190,13 @@ class _StickerCanvasState extends State<StickerCanvas> {
 class _OutlinedStickerText extends StatelessWidget {
   final String text;
   final StickerConfig config;
+  final int fontIndex;
 
-  const _OutlinedStickerText({required this.text, required this.config});
+  const _OutlinedStickerText({
+    required this.text,
+    required this.config,
+    this.fontIndex = 0,
+  });
 
   static const _kFontSize = 22.0;
 
@@ -196,10 +207,13 @@ class _OutlinedStickerText extends StatelessWidget {
       fontWeight: FontWeight.w900,
       height: 1.2,
     );
+    final font = kStickerFonts[fontIndex.clamp(0, kStickerFonts.length - 1)];
+    final styledBase = font.apply(baseStyle);
+
     final outlineText = Text(
       text,
       textAlign: TextAlign.center,
-      style: baseStyle.copyWith(
+      style: styledBase.copyWith(
         foreground: Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 5
@@ -210,7 +224,7 @@ class _OutlinedStickerText extends StatelessWidget {
     final fillText = Text(
       text,
       textAlign: TextAlign.center,
-      style: baseStyle.copyWith(color: config.colorScheme.textFill),
+      style: styledBase.copyWith(color: config.colorScheme.textFill),
     );
 
     return SizedBox(
