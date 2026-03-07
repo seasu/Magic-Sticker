@@ -24,6 +24,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   late final AnimationController _entryCtrl;
   String _version = '';
 
+  // ── 秘密手勢：連點版本號 5 下開啟 Log ──────────────────────────────────────
+  int _tapCount = 0;
+  DateTime? _firstTapAt;
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +44,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void dispose() {
     _entryCtrl.dispose();
     super.dispose();
+  }
+
+  void _onVersionTap() {
+    final now = DateTime.now();
+    if (_firstTapAt == null ||
+        now.difference(_firstTapAt!) > const Duration(seconds: 3)) {
+      _firstTapAt = now;
+      _tapCount = 1;
+    } else {
+      _tapCount++;
+    }
+
+    final remaining = 5 - _tapCount;
+    if (remaining > 0 && remaining <= 2) {
+      HapticFeedback.selectionClick();
+    }
+
+    if (_tapCount >= 5) {
+      _tapCount = 0;
+      _firstTapAt = null;
+      HapticFeedback.mediumImpact();
+      context.push('/dev-log');
+    }
   }
 
   Future<void> _pickImage(BuildContext context, ImageSource source) async {
@@ -103,12 +130,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
             const Spacer(),
             if (_version.isNotEmpty)
-              Text(
-                _version,
-                style: GoogleFonts.nunito(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
+              GestureDetector(
+                onTap: _onVersionTap,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Text(
+                    _version,
+                    style: GoogleFonts.nunito(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                 ),
               ),
           ],
