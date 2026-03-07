@@ -150,18 +150,18 @@ class _OutlinedStickerText extends StatelessWidget {
 
   const _OutlinedStickerText({required this.text, required this.config});
 
-  static const _kFontSize = 26.0;
+  static const _kFontSize = 18.0;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(50),
         border: Border.all(
           color: config.colorScheme.borderColor,
-          width: 3,
+          width: 2.5,
         ),
         boxShadow: [
           BoxShadow(
@@ -182,7 +182,7 @@ class _OutlinedStickerText extends StatelessWidget {
               fontWeight: FontWeight.w900,
               foreground: Paint()
                 ..style = PaintingStyle.stroke
-                ..strokeWidth = 6
+                ..strokeWidth = 4
                 ..strokeJoin = StrokeJoin.round
                 ..color = Colors.white,
             ),

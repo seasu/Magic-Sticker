@@ -139,7 +139,7 @@ DESIGN REQUIREMENTS:
 - Cartoon chibi-style face of the person (cute Q-version)
   * Big sparkly eyes, small nose, chubby cheeks
   * Clean flat illustration, thick black outlines, no photo-realism
-  * Face and upper body fill the circle (leave ~20% gap at bottom for text)
+  * Face and upper body fill the circle naturally (no need to leave empty space)
 - DO NOT draw any text or letters inside the image
 - 3–5 small sparkles / stars scattered inside the circle
 - White outline (4 px) around the circle

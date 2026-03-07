@@ -1,7 +1,7 @@
 name: magic_morning
 description: 自動去背 LINE 貼圖產生器 — MagicMorning
 publish_to: 'none'
-version: 2.0.21+45
+version: 2.0.22+46
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
