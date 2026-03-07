@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -46,7 +47,7 @@ class _EditorFamilyNotifier
     _specs = await GeminiService().generateStickerSpecs(resized);
     final texts = _specs!.map((s) => s.text).toList();
     state = state.copyWith(stickerTexts: texts, status: EditorStatus.ready);
-    _generateImagesInBackground(resized, _specs!);
+    unawaited(_generateImagesInBackground(resized, _specs!));
   }
 
   /// 重新讓 AI 自由發揮，生成全新 8 組規格 + 圖片
@@ -63,7 +64,7 @@ class _EditorFamilyNotifier
       _specs = await GeminiService().generateStickerSpecs(resized);
       final texts = _specs!.map((s) => s.text).toList();
       state = state.copyWith(stickerTexts: texts, status: EditorStatus.ready);
-      _generateImagesInBackground(resized, _specs!);
+      unawaited(_generateImagesInBackground(resized, _specs!));
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack, reason: 'editor_regen_failed');
       state = state.copyWith(status: EditorStatus.ready);
@@ -114,30 +115,36 @@ class _EditorFamilyNotifier
   ///   null          → 生成中
   ///   Uint8List(0)  → 失敗（imageErrors[i] 有原因）
   ///   Uint8List(>0) → 成功
-  void _generateImagesInBackground(Uint8List photoBytes, List<StickerSpec> specs) {
-    for (int i = 0; i < specs.length; i++) {
-      final index = i;
-      final spec = specs[i];
-      StickerGenerationService().generateOne(photoBytes, spec, index).then((img) {
+  ///
+  /// 每批最多 3 張並發，完成後再送下一批，避免打爆 rate limit。
+  Future<void> _generateImagesInBackground(
+      Uint8List photoBytes, List<StickerSpec> specs) async {
+    const batchSize = 3;
+    for (int start = 0; start < specs.length; start += batchSize) {
+      final end = (start + batchSize).clamp(0, specs.length);
+      final batch = List.generate(end - start, (i) => start + i);
+
+      await Future.wait(batch.map((index) async {
         try {
+          final img = await StickerGenerationService()
+              .generateOne(photoBytes, specs[index], index);
           final updated = List<Uint8List?>.from(state.generatedImages);
           updated[index] = img ?? Uint8List(0);
           final errors = List<String?>.from(state.imageErrors);
           if (img == null) errors[index] = 'API 未回傳圖片';
           state = state.copyWith(generatedImages: updated, imageErrors: errors);
-        } catch (_) {
-          // provider 已 dispose，忽略
+        } catch (e, stack) {
+          try {
+            await FirebaseService.recordError(
+                e, stack, reason: 'background_image_gen_failed');
+            final failed = List<Uint8List?>.from(state.generatedImages);
+            failed[index] = Uint8List(0);
+            final errors = List<String?>.from(state.imageErrors);
+            errors[index] = _classifyError(e);
+            state = state.copyWith(generatedImages: failed, imageErrors: errors);
+          } catch (_) {}
         }
-      }).catchError((Object e, StackTrace stack) {
-        try {
-          FirebaseService.recordError(e, stack, reason: 'background_image_gen_failed');
-          final failed = List<Uint8List?>.from(state.generatedImages);
-          failed[index] = Uint8List(0);
-          final errors = List<String?>.from(state.imageErrors);
-          errors[index] = _classifyError(e);
-          state = state.copyWith(generatedImages: failed, imageErrors: errors);
-        } catch (_) {}
-      });
+      }));
     }
   }
 

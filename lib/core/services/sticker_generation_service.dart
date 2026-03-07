@@ -46,11 +46,6 @@ class StickerGenerationService {
     FirebaseService.log(
         'StickerGenerationService.generateOne: #$index "${spec.text}"');
 
-    // 分批錯開：每張間隔 300ms，避免 8 張同時觸發 rate limit
-    if (index > 0) {
-      await Future.delayed(Duration(milliseconds: index * 300));
-    }
-
     const maxRetries = 3;
 
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
