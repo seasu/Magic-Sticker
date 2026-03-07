@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/theme/app_theme.dart';
+import 'features/dev_log/screens/log_viewer_screen.dart';
 import 'features/editor/screens/editor_screen.dart';
 import 'features/home/screens/home_screen.dart';
 
@@ -18,6 +19,10 @@ final _router = GoRouter(
         final imagePath = state.extra as String;
         return EditorScreen(imagePath: imagePath);
       },
+    ),
+    GoRoute(
+      path: '/dev-log',
+      builder: (_, __) => const LogViewerScreen(),
     ),
   ],
 );

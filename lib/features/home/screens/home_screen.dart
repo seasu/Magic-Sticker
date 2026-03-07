@@ -237,6 +237,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             if (kDebugMode) ...[
               const SizedBox(height: 16),
               OutlinedButton.icon(
+                onPressed: () => context.push('/dev-log'),
+                icon: const Icon(Icons.terminal_rounded, size: 18),
+                label: const Text('[DEBUG] 查看 App Log'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(44),
+                  foregroundColor: Colors.deepPurple,
+                  side: const BorderSide(color: Colors.deepPurple),
+                ),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
                 onPressed: () => FirebaseCrashlytics.instance.crash(),
                 icon: const Icon(Icons.bug_report_outlined, size: 18),
                 label: const Text('[DEBUG] 測試 Crashlytics'),
