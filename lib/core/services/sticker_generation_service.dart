@@ -75,7 +75,7 @@ class StickerGenerationService {
             await Future.delayed(delay);
             continue;
           }
-          return List.filled(8, null);
+          throw StickerApiException(429, response.body);
         }
 
         if (response.statusCode != 200) {
@@ -92,7 +92,7 @@ class StickerGenerationService {
             await Future.delayed(delay);
             continue;
           }
-          return List.filled(8, null);
+          throw StickerApiException(response.statusCode, response.body);
         }
 
         final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -118,7 +118,7 @@ class StickerGenerationService {
         }
 
         FirebaseService.log('StickerGenerationService: no image part in grid response');
-        return List.filled(8, null);
+        throw StickerApiException(200, 'API 回傳無圖片（response body）:\n${response.body}');
 
       } catch (e, stack) {
         await FirebaseService.recordError(
@@ -238,4 +238,15 @@ STYLE: LINE Friends / Chiikawa quality. Each sticker must look different from th
 CRITICAL: Output ONLY the grid image. No text, no labels, no borders outside the cells.
 ''';
   }
+}
+
+/// Gemini API 呼叫失敗時拋出，攜帶完整錯誤資訊供 UI 顯示
+class StickerApiException implements Exception {
+  final int statusCode;
+  final String body;
+
+  const StickerApiException(this.statusCode, this.body);
+
+  @override
+  String toString() => 'StickerApiException HTTP $statusCode:\n$body';
 }

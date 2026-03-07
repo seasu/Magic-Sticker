@@ -431,12 +431,27 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isFailed) {
-      final label = reason != null ? '$reason，點此重試' : 'AI 生成失敗，點此重試';
-      return GestureDetector(
+      const shortLabel = 'AI 生成失敗，點此重試';
+      final badge = GestureDetector(
         onTap: () {
           HapticFeedback.mediumImpact();
           onRetry?.call();
         },
+        onLongPress: reason == null
+            ? null
+            : () => showDialog<void>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('API 錯誤詳情'),
+                    content: SingleChildScrollView(child: SelectableText(reason!)),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('關閉'),
+                      ),
+                    ],
+                  ),
+                ),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -456,7 +471,7 @@ class _StatusBadge extends StatelessWidget {
               const Icon(Icons.error_outline, size: 13, color: Colors.white),
               const SizedBox(width: 5),
               Text(
-                label,
+                shortLabel,
                 style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
               ),
               const SizedBox(width: 5),
@@ -465,6 +480,7 @@ class _StatusBadge extends StatelessWidget {
           ),
         ),
       );
+      return badge;
     }
 
     return Container(

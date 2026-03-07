@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/sticker_spec.dart';
@@ -136,7 +137,9 @@ class _EditorFamilyNotifier
       await FirebaseService.recordError(
           e, stack, reason: 'background_image_gen_failed');
       final failed = List.filled(8, Uint8List(0));
-      final errors = List.filled(8, _classifyError(e));
+      // Debug 模式：imageErrors 存完整錯誤訊息方便診斷
+      final errMsg = kDebugMode ? e.toString() : _classifyError(e);
+      final errors = List.filled(8, errMsg);
       state = state.copyWith(generatedImages: failed, imageErrors: errors);
     }
   }
