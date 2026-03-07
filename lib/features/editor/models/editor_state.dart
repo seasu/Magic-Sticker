@@ -18,6 +18,7 @@ class EditorState {
   final Uint8List? subjectBytes;          // 去背結果 PNG（保留作 fallback）
   final List<String> stickerTexts;        // 8 組情感標語（fallback 用）
   final List<Uint8List?> generatedImages; // 8 張 Gemini 生成圓形貼圖（null = 仍在生成）
+  final List<String?> imageErrors;        // 對應每張的失敗原因（null = 無錯誤）
   final EditorStatus status;
   final String? errorMessage;
 
@@ -26,15 +27,18 @@ class EditorState {
     this.subjectBytes,
     List<String>? stickerTexts,
     List<Uint8List?>? generatedImages,
+    List<String?>? imageErrors,
     this.status = EditorStatus.idle,
     this.errorMessage,
   })  : stickerTexts = stickerTexts ?? List.from(_kFallbackTexts),
-        generatedImages = generatedImages ?? List.filled(8, null);
+        generatedImages = generatedImages ?? List.filled(8, null),
+        imageErrors = imageErrors ?? List.filled(8, null);
 
   EditorState copyWith({
     Uint8List? subjectBytes,
     List<String>? stickerTexts,
     List<Uint8List?>? generatedImages,
+    List<String?>? imageErrors,
     EditorStatus? status,
     String? errorMessage,
   }) {
@@ -43,6 +47,7 @@ class EditorState {
       subjectBytes: subjectBytes ?? this.subjectBytes,
       stickerTexts: stickerTexts ?? this.stickerTexts,
       generatedImages: generatedImages ?? this.generatedImages,
+      imageErrors: imageErrors ?? this.imageErrors,
       status: status ?? this.status,
       errorMessage: errorMessage,
     );
