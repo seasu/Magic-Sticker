@@ -79,10 +79,19 @@ class StickerGenerationService {
         }
 
         if (response.statusCode != 200) {
+          final snippet = response.body.length > 500
+              ? response.body.substring(0, 500)
+              : response.body;
           FirebaseService.log(
             'StickerGenerationService: HTTP ${response.statusCode} '
-            '— ${response.body.substring(0, 300.clamp(0, response.body.length))}',
+            '(attempt ${attempt + 1}) — $snippet',
           );
+          // 5xx server error → retry；4xx（除 429）→ 直接失敗
+          if (response.statusCode >= 500 && attempt < maxRetries) {
+            final delay = Duration(seconds: (attempt + 1) * 5);
+            await Future.delayed(delay);
+            continue;
+          }
           return List.filled(8, null);
         }
 
