@@ -121,7 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               shaderCallback: (b) => AppColors.gradient.createShader(b),
               child: Text(
                 'MagicMorning',
-                style: GoogleFonts.nunito(
+                style: GoogleFonts.notoSansTc(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
                   color: Colors.white,
@@ -137,7 +137,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   padding: const EdgeInsets.all(4),
                   child: Text(
                     _version,
-                    style: GoogleFonts.nunito(
+                    style: GoogleFonts.notoSansTc(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textSecondary,
@@ -179,7 +179,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               children: [
                 Text(
                   '選一張照片',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.notoSansTc(
                     fontSize: 34,
                     fontWeight: FontWeight.w900,
                     color: AppColors.textPrimary,
@@ -189,7 +189,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 Text(
                   '一鍵生成 3 張 LINE 貼圖 ✨',
-                  style: GoogleFonts.nunito(
+                  style: GoogleFonts.notoSansTc(
                     fontSize: 26,
                     fontWeight: FontWeight.w900,
                     color: AppColors.textPrimary,
@@ -215,7 +215,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             },
             child: Text(
               'AI 自動去背 · 生成文案 · 滑動選擇',
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.notoSansTc(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textSecondary,
@@ -399,7 +399,7 @@ class _MiniStickerCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             data.text,
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.notoSansTc(
               fontSize: 14,
               fontWeight: FontWeight.w900,
               color: Colors.white,

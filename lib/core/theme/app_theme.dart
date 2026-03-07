@@ -15,14 +15,14 @@ class AppTheme {
           brightness: Brightness.light,
         ),
         scaffoldBackgroundColor: AppColors.background,
-        // Nunito 全域字型（粗體感、圓潤、類 LINE 貼圖感）
-        textTheme: GoogleFonts.nunitoTextTheme(),
+        // Noto Sans TC：繁體中文 + Latin 全覆蓋，避免 Nunito 缺字回落亂字
+        textTheme: GoogleFonts.notoSansTcTextTheme(),
         appBarTheme: AppBarTheme(
           backgroundColor: AppColors.background,
           elevation: 0,
           scrolledUnderElevation: 0,
           systemOverlayStyle: SystemUiOverlayStyle.dark,
-          titleTextStyle: GoogleFonts.nunito(
+          titleTextStyle: GoogleFonts.notoSansTc(
             fontSize: 18,
             fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
@@ -41,7 +41,7 @@ class AppTheme {
             borderRadius: BorderRadius.circular(12),
           ),
           backgroundColor: AppColors.textPrimary,
-          contentTextStyle: GoogleFonts.nunito(
+          contentTextStyle: GoogleFonts.notoSansTc(
             color: Colors.white,
             fontWeight: FontWeight.w600,
           ),
@@ -72,6 +72,6 @@ class AppTheme {
           seedColor: _brandSeed,
           brightness: Brightness.dark,
         ),
-        textTheme: GoogleFonts.nunitoTextTheme(ThemeData.dark().textTheme),
+        textTheme: GoogleFonts.notoSansTcTextTheme(ThemeData.dark().textTheme),
       );
 }

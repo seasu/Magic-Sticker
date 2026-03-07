@@ -96,7 +96,7 @@ class _PickImageButtonState extends State<PickImageButton>
             const SizedBox(width: 8),
             Text(
               widget.label,
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.notoSansTc(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
@@ -123,7 +123,7 @@ class _PickImageButtonState extends State<PickImageButton>
             const SizedBox(width: 8),
             Text(
               widget.label,
-              style: GoogleFonts.nunito(
+              style: GoogleFonts.notoSansTc(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary,
