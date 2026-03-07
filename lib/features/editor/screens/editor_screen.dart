@@ -14,8 +14,8 @@ import '../../../core/theme/app_colors.dart';
 import '../models/editor_state.dart';
 import '../models/sticker_config.dart';
 import '../providers/editor_provider.dart';
-import '../widgets/caption_editor.dart';
 import '../widgets/sticker_canvas.dart';
+import '../widgets/sticker_edit_sheet.dart';
 import '../widgets/sticker_swipe_card.dart';
 
 // ── 顏色常數（使用 AppColors 統一管理） ──────────────────────────────────────
@@ -77,6 +77,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         );
       }
 
+      // 儲存前確保 runtime 權限已授予（Android 13+ READ_MEDIA_IMAGES）
+      if (!await Gal.hasAccess()) {
+        final granted = await Gal.requestAccess();
+        if (!granted) {
+          throw const GalException(type: GalExceptionType.accessDenied);
+        }
+      }
+
       await Gal.putImageBytes(bytes);
       await FirebaseAnalytics.instance.logEvent(name: 'sticker_generated');
       setState(() {
@@ -84,6 +92,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         _isExporting = false;
         _currentIndex++;
       });
+    } on GalException catch (e, stack) {
+      await FirebaseService.recordError(e, stack,
+          reason: 'editor_export_failed');
+      setState(() => _isExporting = false);
+      if (!mounted) return;
+      final msg = switch (e.type) {
+        GalExceptionType.accessDenied => '請至設定開啟相簿存取權限',
+        GalExceptionType.notEnoughSpace => '儲存空間不足，請清理後重試',
+        _ => '儲存失敗，請重試',
+      };
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack,
           reason: 'editor_export_failed');
@@ -99,6 +118,34 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 
   void _reject() => setState(() => _currentIndex++);
+
+  void _openEditSheet() {
+    final state = ref.read(editorStateProvider(widget.imagePath));
+    final notifier = ref.read(editorStateProvider(widget.imagePath).notifier);
+    final idx = _currentIndex;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => StickerEditSheet(
+        stickerIndex: idx,
+        initialText: state.stickerTexts[idx],
+        initialSchemeIndex: state.colorSchemeIndices[idx],
+        initialScale: state.imageScales[idx],
+        initialOffset: state.imageOffsets[idx],
+        subjectBytes: state.subjectBytes,
+        generatedImage: state.generatedImages[idx],
+        onTextChanged: (text) => notifier.updateStickerText(idx, text),
+        onSchemeChanged: (si) => notifier.updateColorSchemeIndex(idx, si),
+        onTransformChanged: (s, o) =>
+            notifier.updateImageTransform(idx, s, o),
+      ),
+    );
+  }
 
   void _regenerate() {
     setState(() {
@@ -155,6 +202,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   cardController: _cardController,
                   onAccepted: _accept,
                   onRejected: _reject,
+                  onEdit: _openEditSheet,
                   onRetry: () => ref
                       .read(editorStateProvider(widget.imagePath).notifier)
                       .retryImageGeneration(_currentIndex),
@@ -169,15 +217,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   onNope: _isExporting ? null : () => _cardController.reject(),
                   onLike: _isExporting ? null : () => _cardController.accept(),
                 ),
-              ),
-
-              // ── 文字編輯（簡潔內嵌） ──────────────────────────────
-              _InlineTextEditor(
-                text: state.stickerTexts[_currentIndex],
-                stickerIndex: _currentIndex,
-                onChanged: (t) => ref
-                    .read(editorStateProvider(widget.imagePath).notifier)
-                    .updateStickerText(_currentIndex, t),
               ),
             ],
           ],
@@ -277,6 +316,7 @@ class _CardStack extends StatelessWidget {
   final StickerSwipeCardController cardController;
   final VoidCallback onAccepted;
   final VoidCallback onRejected;
+  final VoidCallback onEdit;
   final VoidCallback? onRetry;
 
   const _CardStack({
@@ -286,6 +326,7 @@ class _CardStack extends StatelessWidget {
     required this.cardController,
     required this.onAccepted,
     required this.onRejected,
+    required this.onEdit,
     this.onRetry,
   });
 
@@ -304,7 +345,10 @@ class _CardStack extends StatelessWidget {
                 subjectBytes: state.subjectBytes,
                 generatedImage: state.generatedImages[currentIndex + 2],
                 text: state.stickerTexts[currentIndex + 2],
-                config: kStickerConfigs[currentIndex + 2],
+                config: kStickerConfigs[
+                    state.colorSchemeIndices[currentIndex + 2]],
+                initialScale: state.imageScales[currentIndex + 2],
+                initialOffset: state.imageOffsets[currentIndex + 2],
               ),
             ),
           ),
@@ -319,7 +363,10 @@ class _CardStack extends StatelessWidget {
                 subjectBytes: state.subjectBytes,
                 generatedImage: state.generatedImages[currentIndex + 1],
                 text: state.stickerTexts[currentIndex + 1],
-                config: kStickerConfigs[currentIndex + 1],
+                config: kStickerConfigs[
+                    state.colorSchemeIndices[currentIndex + 1]],
+                initialScale: state.imageScales[currentIndex + 1],
+                initialOffset: state.imageOffsets[currentIndex + 1],
               ),
             ),
           ),
@@ -338,7 +385,10 @@ class _CardStack extends StatelessWidget {
                 subjectBytes: state.subjectBytes,
                 generatedImage: state.generatedImages[currentIndex],
                 text: state.stickerTexts[currentIndex],
-                config: kStickerConfigs[currentIndex],
+                config: kStickerConfigs[state.colorSchemeIndices[currentIndex]],
+                initialScale: state.imageScales[currentIndex],
+                initialOffset: state.imageOffsets[currentIndex],
+                onTap: onEdit,
               ),
               // ── 生成中 badge ──────────────────────────────────────
               if (state.generatedImages[currentIndex] == null)
@@ -371,6 +421,9 @@ class _StickerCard extends StatelessWidget {
   final Uint8List? generatedImage;
   final String text;
   final StickerConfig config;
+  final double initialScale;
+  final Offset initialOffset;
+  final VoidCallback? onTap;
 
   const _StickerCard({
     this.repaintKey,
@@ -378,6 +431,9 @@ class _StickerCard extends StatelessWidget {
     this.generatedImage,
     required this.text,
     required this.config,
+    this.initialScale = 1.0,
+    this.initialOffset = Offset.zero,
+    this.onTap,
   });
 
   @override
@@ -387,6 +443,9 @@ class _StickerCard extends StatelessWidget {
       generatedImage: generatedImage,
       text: text,
       config: config,
+      initialScale: initialScale,
+      initialOffset: initialOffset,
+      onTap: onTap,
     );
 
     return Container(
@@ -658,29 +717,6 @@ class _CircleButtonState extends State<_CircleButton>
           ),
         ),
       ),
-    );
-  }
-}
-
-// ─── 內嵌文字編輯器（簡潔版） ─────────────────────────────────────────────
-
-class _InlineTextEditor extends StatelessWidget {
-  final String text;
-  final int stickerIndex;
-  final ValueChanged<String> onChanged;
-
-  const _InlineTextEditor({
-    required this.text,
-    required this.stickerIndex,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return CaptionEditor(
-      text: text,
-      stickerIndex: stickerIndex,
-      onTextChanged: onChanged,
     );
   }
 }

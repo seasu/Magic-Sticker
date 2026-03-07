@@ -16,6 +16,18 @@ class StickerCanvas extends StatefulWidget {
   final String text;
   final StickerConfig config; // 僅 fallback 模式使用配色
 
+  /// 初始縮放值（由父層傳入，用於跨 popup 保留位移/縮放狀態）
+  final double initialScale;
+
+  /// 初始位移量（由父層傳入）
+  final Offset initialOffset;
+
+  /// 點圖回呼（用於打開編輯 popup）
+  final VoidCallback? onTap;
+
+  /// 縮放/位移變化後的回呼（用於持久化狀態）
+  final void Function(double scale, Offset offset)? onTransformChanged;
+
   static const double aspectRatio = 740 / 640;
 
   const StickerCanvas({
@@ -24,6 +36,10 @@ class StickerCanvas extends StatefulWidget {
     this.generatedImage,
     required this.text,
     required this.config,
+    this.initialScale = 1.0,
+    this.initialOffset = Offset.zero,
+    this.onTap,
+    this.onTransformChanged,
   });
 
   @override
@@ -31,18 +47,35 @@ class StickerCanvas extends StatefulWidget {
 }
 
 class _StickerCanvasState extends State<StickerCanvas> {
-  double _scale = 1.0;
-  Offset _offset = Offset.zero;
+  late double _scale;
+  late Offset _offset;
   double _startScale = 1.0;
   Offset _startFocalPoint = Offset.zero;
   Offset _startOffset = Offset.zero;
 
   @override
+  void initState() {
+    super.initState();
+    _scale = widget.initialScale;
+    _offset = widget.initialOffset;
+  }
+
+  @override
   void didUpdateWidget(StickerCanvas old) {
     super.didUpdateWidget(old);
+    // 圖片首次到達時重置視角
     if (old.generatedImage == null && widget.generatedImage != null) {
       _offset = Offset.zero;
       _scale = 1.0;
+      return;
+    }
+    // 父層（popup 關閉後）更新 transform 時同步
+    if (old.initialScale != widget.initialScale ||
+        old.initialOffset != widget.initialOffset) {
+      setState(() {
+        _scale = widget.initialScale;
+        _offset = widget.initialOffset;
+      });
     }
   }
 
@@ -57,17 +90,21 @@ class _StickerCanvasState extends State<StickerCanvas> {
       _scale = (_startScale * d.scale).clamp(0.5, 4.0);
       _offset = _startOffset + (d.localFocalPoint - _startFocalPoint);
     });
+    widget.onTransformChanged?.call(_scale, _offset);
   }
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: StickerCanvas.aspectRatio,
-      child: _hasAiImage
-          ? _buildAiImage()
-          : _hasFailed
-              ? _buildFailedPlaceholder()
-              : _buildFallback(),
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: AspectRatio(
+        aspectRatio: StickerCanvas.aspectRatio,
+        child: _hasAiImage
+            ? _buildAiImage()
+            : _hasFailed
+                ? _buildFailedPlaceholder()
+                : _buildFallback(),
+      ),
     );
   }
 
@@ -154,33 +191,38 @@ class _OutlinedStickerText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: _kFontSize,
-            fontWeight: FontWeight.w900,
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 5
-              ..strokeJoin = StrokeJoin.round
-              ..color = Colors.white,
-          ),
+    const baseStyle = TextStyle(
+      fontSize: _kFontSize,
+      fontWeight: FontWeight.w900,
+      height: 1.2,
+    );
+    final outlineText = Text(
+      text,
+      textAlign: TextAlign.center,
+      style: baseStyle.copyWith(
+        foreground: Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 5
+          ..strokeJoin = StrokeJoin.round
+          ..color = Colors.white,
+      ),
+    );
+    final fillText = Text(
+      text,
+      textAlign: TextAlign.center,
+      style: baseStyle.copyWith(color: config.colorScheme.textFill),
+    );
+
+    return SizedBox(
+      width: double.infinity,
+      child: FittedBox(
+        fit: BoxFit.fitWidth,
+        child: Stack(
+          alignment: Alignment.center,
+          textDirection: TextDirection.ltr,
+          children: [outlineText, fillText],
         ),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: _kFontSize,
-            fontWeight: FontWeight.w900,
-            color: config.colorScheme.textFill,
-            height: 1.2,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

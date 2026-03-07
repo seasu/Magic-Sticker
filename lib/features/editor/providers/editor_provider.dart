@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show Offset;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,11 +72,27 @@ class _EditorFamilyNotifier
     }
   }
 
-  /// 使用者手動修改第 [index] 張貼圖的文字（fallback 模式用）
+  /// 使用者手動修改第 [index] 張貼圖的文字
   void updateStickerText(int index, String text) {
     final updated = List<String>.from(state.stickerTexts);
     updated[index] = text;
     state = state.copyWith(stickerTexts: updated);
+  }
+
+  /// 使用者在編輯 popup 選擇不同配色
+  void updateColorSchemeIndex(int stickerIdx, int schemeIdx) {
+    final updated = List<int>.from(state.colorSchemeIndices);
+    updated[stickerIdx] = schemeIdx;
+    state = state.copyWith(colorSchemeIndices: updated);
+  }
+
+  /// 使用者在編輯 popup 縮放/位移圖片
+  void updateImageTransform(int stickerIdx, double scale, Offset offset) {
+    final scales = List<double>.from(state.imageScales);
+    final offsets = List<Offset>.from(state.imageOffsets);
+    scales[stickerIdx] = scale;
+    offsets[stickerIdx] = offset;
+    state = state.copyWith(imageScales: scales, imageOffsets: offsets);
   }
 
   /// 重新生成指定索引的 AI 貼圖（單張重試）
