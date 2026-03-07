@@ -1,16 +1,18 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:flutter/painting.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/sticker_spec.dart';
 import 'firebase_service.dart';
 
-/// Imagen 3 貼圖生成服務（生圖專用）
+/// Gemini 2.0 Flash Image Generation 貼圖生成服務
 ///
-/// 分析照片用 GeminiService（vision），生圖用本服務（Imagen）。
-/// 逐一呼叫 Imagen API 產出 8 張獨立貼圖，回傳 List<Uint8List?>。
+/// 一次 API 呼叫生成 2×4 grid 圖（共 8 張貼圖），收到後裁切回傳 8 張。
+/// 只消耗 1 個 API 請求，大幅降低 rate-limit 壓力。
 ///
 /// 注意：需在 dart-define 設定 GEMINI_API_KEY
 class StickerGenerationService {
@@ -18,51 +20,39 @@ class StickerGenerationService {
 
   static const _endpoint =
       'https://generativelanguage.googleapis.com/v1beta'
-      '/models/imagen-3.0-generate-002:predict';
+      '/models/gemini-2.0-flash-preview-image-generation:generateContent';
 
-  /// 生成 8 張貼圖，逐一呼叫 Imagen API
+  /// 一次呼叫生成 8 張貼圖（2 欄 × 4 列 grid），裁切後回傳 List<Uint8List?>
   ///
-  /// [photoBytes] 保留參數以維持呼叫介面相容性（Imagen 為純文字生圖，照片不送入 API）
-  /// 回傳長度固定為 8，對應索引 0–7；失敗時對應位置為 null。
+  /// 回傳長度固定為 8，對應索引 0–7。
+  /// 失敗時對應位置為 null。
   Future<List<Uint8List?>> generateAllAsGrid(
     Uint8List photoBytes,
     List<StickerSpec> specs,
   ) async {
     assert(specs.length == 8, 'generateAllAsGrid expects exactly 8 specs');
-    FirebaseService.log('StickerGenerationService.generateAllAsGrid: start (Imagen 3)');
+    FirebaseService.log('StickerGenerationService.generateAllAsGrid: start');
 
-    final results = <Uint8List?>[];
-    for (int i = 0; i < specs.length; i++) {
-      final imageBytes = await _generateOne(i, specs[i]);
-      results.add(imageBytes);
-    }
-
-    final successCount = results.where((b) => b != null).length;
-    FirebaseService.log(
-      'StickerGenerationService.generateAllAsGrid: done ($successCount/8 succeeded)',
-    );
-    if (successCount > 0) {
-      await FirebaseAnalytics.instance.logEvent(name: 'sticker_images_generated');
-    }
-    return results;
-  }
-
-  // ─── private ────────────────────────────────────────────────────────────
-
-  /// 單張貼圖生成（含重試）
-  Future<Uint8List?> _generateOne(int index, StickerSpec spec) async {
     const maxRetries = 3;
 
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         final body = jsonEncode({
-          'instances': [
-            {'prompt': _buildStickerPrompt(spec)},
+          'contents': [
+            {
+              'parts': [
+                {'text': _buildGridPrompt(specs)},
+                {
+                  'inlineData': {
+                    'mimeType': 'image/jpeg',
+                    'data': base64Encode(photoBytes),
+                  }
+                },
+              ],
+            }
           ],
-          'parameters': {
-            'sampleCount': 1,
-            'aspectRatio': '1:1',
-            'outputOptions': {'mimeType': 'image/png'},
+          'generationConfig': {
+            'responseModalities': ['IMAGE', 'TEXT'],
           },
         });
 
@@ -72,72 +62,132 @@ class StickerGenerationService {
               headers: {'Content-Type': 'application/json'},
               body: body,
             )
-            .timeout(const Duration(seconds: 60));
+            .timeout(const Duration(seconds: 90)); // grid 較大，給更長 timeout
 
         if (response.statusCode == 429) {
           if (attempt < maxRetries) {
             final delay = _parseRetryDelay(response.body) ??
                 Duration(seconds: (attempt + 1) * 15);
             FirebaseService.log(
-              'StickerGenerationService: sticker[$index] rate-limited, '
+              'StickerGenerationService: grid rate-limited, '
               'retry ${attempt + 1}/$maxRetries in ${delay.inSeconds}s',
             );
             await Future.delayed(delay);
             continue;
           }
-          _logApiError(429, response.body, attempt, label: 'sticker[$index]');
-          return null;
+          _logApiError(429, response.body, attempt);
+          throw StickerApiException(429, response.body);
         }
 
         if (response.statusCode != 200) {
-          _logApiError(
-            response.statusCode, response.body, attempt,
-            label: 'sticker[$index]',
-          );
+          _logApiError(response.statusCode, response.body, attempt);
+          // 5xx server error → retry；4xx（除 429）→ 直接失敗
           if (response.statusCode >= 500 && attempt < maxRetries) {
-            await Future.delayed(Duration(seconds: (attempt + 1) * 5));
+            final delay = Duration(seconds: (attempt + 1) * 5);
+            await Future.delayed(delay);
             continue;
           }
-          return null;
+          throw StickerApiException(response.statusCode, response.body);
         }
 
         final json = jsonDecode(response.body) as Map<String, dynamic>;
-        final predictions = json['predictions'] as List<dynamic>?;
-        if (predictions == null || predictions.isEmpty) {
-          _logApiError(
-            200, response.body, attempt,
-            label: 'sticker[$index] no predictions',
-          );
-          return null;
+        final parts =
+            json['candidates'][0]['content']['parts'] as List<dynamic>;
+
+        for (final part in parts) {
+          if (part is Map<String, dynamic> && part.containsKey('inlineData')) {
+            final mimeType = part['inlineData']['mimeType'] as String;
+            if (mimeType.startsWith('image/')) {
+              final gridBytes =
+                  base64Decode(part['inlineData']['data'] as String);
+              FirebaseService.log(
+                'StickerGenerationService: grid received '
+                '(${gridBytes.lengthInBytes} bytes), cropping…',
+              );
+              final crops = await _cropGrid(gridBytes, cols: 2, rows: 4);
+              await FirebaseAnalytics.instance
+                  .logEvent(name: 'sticker_images_generated');
+              return crops;
+            }
+          }
         }
 
-        final encoded = predictions[0]['bytesBase64Encoded'] as String?;
-        if (encoded == null) {
-          _logApiError(
-            200, response.body, attempt,
-            label: 'sticker[$index] no bytes',
-          );
-          return null;
-        }
-
-        final bytes = base64Decode(encoded);
-        FirebaseService.log(
-          'StickerGenerationService._generateOne[$index]: ${bytes.lengthInBytes} bytes',
-        );
-        return bytes;
+        _logApiError(200, response.body, attempt, label: 'no image part');
+        throw StickerApiException(200, 'API 回傳無圖片（response body）:\n${response.body}');
 
       } catch (e, stack) {
         await FirebaseService.recordError(
-          e, stack, reason: 'sticker_imagen_failed_index_$index',
+          e, stack, reason: 'sticker_grid_gen_failed',
         );
-        return null;
+        return List.filled(8, null);
       }
     }
 
-    return null;
+    return List.filled(8, null);
   }
 
-  /// API 錯誤時寫入 Crashlytics log（body 超過 4000 字元截斷）
+  // ─── private ────────────────────────────────────────────────────────────
+
+  /// grid 圖裁切：將大圖均分為 cols×rows 個格子，回傳 PNG bytes list
+  /// 順序：左→右、上→下（與 prompt 編號一致）
+  Future<List<Uint8List?>> _cropGrid(
+    Uint8List imageBytes, {
+    required int cols,
+    required int rows,
+  }) async {
+    // 解碼完整圖片
+    final codec = await ui.instantiateImageCodec(imageBytes);
+    final frame = await codec.getNextFrame();
+    final fullImage = frame.image;
+
+    final cellW = fullImage.width ~/ cols;
+    final cellH = fullImage.height ~/ rows;
+
+    FirebaseService.log(
+      'StickerGenerationService._cropGrid: '
+      '${fullImage.width}×${fullImage.height} → ${cellW}×$cellH per cell',
+    );
+
+    final results = <Uint8List?>[];
+
+    for (int row = 0; row < rows; row++) {
+      for (int col = 0; col < cols; col++) {
+        try {
+          final recorder = ui.PictureRecorder();
+          final canvas = ui.Canvas(recorder);
+
+          canvas.drawImageRect(
+            fullImage,
+            Rect.fromLTWH(
+              (col * cellW).toDouble(),
+              (row * cellH).toDouble(),
+              cellW.toDouble(),
+              cellH.toDouble(),
+            ),
+            Rect.fromLTWH(0, 0, cellW.toDouble(), cellH.toDouble()),
+            ui.Paint(),
+          );
+
+          final picture = recorder.endRecording();
+          final cropped = await picture.toImage(cellW, cellH);
+          final byteData =
+              await cropped.toByteData(format: ui.ImageByteFormat.png);
+          results.add(byteData?.buffer.asUint8List());
+        } catch (e) {
+          FirebaseService.log(
+            'StickerGenerationService._cropGrid: crop error at [$row,$col]: $e',
+          );
+          results.add(null);
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /// API 錯誤時：同時寫入 Crashlytics log（完整 body）供事後查閱
+  ///
+  /// Crashlytics log 上限約 64 KB；body 超過 4000 字元時截斷並標注。
   static void _logApiError(
     int statusCode,
     String body,
@@ -154,7 +204,7 @@ class StickerGenerationService {
     );
   }
 
-  /// 從錯誤訊息解析「retry in X.Xs」秒數
+  /// 從 Gemini 錯誤訊息解析「retry in X.Xs」秒數
   static Duration? _parseRetryDelay(String body) {
     final m = RegExp(r'retry in (\d+(?:\.\d+)?)s', caseSensitive: false)
         .firstMatch(body);
@@ -164,21 +214,47 @@ class StickerGenerationService {
     return Duration(milliseconds: ((seconds + 1) * 1000).round());
   }
 
-  /// 建立單張貼圖的 Imagen prompt
-  String _buildStickerPrompt(StickerSpec spec) {
-    return 'A single cute chibi LINE sticker illustration. '
-        'Circular design with ${spec.bgColor} solid background filling the circle. '
-        'Cartoon chibi character with big sparkly eyes, small nose, chubby cheeks, '
-        'showing "${spec.emotion}" expression. '
-        'Bold rounded Chinese text "${spec.text}" centered at the bottom inside the circle. '
-        '3 to 5 small sparkles or themed icons inside the circle. '
-        'White 4px outline around the circle. Pure white outside the circle. '
-        'Clean flat illustration, thick outlines, no photo-realism. '
-        'LINE Friends / Chiikawa quality sticker.';
+  /// 建立 2×4 grid prompt，明確編號每個格子的貼圖規格
+  String _buildGridPrompt(List<StickerSpec> specs) {
+    final cells = List.generate(8, (i) {
+      final s = specs[i];
+      final row = i ~/ 2 + 1;
+      final col = i % 2 + 1;
+      return 'Cell ${i + 1} (row $row, col $col): '
+          'background=${s.bgColor}, expression=${s.emotion}, '
+          'Chinese text="${s.text}"';
+    }).join('\n');
+
+    return '''
+You are a professional LINE sticker illustrator. Create a single image containing a 2-column × 4-row grid of 8 circular LINE stickers based on the person's face in the photo.
+
+GRID LAYOUT:
+- 2 columns, 4 rows = 8 cells total
+- Cells are arranged left-to-right, top-to-bottom (cell 1 = top-left, cell 2 = top-right, cell 3 = row2-left, …, cell 8 = bottom-right)
+- Each cell is EXACTLY equal in size. NO borders, labels, numbers, or gaps between cells — pure seamless white space only at outer edges
+- Total canvas: white background
+
+EACH CELL DESIGN:
+- A large filled circle (occupying ~90% of the cell) centered in the cell
+- Pure white outside the circle
+- Cartoon chibi face of the person in the photo (cute, simplified, Q-version)
+  * Big sparkly eyes, small nose, chubby cheeks
+  * Face fills ~65% of the circle (upper portion)
+  * Clean flat illustration, thick outlines, no photo-realism
+- Chinese text in bold rounded font, bottom 25% inside the circle, white with shadow
+- 3–5 small sparkles/stars/themed icons scattered inside the circle
+- White outline (4px) around each circle
+
+CELL SPECIFICATIONS (left→right, top→bottom):
+$cells
+
+STYLE: LINE Friends / Chiikawa quality. Each sticker must look different from the others.
+CRITICAL: Output ONLY the grid image. No text, no labels, no borders outside the cells.
+''';
   }
 }
 
-/// Imagen API 呼叫失敗時拋出，攜帶完整錯誤資訊
+/// Gemini API 呼叫失敗時拋出，攜帶完整錯誤資訊供 UI 顯示
 class StickerApiException implements Exception {
   final int statusCode;
   final String body;
