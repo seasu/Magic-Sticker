@@ -39,24 +39,11 @@ jobs:
           flutter build apk --release \
             --dart-define=GEMINI_API_KEY=$GEMINI_API_KEY
 
-      - name: Build AAB (release)
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          flutter build appbundle --release \
-            --dart-define=GEMINI_API_KEY=$GEMINI_API_KEY
-
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
           path: build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-aab
-          path: build/app/outputs/bundle/release/app-release.aab
 
       - name: Upload mapping.txt
         if: startsWith(github.ref, 'refs/tags/')
