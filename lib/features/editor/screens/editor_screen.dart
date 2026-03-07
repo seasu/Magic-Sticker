@@ -558,23 +558,71 @@ class _StatusBadge extends StatelessWidget {
       return badge;
     }
 
+    return const _CatChaseMiniBadge();
+  }
+}
+
+// ─── 迷你貓追老鼠 Badge（每張卡片 AI 生成中狀態）──────────────────────────
+
+class _CatChaseMiniBadge extends StatefulWidget {
+  const _CatChaseMiniBadge();
+
+  @override
+  State<_CatChaseMiniBadge> createState() => _CatChaseMiniBadgeState();
+}
+
+class _CatChaseMiniBadgeState extends State<_CatChaseMiniBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _bounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    )..repeat(reverse: true);
+    _bounce = Tween<double>(begin: 0.0, end: -4.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.black54,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 10,
-            height: 10,
-            child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white),
-          ),
-          SizedBox(width: 6),
-          Text('Gemini 貼圖生成中…', style: TextStyle(fontSize: 11, color: Colors.white)),
-        ],
+      child: AnimatedBuilder(
+        animation: _bounce,
+        builder: (_, __) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Transform.translate(
+              offset: Offset(0, _bounce.value),
+              child: const Text('🐱', style: TextStyle(fontSize: 14)),
+            ),
+            const SizedBox(width: 2),
+            Transform.translate(
+              offset: Offset(0, -_bounce.value),
+              child: const Text('🐭', style: TextStyle(fontSize: 12)),
+            ),
+            const SizedBox(width: 6),
+            const Text(
+              'AI 生成中…',
+              style: TextStyle(fontSize: 11, color: Colors.white),
+            ),
+          ],
+        ),
       ),
     );
   }
