@@ -150,55 +150,37 @@ class _OutlinedStickerText extends StatelessWidget {
 
   const _OutlinedStickerText({required this.text, required this.config});
 
-  static const _kFontSize = 26.0;
+  static const _kFontSize = 22.0;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(50),
-        border: Border.all(
-          color: config.colorScheme.borderColor,
-          width: 3,
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: _kFontSize,
+            fontWeight: FontWeight.w900,
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 5
+              ..strokeJoin = StrokeJoin.round
+              ..color = Colors.white,
+          ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: config.colorScheme.borderColor.withOpacity(0.25),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: _kFontSize,
+            fontWeight: FontWeight.w900,
+            color: config.colorScheme.textFill,
+            height: 1.2,
           ),
-        ],
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Text(
-            text,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: _kFontSize,
-              fontWeight: FontWeight.w900,
-              foreground: Paint()
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = 6
-                ..strokeJoin = StrokeJoin.round
-                ..color = Colors.white,
-            ),
-          ),
-          Text(
-            text,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: _kFontSize,
-              fontWeight: FontWeight.w900,
-              color: config.colorScheme.textFill,
-              height: 1.2,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
