@@ -20,7 +20,7 @@ class StickerGenerationService {
 
   static const _endpoint =
       'https://generativelanguage.googleapis.com/v1beta'
-      '/models/gemini-2.0-flash-exp:generateContent';
+      '/models/gemini-2.0-flash:generateContent';
 
   /// 一次呼叫生成 8 張貼圖（2 欄 × 4 列 grid），裁切後回傳 List<Uint8List?>
   ///
