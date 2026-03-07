@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -21,6 +22,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _entryCtrl;
+  String _version = '';
 
   @override
   void initState() {
@@ -29,6 +31,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..forward();
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) setState(() => _version = 'v${info.version}');
+    });
   }
 
   @override
@@ -96,6 +101,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
               ),
             ),
+            const Spacer(),
+            if (_version.isNotEmpty)
+              Text(
+                _version,
+                style: GoogleFonts.nunito(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                ),
+              ),
           ],
         ),
       ),
