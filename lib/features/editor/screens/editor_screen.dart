@@ -141,6 +141,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         initialOffset: state.imageOffsets[idx],
         initialImageAngle: state.imageAngles[idx],
         initialFontIndex: state.fontIndices[idx],
+        initialStyleIndex: state.styleIndices[idx],
         initialTextXAlign: state.textXAligns[idx],
         initialTextYAlign: state.textYAligns[idx],
         initialTextAngle: state.textAngles[idx],
@@ -152,6 +153,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         onTransformChanged: (s, o, a) =>
             notifier.updateImageTransform(idx, s, o, a),
         onFontChanged: (fi) => notifier.updateFontIndex(idx, fi),
+        onStyleChanged: (si) => notifier.updateStyleIndex(idx, si),
         onTextGestureChanged: (xAlign, yAlign, angle, sizeScale) =>
             notifier.updateTextTransform(
           idx,
@@ -233,16 +235,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                               editorStateProvider(widget.imagePath).notifier)
                           .retryImageGeneration(_currentIndex),
                     ),
-                  ),
-
-                  // ── 產圖風格選擇列 ─────────────────────────────────────
-                  _StyleBar(
-                    currentStyleIndex:
-                        state.styleIndices[_currentIndex.clamp(0, 7)],
-                    onStyleChanged: (i) => ref
-                        .read(
-                            editorStateProvider(widget.imagePath).notifier)
-                        .updateStyleIndex(_currentIndex, i),
                   ),
 
                   // ── Tinder 圓形按鈕 ───────────────────────────────────

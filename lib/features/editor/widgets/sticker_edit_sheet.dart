@@ -3,19 +3,19 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/models/sticker_style.dart';
 import '../models/sticker_config.dart';
 import '../models/sticker_font.dart';
 import 'sticker_canvas.dart';
 
 /// 點圖後彈出的編輯 Bottom Sheet
 ///
-/// 提供四種編輯功能：
+/// 提供五種編輯功能：
 ///   1. 文字編輯（即時預覽）
 ///   2. 字型選擇（5 種繁中字體）
 ///   3. 配色選擇（8 組預設色系）
-///   4. 文字拖拉 / 捏合縮放 / 旋轉（直接在預覽上操作）
-///
-/// 產圖風格已移至主畫面的風格選擇列。
+///   4. 產圖風格（切換後確認重新生成）
+///   5. 圖片 / 文字點選後拖拉 / 捏合縮放 / 旋轉
 class StickerEditSheet extends StatefulWidget {
   final int stickerIndex;
   final String initialText;
@@ -23,6 +23,9 @@ class StickerEditSheet extends StatefulWidget {
   final double initialScale;
   final Offset initialOffset;
   final int initialFontIndex;
+
+  /// 產圖風格索引（切換後需確認再重新生成）
+  final int initialStyleIndex;
 
   /// 文字初始位置與角度（手勢控制，無滑桿）
   final double initialTextXAlign;
@@ -41,6 +44,9 @@ class StickerEditSheet extends StatefulWidget {
   final void Function(double scale, Offset offset, double angle) onTransformChanged;
   final ValueChanged<int> onFontChanged;
 
+  /// 產圖風格變更回呼（async，切換後重新生成圖片）
+  final Future<void> Function(int styleIndex) onStyleChanged;
+
   /// 文字手勢回呼：拖拉/捏合/旋轉後觸發，傳回最新的 (xAlign, yAlign, angle, sizeScale)
   final void Function(
     double xAlign,
@@ -57,6 +63,7 @@ class StickerEditSheet extends StatefulWidget {
     required this.initialScale,
     required this.initialOffset,
     this.initialFontIndex = 0,
+    this.initialStyleIndex = 0,
     this.initialTextXAlign = 0.0,
     this.initialTextYAlign = 0.85,
     this.initialTextAngle = 0.0,
@@ -68,6 +75,7 @@ class StickerEditSheet extends StatefulWidget {
     required this.onSchemeChanged,
     required this.onTransformChanged,
     required this.onFontChanged,
+    required this.onStyleChanged,
     required this.onTextGestureChanged,
   });
 
@@ -79,10 +87,12 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
   late final TextEditingController _textCtrl;
   late int _schemeIndex;
   late int _fontIndex;
+  late int _styleIndex;
   late double _textXAlign;
   late double _textYAlign;
   late double _textAngle;
   late double _textSizeScale;
+  bool _isRegenerating = false;
 
   @override
   void initState() {
@@ -90,10 +100,48 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
     _textCtrl = TextEditingController(text: widget.initialText);
     _schemeIndex = widget.initialSchemeIndex;
     _fontIndex = widget.initialFontIndex;
+    _styleIndex = widget.initialStyleIndex;
     _textXAlign = widget.initialTextXAlign;
     _textYAlign = widget.initialTextYAlign;
     _textAngle = widget.initialTextAngle;
     _textSizeScale = widget.initialFontSizeScale;
+  }
+
+  /// 使用者點選新風格 → 確認對話框 → 呼叫 API 重新生成
+  Future<void> _onStyleTap(int newIdx) async {
+    if (newIdx == _styleIndex || _isRegenerating) return;
+    HapticFeedback.mediumImpact();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('切換產圖風格'),
+        content: Text(
+          '將切換為「${StickerStyle.values[newIdx].emoji} '
+          '${StickerStyle.values[newIdx].label}」風格並重新生成本張貼圖，確定嗎？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('確定重新生成'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isRegenerating = true);
+    await widget.onStyleChanged(newIdx);
+    if (!mounted) return;
+    setState(() {
+      _styleIndex = newIdx;
+      _isRegenerating = false;
+    });
   }
 
   @override
@@ -107,9 +155,12 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
     final insets = MediaQuery.of(context).viewInsets;
     final config = kStickerConfigs[_schemeIndex];
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: insets.bottom),
-      child: SingleChildScrollView(
+    return Stack(
+      children: [
+        // ── 主內容 ─────────────────────────────────────────────────────
+        Padding(
+          padding: EdgeInsets.only(bottom: insets.bottom),
+          child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -331,6 +382,74 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+
+            // ── 產圖風格 ───────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel('產圖風格'),
+                  const SizedBox(height: 4),
+                  Text(
+                    '切換後將確認並重新生成本張貼圖',
+                    style: TextStyle(
+                        fontSize: 11, color: Colors.grey.shade400),
+                  ),
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children:
+                          List.generate(StickerStyle.values.length, (i) {
+                        final style = StickerStyle.values[i];
+                        final isSelected = i == _styleIndex;
+                        return GestureDetector(
+                          onTap: () => _onStyleTap(i),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 13, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.black87
+                                  : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isSelected
+                                    ? Colors.black87
+                                    : Colors.grey.shade300,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(style.emoji,
+                                    style:
+                                        const TextStyle(fontSize: 14)),
+                                const SizedBox(width: 5),
+                                Text(
+                                  style.label,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 24),
 
             // ── 完成按鈕 ───────────────────────────────────────────────
@@ -339,7 +458,8 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed:
+                      _isRegenerating ? null : () => Navigator.of(context).pop(),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -359,6 +479,43 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
           ],
         ),
       ),
+    ),
+
+        // ── 重新生成中 Loading 遮罩 ─────────────────────────────────────
+        if (_isRegenerating)
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.90),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('🐱', style: TextStyle(fontSize: 52)),
+                  const SizedBox(height: 4),
+                  const Text('🐭', style: TextStyle(fontSize: 36)),
+                  const SizedBox(height: 16),
+                  const SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(strokeWidth: 3),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'AI 重新生成中…',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
