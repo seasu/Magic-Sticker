@@ -109,7 +109,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           'message=${pe.message} details=${pe.details}',
         );
       }
-      await FirebaseService.recordError(e.error, e.stackTrace,
+      await FirebaseService.recordError(e.error ?? e, e.stackTrace,
           reason: 'editor_export_failed/gal_${e.type.name}');
       await FirebaseService.recordError(e, stack,
           reason: 'editor_export_failed');
