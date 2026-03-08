@@ -4,9 +4,9 @@ import 'package:flutter/services.dart';
 import '../models/sticker_config.dart';
 import '../models/sticker_font.dart';
 
-// ─── 選取目標 ─────────────────────────────────────────────────────────────────
+// ─── 選取目標（公開，供 StickerEditSheet 外部控制）────────────────────────────
 
-enum _EditTarget { none, image, text }
+enum StickerEditTarget { none, image, text }
 
 // ─── 選取框顏色常數 ───────────────────────────────────────────────────────────
 
@@ -58,6 +58,10 @@ class StickerCanvas extends StatefulWidget {
   /// true → 啟用選取模式（編輯 Sheet），false → 主卡片模式
   final bool enableTextGestures;
 
+  /// 外部顯式指定選取目標（由 StickerEditSheet 的模式按鈕控制）
+  /// 設定後 canvas 不再透過 tap 自行切換 _EditTarget
+  final StickerEditTarget? externalTarget;
+
   /// 主卡片模式點圖回呼（打開編輯 popup）
   final VoidCallback? onTap;
 
@@ -90,6 +94,7 @@ class StickerCanvas extends StatefulWidget {
     this.textYAlign = 0.85,
     this.textAngle = 0.0,
     this.enableTextGestures = false,
+    this.externalTarget,
     this.onTap,
     this.onTransformChanged,
     this.onTextGestureChanged,
@@ -121,8 +126,12 @@ class _StickerCanvasState extends State<StickerCanvas> {
   Offset _txtStartFocal = Offset.zero;
   bool _textGestureActive = false;
 
-  // ── 選取狀態（僅 enableTextGestures=true 時有效）─────────────────────────
-  _EditTarget _selected = _EditTarget.none;
+  // ── 選取狀態（externalTarget 為 null 時由 tap 自行維護）─────────────────
+  StickerEditTarget _internalSelected = StickerEditTarget.none;
+
+  /// 實際生效的選取目標：外部優先，否則用內部狀態
+  StickerEditTarget get _effective =>
+      widget.externalTarget ?? _internalSelected;
 
   // ── 手勢 tap 偵測（在 scale handler 內判斷）──────────────────────────────
   Offset _gestureStartFocal = Offset.zero;
@@ -188,13 +197,13 @@ class _StickerCanvasState extends State<StickerCanvas> {
     _gestureStartFocal = d.localFocalPoint;
     _wasTap = true;
 
-    if (!widget.enableTextGestures || _selected == _EditTarget.image) {
+    if (!widget.enableTextGestures || _effective == StickerEditTarget.image) {
       // 主卡片圖片縮放 or 編輯模式圖片選取
       _imgStartScale = _imgScale;
       _imgStartFocal = d.localFocalPoint;
       _imgStartOffset = _imgOffset;
       _imgStartAngle = _imgAngle;
-    } else if (_selected == _EditTarget.text) {
+    } else if (_effective == StickerEditTarget.text) {
       _textGestureActive = true;
       _txtStartXAlign = _textXAlign;
       _txtStartYAlign = _textYAlign;
@@ -212,7 +221,7 @@ class _StickerCanvasState extends State<StickerCanvas> {
       _wasTap = false;
     }
 
-    if (!widget.enableTextGestures || _selected == _EditTarget.image) {
+    if (!widget.enableTextGestures || _effective == StickerEditTarget.image) {
       // 圖片：縮放 + 位移（編輯模式下加旋轉）
       setState(() {
         _imgScale = (_imgStartScale * d.scale).clamp(0.5, 4.0);
@@ -222,7 +231,7 @@ class _StickerCanvasState extends State<StickerCanvas> {
         }
       });
       widget.onTransformChanged?.call(_imgScale, _imgOffset, _imgAngle);
-    } else if (_selected == _EditTarget.text) {
+    } else if (_effective == StickerEditTarget.text) {
       // 文字：移動 + 縮放 + 旋轉
       if (_canvasSize == Size.zero) return;
       final delta = d.localFocalPoint - _txtStartFocal;
@@ -243,16 +252,19 @@ class _StickerCanvasState extends State<StickerCanvas> {
     _textGestureActive = false;
 
     if (_wasTap) {
-      if (widget.enableTextGestures && _canvasSize != Size.zero) {
+      if (widget.enableTextGestures &&
+          _canvasSize != Size.zero &&
+          widget.externalTarget == null) {
+        // 僅在無外部控制時才允許 tap 自行切換選取目標
         _handleSelectionTap(_gestureStartFocal);
-      } else {
+      } else if (!widget.enableTextGestures) {
         // 主卡片：呼叫 onTap 打開編輯 Sheet
         widget.onTap?.call();
       }
     }
   }
 
-  /// 依點擊座標決定選取圖片或文字
+  /// 依點擊座標決定選取圖片或文字（僅 externalTarget == null 時呼叫）
   void _handleSelectionTap(Offset pos) {
     final cx = _canvasSize.width * (1 + _textXAlign) / 2;
     final cy = _canvasSize.height * (1 + _textYAlign) / 2;
@@ -262,10 +274,10 @@ class _StickerCanvasState extends State<StickerCanvas> {
     final hitR =
         (_canvasSize.width * 0.28 * _textSizeScale).clamp(44.0, _canvasSize.width * 0.5);
 
-    final next = dist < hitR ? _EditTarget.text : _EditTarget.image;
-    if (next != _selected) {
+    final next = dist < hitR ? StickerEditTarget.text : StickerEditTarget.image;
+    if (next != _internalSelected) {
       HapticFeedback.selectionClick();
-      setState(() => _selected = next);
+      setState(() => _internalSelected = next);
     }
   }
 
@@ -329,7 +341,7 @@ class _StickerCanvasState extends State<StickerCanvas> {
                 fontIndex: widget.fontIndex,
                 fontSizeScale: _textSizeScale,
                 isSelected:
-                    widget.enableTextGestures && _selected == _EditTarget.text,
+                    widget.enableTextGestures && _effective == StickerEditTarget.text,
               ),
             ),
           );
@@ -340,13 +352,15 @@ class _StickerCanvasState extends State<StickerCanvas> {
               imageContent,
 
               // 圖片選取框（編輯模式下圖片被選中時）
-              if (widget.enableTextGestures && _selected == _EditTarget.image)
+              if (widget.enableTextGestures && _effective == StickerEditTarget.image)
                 _ImageSelectionOverlay(canvasSize: _canvasSize),
 
               textLayer,
 
-              // 提示文字（編輯模式下尚未選取任何物件）
-              if (widget.enableTextGestures && _selected == _EditTarget.none)
+              // 提示文字（無外部控制且尚未選取任何物件時顯示）
+              if (widget.enableTextGestures &&
+                  widget.externalTarget == null &&
+                  _internalSelected == StickerEditTarget.none)
                 const _SelectionHint(),
             ],
           );

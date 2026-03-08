@@ -6,6 +6,8 @@ import '../models/sticker_config.dart';
 import '../models/sticker_font.dart';
 import 'sticker_canvas.dart';
 
+export 'sticker_canvas.dart' show StickerEditTarget;
+
 /// 點圖後彈出的編輯 Bottom Sheet
 ///
 /// 提供五種編輯功能：
@@ -91,6 +93,9 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
   late double _textAngle;
   late double _textSizeScale;
   bool _isRegenerating = false;
+
+  /// 顯式選取模式：由下方模式按鈕控制，再按一次同個按鈕即取消選取
+  StickerEditTarget _editTarget = StickerEditTarget.none;
 
   @override
   void initState() {
@@ -203,6 +208,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                     textYAlign: _textYAlign,
                     textAngle: _textAngle,
                     enableTextGestures: true,
+                    externalTarget: _editTarget,
                     onTransformChanged: widget.onTransformChanged,
                     onTextGestureChanged: (xAlign, yAlign, angle, scale) {
                       setState(() {
@@ -217,22 +223,65 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
 
-            // ── 操作提示（移至 canvas 下方，不再覆蓋圖片）─────────────
+            // ── 顯式模式切換（取代 tap-to-select，解決無法取消選取問題）─
             Padding(
-              padding: const EdgeInsets.fromLTRB(32, 6, 32, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Icon(Icons.touch_app_rounded,
-                      size: 12, color: Colors.grey.shade400),
-                  const SizedBox(width: 4),
-                  Text(
-                    '點選物件 → 移動・縮放・旋轉',
-                    style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
+                  Expanded(
+                    child: _ModeButton(
+                      icon: Icons.image_search_rounded,
+                      label: '調整圖片',
+                      isActive: _editTarget == StickerEditTarget.image,
+                      activeColor: const Color(0xFF2196F3),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _editTarget =
+                            _editTarget == StickerEditTarget.image
+                                ? StickerEditTarget.none
+                                : StickerEditTarget.image);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _ModeButton(
+                      icon: Icons.text_fields_rounded,
+                      label: '調整文字',
+                      isActive: _editTarget == StickerEditTarget.text,
+                      activeColor: const Color(0xFFFF9800),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _editTarget =
+                            _editTarget == StickerEditTarget.text
+                                ? StickerEditTarget.none
+                                : StickerEditTarget.text);
+                      },
+                    ),
                   ),
                 ],
               ),
+            ),
+
+            // ── 操作說明（依模式顯示不同提示）──────────────────────────
+            AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              child: _editTarget == StickerEditTarget.none
+                  ? const SizedBox(height: 8)
+                  : Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 6, 24, 0),
+                      child: Text(
+                        _editTarget == StickerEditTarget.image
+                            ? '單指拖動調整位置・雙指縮放或旋轉・再按「調整圖片」取消'
+                            : '單指拖動調整位置・雙指縮放或旋轉・再按「調整文字」取消',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
             ),
             const SizedBox(height: 8),
 
@@ -536,6 +585,61 @@ class _SectionLabel extends StatelessWidget {
         fontWeight: FontWeight.w600,
         color: Colors.grey.shade600,
         letterSpacing: 0.5,
+      ),
+    );
+  }
+}
+
+// ─── 模式切換按鈕 ────────────────────────────────────────────────────────────
+
+class _ModeButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final Color activeColor;
+  final VoidCallback onTap;
+
+  const _ModeButton({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.activeColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? activeColor.withOpacity(0.10) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive ? activeColor : Colors.grey.shade200,
+            width: isActive ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon,
+                size: 17,
+                color: isActive ? activeColor : Colors.grey.shade500),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isActive ? activeColor : Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
