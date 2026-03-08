@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -425,7 +423,7 @@ class _TextSelectionWidget extends StatelessWidget {
 
         // 旋轉控制點（文字上方：24px 圓圈 + 20px 連接線，4px 間距）
         Positioned(
-          top: -(24 + 20 + 4), // 頂部留出 handle 高度 + 4px 間距
+          top: -(24 + 20 + 4).toDouble(), // 頂部留出 handle 高度 + 4px 間距
           child: const _RotationHandle(),
         ),
 
