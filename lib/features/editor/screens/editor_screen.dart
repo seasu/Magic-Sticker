@@ -97,6 +97,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         _currentIndex++;
       });
     } on GalException catch (e, stack) {
+      // 記錄底層原因（e.error 為實際 PlatformException，比 e 本身更有診斷價值）
+      FirebaseService.log(
+        'GalException type=${e.type.name} | '
+        'underlying=${e.error.runtimeType}: ${e.error}',
+      );
+      if (e.error is PlatformException) {
+        final pe = e.error as PlatformException;
+        FirebaseService.log(
+          'PlatformException code=${pe.code} '
+          'message=${pe.message} details=${pe.details}',
+        );
+      }
+      await FirebaseService.recordError(e.error, e.stackTrace,
+          reason: 'editor_export_failed/gal_${e.type.name}');
       await FirebaseService.recordError(e, stack,
           reason: 'editor_export_failed');
       setState(() => _isExporting = false);
