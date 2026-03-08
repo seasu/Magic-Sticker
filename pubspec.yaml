@@ -1,7 +1,7 @@
 name: magic_morning
 description: AI 一鍵產 LINE 貼圖 — MagicMorning
 publish_to: 'none'
-version: 2.1.7+59
+version: 2.1.8+60
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -69,3 +69,23 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+
+  # ── 本地繁體中文字型（全部 SIL OFL 授權）────────────────────────────────────
+  fonts:
+    # jf 開放粉圓 2.1 — 台灣最流行開源圓體，完整繁體中文字集
+    # 來源: https://github.com/justfont/open-huninn-font
+    - family: OpenHuninn
+      fonts:
+        - asset: assets/fonts/jf-openhuninn-2.1.ttf
+
+    # Cubic 11（區域圓體）— 像素風圓角黑體，活潑可愛感
+    # 來源: https://github.com/ACh-K/Cubic-11
+    - family: Cubic11
+      fonts:
+        - asset: assets/fonts/Cubic_11.ttf
+
+    # 芫荽（Iansui）— 楷書手寫風，完整繁體中文字集
+    # 來源: https://github.com/ButTaiwan/iansui
+    - family: Iansui
+      fonts:
+        - asset: assets/fonts/Iansui-Regular.ttf
