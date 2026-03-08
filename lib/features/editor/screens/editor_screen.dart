@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' show pi, sin;
 import 'dart:ui' as ui;
 
@@ -8,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -83,14 +85,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         if (!granted) {
           throw GalException(
             type: GalExceptionType.accessDenied,
-            error: Exception('Storage access denied'),
-            stackTrace: StackTrace.current,
+            platformException: PlatformException(
+              code: 'ACCESS_DENIED',
+              message: 'Storage access denied',
+            ),
           );
         }
       }
 
       final ts = DateTime.now().millisecondsSinceEpoch;
-      await Gal.putImageBytes(bytes, name: 'magic_morning_$ts');
+      final tmpDir = await getTemporaryDirectory();
+      final tmpFile = File('${tmpDir.path}/magic_morning_$ts.png');
+      await tmpFile.writeAsBytes(bytes);
+      await Gal.putImage(tmpFile.path);
+      await tmpFile.delete();
       await FirebaseAnalytics.instance.logEvent(name: 'sticker_generated');
       setState(() {
         _keptCount++;
@@ -98,19 +106,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         _currentIndex++;
       });
     } on GalException catch (e, stack) {
-      // 記錄底層原因（e.error 為實際 PlatformException，比 e 本身更有診斷價值）
+      // 記錄底層原因（platformException 為實際 PlatformException）
+      final pe = e.platformException;
       FirebaseService.log(
         'GalException type=${e.type.name} | '
-        'underlying=${e.error.runtimeType}: ${e.error}',
+        'underlying=${pe.runtimeType}: $pe',
       );
-      if (e.error is PlatformException) {
-        final pe = e.error as PlatformException;
-        FirebaseService.log(
-          'PlatformException code=${pe.code} '
-          'message=${pe.message} details=${pe.details}',
-        );
-      }
-      await FirebaseService.recordError(e.error ?? e, e.stackTrace,
+      FirebaseService.log(
+        'PlatformException code=${pe.code} '
+        'message=${pe.message} details=${pe.details}',
+      );
+      await FirebaseService.recordError(pe, stack,
           reason: 'editor_export_failed/gal_${e.type.name}');
       await FirebaseService.recordError(e, stack,
           reason: 'editor_export_failed');
