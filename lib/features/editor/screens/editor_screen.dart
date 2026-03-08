@@ -89,7 +89,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         }
       }
 
-      await Gal.putImageBytes(bytes);
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      await Gal.putImageBytes(bytes, name: 'magic_morning_$ts');
       await FirebaseAnalytics.instance.logEvent(name: 'sticker_generated');
       setState(() {
         _keptCount++;
