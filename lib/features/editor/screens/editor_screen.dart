@@ -85,8 +85,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         if (!granted) {
           throw GalException(
             type: GalExceptionType.accessDenied,
-            error: Exception('Storage access denied'),
-            stackTrace: StackTrace.current,
+            platformException: PlatformException(
+              code: 'ACCESS_DENIED',
+              message: 'Storage access denied',
+            ),
           );
         }
       }
@@ -104,19 +106,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         _currentIndex++;
       });
     } on GalException catch (e, stack) {
-      // 記錄底層原因（e.error 為實際 PlatformException，比 e 本身更有診斷價值）
+      // 記錄底層原因（platformException 為實際 PlatformException）
+      final pe = e.platformException;
       FirebaseService.log(
         'GalException type=${e.type.name} | '
-        'underlying=${e.error.runtimeType}: ${e.error}',
+        'underlying=${pe.runtimeType}: $pe',
       );
-      if (e.error is PlatformException) {
-        final pe = e.error as PlatformException;
-        FirebaseService.log(
-          'PlatformException code=${pe.code} '
-          'message=${pe.message} details=${pe.details}',
-        );
-      }
-      await FirebaseService.recordError(e.error ?? e, e.stackTrace,
+      FirebaseService.log(
+        'PlatformException code=${pe.code} '
+        'message=${pe.message} details=${pe.details}',
+      );
+      await FirebaseService.recordError(pe, stack,
           reason: 'editor_export_failed/gal_${e.type.name}');
       await FirebaseService.recordError(e, stack,
           reason: 'editor_export_failed');
