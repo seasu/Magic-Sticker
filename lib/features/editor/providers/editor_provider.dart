@@ -110,11 +110,32 @@ class _EditorFamilyNotifier
     state = state.copyWith(fontSizeScales: updated);
   }
 
-  /// 使用者調整文字垂直位置 (-1.0=上, 1.0=下)
-  void updateTextYAlign(int stickerIdx, double yAlign) {
-    final updated = List<double>.from(state.textYAligns);
-    updated[stickerIdx] = yAlign;
-    state = state.copyWith(textYAligns: updated);
+  /// 使用者透過手勢（拖拉/捏合/旋轉）調整文字的位置、大小、角度
+  void updateTextTransform(
+    int stickerIdx, {
+    double? xAlign,
+    double? yAlign,
+    double? angle,
+    double? sizeScale,
+  }) {
+    final xs = xAlign != null
+        ? (List<double>.from(state.textXAligns)..[stickerIdx] = xAlign)
+        : null;
+    final ys = yAlign != null
+        ? (List<double>.from(state.textYAligns)..[stickerIdx] = yAlign)
+        : null;
+    final as_ = angle != null
+        ? (List<double>.from(state.textAngles)..[stickerIdx] = angle)
+        : null;
+    final ss = sizeScale != null
+        ? (List<double>.from(state.fontSizeScales)..[stickerIdx] = sizeScale)
+        : null;
+    state = state.copyWith(
+      textXAligns: xs,
+      textYAligns: ys,
+      textAngles: as_,
+      fontSizeScales: ss,
+    );
   }
 
   /// 使用者在編輯 popup 縮放/位移圖片

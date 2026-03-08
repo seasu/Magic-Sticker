@@ -11,6 +11,7 @@ import 'package:gal/gal.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/models/sticker_style.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/editor_state.dart';
@@ -20,7 +21,7 @@ import '../widgets/sticker_canvas.dart';
 import '../widgets/sticker_edit_sheet.dart';
 import '../widgets/sticker_swipe_card.dart';
 
-// ── 顏色常數（使用 AppColors 統一管理） ──────────────────────────────────────
+// ── 顏色常數 ──────────────────────────────────────────────────────────────────
 
 const _kBg = AppColors.surface;
 const _kNopeColor = AppColors.nope;
@@ -51,9 +52,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     });
   }
 
-  // ─── Actions ──────────────────────────────────────────────────────
+  // ─── Actions ──────────────────────────────────────────────────────────────
 
-  /// 匯出貼圖：固定輸出 370×320 px 透明背景 PNG（LINE Creators Market 規格）
   Future<void> _accept() async {
     FirebaseService.log('EditorScreen._accept: sticker ${_currentIndex + 1}');
     setState(() => _isExporting = true);
@@ -61,8 +61,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       final boundary = _repaintKeys[_currentIndex].currentContext!
           .findRenderObject() as RenderRepaintBoundary;
 
-      // 計算讓輸出寬度恰好 370px 所需的 pixelRatio
-      // LINE Creators Market 規格：370×320 px（比例 37:32）
       const double targetWidth = 370.0;
       final double pixelRatio = targetWidth / boundary.size.width;
 
@@ -71,7 +69,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           await image.toByteData(format: ui.ImageByteFormat.png);
       final bytes = byteData!.buffer.asUint8List();
 
-      // LINE 規格：單檔上限 1 MB
       const int maxBytes = 1 * 1024 * 1024;
       if (bytes.lengthInBytes > maxBytes) {
         FirebaseService.log(
@@ -79,7 +76,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         );
       }
 
-      // 儲存前確保 runtime 權限已授予（Android 13+ READ_MEDIA_IMAGES）
       if (!await Gal.hasAccess()) {
         final granted = await Gal.requestAccess();
         if (!granted) {
@@ -144,9 +140,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         initialScale: state.imageScales[idx],
         initialOffset: state.imageOffsets[idx],
         initialFontIndex: state.fontIndices[idx],
-        initialStyleIndex: state.styleIndices[idx],
-        initialFontSizeScale: state.fontSizeScales[idx],
+        initialTextXAlign: state.textXAligns[idx],
         initialTextYAlign: state.textYAligns[idx],
+        initialTextAngle: state.textAngles[idx],
+        initialFontSizeScale: state.fontSizeScales[idx],
         subjectBytes: state.subjectBytes,
         generatedImage: state.generatedImages[idx],
         onTextChanged: (text) => notifier.updateStickerText(idx, text),
@@ -154,11 +151,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         onTransformChanged: (s, o) =>
             notifier.updateImageTransform(idx, s, o),
         onFontChanged: (fi) => notifier.updateFontIndex(idx, fi),
-        onStyleChanged: (si) => notifier.updateStyleIndex(idx, si),
-        onFontSizeScaleChanged: (scale) =>
-            notifier.updateFontSizeScale(idx, scale),
-        onTextYAlignChanged: (align) =>
-            notifier.updateTextYAlign(idx, align),
+        onTextGestureChanged: (xAlign, yAlign, angle, sizeScale) =>
+            notifier.updateTextTransform(
+          idx,
+          xAlign: xAlign,
+          yAlign: yAlign,
+          angle: angle,
+          sizeScale: sizeScale,
+        ),
       ),
     );
   }
@@ -171,7 +171,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     ref.read(editorStateProvider(widget.imagePath).notifier).regenerateTexts();
   }
 
-  // ─── Build ────────────────────────────────────────────────────────
+  // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -186,7 +186,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // ── 頂部列 ──────────────────────────────────────────────
+            // ── 頂部列 ────────────────────────────────────────────────
             _TopBar(
               onBack: () => context.go('/'),
               onRefresh: (isReady && !isDone) ? _regenerate : null,
@@ -205,11 +205,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 ),
               )
             else if (isReady) ...[
-              // ── 進度 ─────────────────────────────────────────────
+              // ── 進度條 ───────────────────────────────────────────────
               _ProgressBar(current: _currentIndex),
               const SizedBox(height: 4),
 
-              // ── 卡片區 ────────────────────────────────────────────
+              // ── 卡片層疊 ─────────────────────────────────────────────
               Expanded(
                 child: _CardStack(
                   state: state,
@@ -225,13 +225,24 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 ),
               ),
 
-              // ── Tinder 圓形按鈕 ───────────────────────────────────
+              // ── 產圖風格選擇列（首次出現在結果畫面） ──────────────────
+              _StyleBar(
+                currentStyleIndex:
+                    state.styleIndices[_currentIndex.clamp(0, 7)],
+                onStyleChanged: (i) => ref
+                    .read(editorStateProvider(widget.imagePath).notifier)
+                    .updateStyleIndex(_currentIndex, i),
+              ),
+
+              // ── Tinder 圓形按鈕 ───────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: _TinderButtons(
                   isExporting: _isExporting,
-                  onNope: _isExporting ? null : () => _cardController.reject(),
-                  onLike: _isExporting ? null : () => _cardController.accept(),
+                  onNope:
+                      _isExporting ? null : () => _cardController.reject(),
+                  onLike:
+                      _isExporting ? null : () => _cardController.accept(),
                 ),
               ),
             ],
@@ -242,7 +253,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 }
 
-// ─── 頂部列 ────────────────────────────────────────────────────────────────
+// ─── 頂部列 ──────────────────────────────────────────────────────────────────
 
 class _TopBar extends StatelessWidget {
   final VoidCallback onBack;
@@ -262,9 +273,9 @@ class _TopBar extends StatelessWidget {
             style: IconButton.styleFrom(foregroundColor: Colors.black87),
           ),
           const Spacer(),
-          Text(
+          const Text(
             '選擇貼圖',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
               color: Colors.black87,
@@ -286,7 +297,7 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-// ─── 進度條 ────────────────────────────────────────────────────────────────
+// ─── 進度條 ──────────────────────────────────────────────────────────────────
 
 class _ProgressBar extends StatelessWidget {
   final int current;
@@ -323,7 +334,114 @@ class _ProgressBar extends StatelessWidget {
   }
 }
 
-// ─── 卡片層疊 ──────────────────────────────────────────────────────────────
+// ─── 產圖風格選擇列（置於主畫面卡片與按鈕之間）──────────────────────────────
+
+class _StyleBar extends StatelessWidget {
+  final int currentStyleIndex;
+  final ValueChanged<int> onStyleChanged;
+
+  const _StyleBar({
+    required this.currentStyleIndex,
+    required this.onStyleChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 5),
+            child: Row(
+              children: [
+                const Text('🎨', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 5),
+                Text(
+                  '產圖風格',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '變更後重新生成本張',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: List.generate(StickerStyle.values.length, (i) {
+                final style = StickerStyle.values[i];
+                final isSelected = i == currentStyleIndex;
+                return GestureDetector(
+                  onTap: () {
+                    if (i == currentStyleIndex) return;
+                    HapticFeedback.mediumImpact();
+                    onStyleChanged(i);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 13, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.black87 : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected
+                            ? Colors.black87
+                            : Colors.grey.shade300,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.18),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              )
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(style.emoji,
+                            style: const TextStyle(fontSize: 14)),
+                        const SizedBox(width: 5),
+                        Text(
+                          style.label,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color:
+                                isSelected ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── 卡片層疊 ─────────────────────────────────────────────────────────────────
 
 class _CardStack extends StatelessWidget {
   final EditorState state;
@@ -351,7 +469,7 @@ class _CardStack extends StatelessWidget {
     return Stack(
       alignment: Alignment.center,
       children: [
-        // 下下張（最底層，更小）
+        // 下下張（最底層）
         if (currentIndex + 2 < 8)
           Transform.scale(
             scale: 0.88,
@@ -367,7 +485,9 @@ class _CardStack extends StatelessWidget {
                 initialOffset: state.imageOffsets[currentIndex + 2],
                 fontIndex: state.fontIndices[currentIndex + 2],
                 fontSizeScale: state.fontSizeScales[currentIndex + 2],
+                textXAlign: state.textXAligns[currentIndex + 2],
                 textYAlign: state.textYAligns[currentIndex + 2],
+                textAngle: state.textAngles[currentIndex + 2],
               ),
             ),
           ),
@@ -388,7 +508,9 @@ class _CardStack extends StatelessWidget {
                 initialOffset: state.imageOffsets[currentIndex + 1],
                 fontIndex: state.fontIndices[currentIndex + 1],
                 fontSizeScale: state.fontSizeScales[currentIndex + 1],
+                textXAlign: state.textXAligns[currentIndex + 1],
                 textYAlign: state.textYAligns[currentIndex + 1],
+                textAngle: state.textAngles[currentIndex + 1],
               ),
             ),
           ),
@@ -407,22 +529,25 @@ class _CardStack extends StatelessWidget {
                 subjectBytes: state.subjectBytes,
                 generatedImage: state.generatedImages[currentIndex],
                 text: state.stickerTexts[currentIndex],
-                config: kStickerConfigs[state.colorSchemeIndices[currentIndex]],
+                config:
+                    kStickerConfigs[state.colorSchemeIndices[currentIndex]],
                 initialScale: state.imageScales[currentIndex],
                 initialOffset: state.imageOffsets[currentIndex],
                 fontIndex: state.fontIndices[currentIndex],
                 fontSizeScale: state.fontSizeScales[currentIndex],
+                textXAlign: state.textXAligns[currentIndex],
                 textYAlign: state.textYAligns[currentIndex],
+                textAngle: state.textAngles[currentIndex],
                 onTap: onEdit,
               ),
-              // ── 生成中 badge ──────────────────────────────────────
+              // ── 生成中 badge ──────────────────────────────────────────
               if (state.generatedImages[currentIndex] == null)
                 Positioned(
                   top: 8,
                   child: _StatusBadge.loading(),
                 ),
 
-              // ── 生成失敗 badge + 重試按鈕 ─────────────────────────
+              // ── 生成失敗 badge + 重試 ─────────────────────────────────
               if (state.generatedImages[currentIndex]?.isEmpty == true)
                 Positioned(
                   top: 8,
@@ -439,7 +564,8 @@ class _CardStack extends StatelessWidget {
   }
 }
 
-/// 貼圖卡片外框：陰影 + 圓角 + 可選 RepaintBoundary
+// ─── 貼圖卡片外框 ─────────────────────────────────────────────────────────────
+
 class _StickerCard extends StatelessWidget {
   final GlobalKey? repaintKey;
   final Uint8List? subjectBytes;
@@ -450,7 +576,9 @@ class _StickerCard extends StatelessWidget {
   final Offset initialOffset;
   final int fontIndex;
   final double fontSizeScale;
+  final double textXAlign;
   final double textYAlign;
+  final double textAngle;
   final VoidCallback? onTap;
 
   const _StickerCard({
@@ -463,7 +591,9 @@ class _StickerCard extends StatelessWidget {
     this.initialOffset = Offset.zero,
     this.fontIndex = 0,
     this.fontSizeScale = 1.0,
+    this.textXAlign = 0.0,
     this.textYAlign = 0.85,
+    this.textAngle = 0.0,
     this.onTap,
   });
 
@@ -478,7 +608,9 @@ class _StickerCard extends StatelessWidget {
       initialOffset: initialOffset,
       fontIndex: fontIndex,
       fontSizeScale: fontSizeScale,
+      textXAlign: textXAlign,
       textYAlign: textYAlign,
+      textAngle: textAngle,
       onTap: onTap,
     );
 
@@ -507,7 +639,7 @@ class _StickerCard extends StatelessWidget {
   }
 }
 
-// ─── AI 狀態 Badge（生成中 / 失敗+重試）────────────────────────────────────
+// ─── AI 狀態 Badge ────────────────────────────────────────────────────────────
 
 class _StatusBadge extends StatelessWidget {
   final bool isFailed;
@@ -524,8 +656,7 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isFailed) {
-      const shortLabel = 'AI 生成失敗，點此重試';
-      final badge = GestureDetector(
+      return GestureDetector(
         onTap: () {
           HapticFeedback.mediumImpact();
           onRetry?.call();
@@ -536,7 +667,8 @@ class _StatusBadge extends StatelessWidget {
                   context: context,
                   builder: (_) => AlertDialog(
                     title: const Text('API 錯誤詳情'),
-                    content: SingleChildScrollView(child: SelectableText(reason!)),
+                    content: SingleChildScrollView(
+                        child: SelectableText(reason!)),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
@@ -546,7 +678,8 @@ class _StatusBadge extends StatelessWidget {
                   ),
                 ),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: Colors.red.shade600,
             borderRadius: BorderRadius.circular(20),
@@ -558,29 +691,31 @@ class _StatusBadge extends StatelessWidget {
               ),
             ],
           ),
-          child: Row(
+          child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 13, color: Colors.white),
-              const SizedBox(width: 5),
+              Icon(Icons.error_outline, size: 13, color: Colors.white),
+              SizedBox(width: 5),
               Text(
-                shortLabel,
-                style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
+                'AI 生成失敗，點此重試',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600),
               ),
-              const SizedBox(width: 5),
-              const Icon(Icons.refresh, size: 13, color: Colors.white),
+              SizedBox(width: 5),
+              Icon(Icons.refresh, size: 13, color: Colors.white),
             ],
           ),
         ),
       );
-      return badge;
     }
 
     return const _CatChaseMiniBadge();
   }
 }
 
-// ─── 迷你貓追老鼠 Badge（每張卡片 AI 生成中狀態）──────────────────────────
+// ─── 迷你貓追老鼠 Badge（每張卡片生成中狀態）────────────────────────────────
 
 class _CatChaseMiniBadge extends StatefulWidget {
   const _CatChaseMiniBadge();
@@ -646,7 +781,7 @@ class _CatChaseMiniBadgeState extends State<_CatChaseMiniBadge>
   }
 }
 
-// ─── Tinder 大圓形按鈕 ─────────────────────────────────────────────────────
+// ─── Tinder 大圓形按鈕 ────────────────────────────────────────────────────────
 
 class _TinderButtons extends StatelessWidget {
   final bool isExporting;
@@ -664,7 +799,6 @@ class _TinderButtons extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // ❌ Nope（空心圓，紅邊）
         _CircleButton(
           size: 64,
           icon: Icons.close_rounded,
@@ -676,7 +810,6 @@ class _TinderButtons extends StatelessWidget {
           onTap: onNope,
         ),
         const SizedBox(width: 52),
-        // ❤️ Like（實心圓，綠底）
         _CircleButton(
           size: 76,
           icon: isExporting ? null : Icons.favorite_rounded,
@@ -803,7 +936,7 @@ class _CircleButtonState extends State<_CircleButton>
   }
 }
 
-// ─── 完成畫面（動畫版）────────────────────────────────────────────────────
+// ─── 完成畫面 ─────────────────────────────────────────────────────────────────
 
 class _CompletionView extends StatefulWidget {
   final int keptCount;
@@ -852,7 +985,6 @@ class _CompletionViewState extends State<_CompletionView>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── 脈動 icon（有保留時漸層圓 + 陰影）────────────────────
             AnimatedBuilder(
               animation: _pulseScale,
               builder: (_, child) => Transform.scale(
@@ -869,7 +1001,8 @@ class _CompletionViewState extends State<_CompletionView>
                   boxShadow: hasKept
                       ? [
                           BoxShadow(
-                            color: const Color(0xFFFF5864).withOpacity(0.35),
+                            color:
+                                const Color(0xFFFF5864).withOpacity(0.35),
                             blurRadius: 28,
                             offset: const Offset(0, 10),
                           ),
@@ -877,7 +1010,9 @@ class _CompletionViewState extends State<_CompletionView>
                       : null,
                 ),
                 child: Icon(
-                  hasKept ? Icons.favorite_rounded : Icons.sentiment_neutral,
+                  hasKept
+                      ? Icons.favorite_rounded
+                      : Icons.sentiment_neutral,
                   size: 48,
                   color: Colors.white,
                 ),
@@ -915,7 +1050,6 @@ class _CompletionViewState extends State<_CompletionView>
               ),
             ],
             const SizedBox(height: 40),
-            // ── 漸層重新生成按鈕 ─────────────────────────────────────
             GestureDetector(
               onTap: widget.onRegenerate,
               child: Container(
@@ -971,9 +1105,10 @@ class _CompletionViewState extends State<_CompletionView>
   }
 }
 
-// ─── 趣味 Loading（貓追老鼠動畫）/ Error ────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// 全螢幕趣味 Loading：貓追老鼠大場景（追劇雙關）
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/// 取代枯燥 shimmer 的趣味等待動畫：🐱 貓追 🐭 老鼠
 class _FunLoadingView extends StatefulWidget {
   const _FunLoadingView();
 
@@ -983,17 +1118,18 @@ class _FunLoadingView extends StatefulWidget {
 
 class _FunLoadingViewState extends State<_FunLoadingView>
     with TickerProviderStateMixin {
-  late final AnimationController _chaseCtrl;   // 橫向追逐進度
-  late final AnimationController _bounceCtrl;  // 上下彈跳
+  late final AnimationController _chaseCtrl;
+  late final AnimationController _bounceCtrl;
+  late final AnimationController _cloudCtrl;
   int _msgIndex = 0;
   Timer? _msgTimer;
 
   static const _messages = [
-    '🐱 AI 貓咪正在捕捉靈感…',
-    '🐭 老鼠偷走了你的臉，快追！',
-    '✨ 施展魔法中，請稍等…',
-    '🎨 努力作畫中，快好了！',
-    '💨 再一下下，跑不掉的！',
+    '🎬 AI 貓咪正在幫你「追劇」製作貼圖…',
+    '🐭 老鼠：「我就是在追劇啦！」',
+    '✨ 施展魔法中，稍等一下下',
+    '🎨 AI 畫師拼命作畫，快好了！',
+    '💨 跑不掉的！AI 馬上追上了',
   ];
 
   @override
@@ -1001,14 +1137,20 @@ class _FunLoadingViewState extends State<_FunLoadingView>
     super.initState();
     _chaseCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 4500),
+      duration: const Duration(milliseconds: 3800),
     )..repeat();
     _bounceCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 380),
+      duration: const Duration(milliseconds: 420),
     )..repeat(reverse: true);
-    _msgTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) {
-      if (mounted) setState(() => _msgIndex = (_msgIndex + 1) % _messages.length);
+    _cloudCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 9000),
+    )..repeat();
+    _msgTimer = Timer.periodic(const Duration(milliseconds: 2800), (_) {
+      if (mounted) {
+        setState(() => _msgIndex = (_msgIndex + 1) % _messages.length);
+      }
     });
   }
 
@@ -1016,157 +1158,316 @@ class _FunLoadingViewState extends State<_FunLoadingView>
   void dispose() {
     _chaseCtrl.dispose();
     _bounceCtrl.dispose();
+    _cloudCtrl.dispose();
     _msgTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _ChaseStage(chaseCtrl: _chaseCtrl, bounceCtrl: _bounceCtrl),
-        const SizedBox(height: 36),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 400),
-          transitionBuilder: (child, anim) => FadeTransition(
-            opacity: anim,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.25),
-                end: Offset.zero,
-              ).animate(anim),
-              child: child,
-            ),
-          ),
-          child: Text(
-            _messages[_msgIndex],
-            key: ValueKey(_msgIndex),
-            textAlign: TextAlign.center,
-            style: GoogleFonts.notoSansTc(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFA8D8EA), // sky blue top
+            Color(0xFFD6EEFF), // light blue mid
+            Color(0xFFF5FAFD), // almost white bottom
+          ],
+          stops: [0.0, 0.55, 1.0],
         ),
-      ],
+      ),
+      child: Column(
+        children: [
+          // ── 大場景動畫區（佔 70%）───────────────────────────────────
+          Expanded(
+            flex: 7,
+            child: _ChaseStage(
+              chaseCtrl: _chaseCtrl,
+              bounceCtrl: _bounceCtrl,
+              cloudCtrl: _cloudCtrl,
+            ),
+          ),
+
+          // ── 訊息區（佔 30%）──────────────────────────────────────────
+          Expanded(
+            flex: 3,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(32, 8, 32, 24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 500),
+                    transitionBuilder: (child, anim) => FadeTransition(
+                      opacity: anim,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.4),
+                          end: Offset.zero,
+                        ).animate(CurvedAnimation(
+                          parent: anim,
+                          curve: Curves.easeOut,
+                        )),
+                        child: child,
+                      ),
+                    ),
+                    child: Text(
+                      _messages[_msgIndex],
+                      key: ValueKey(_msgIndex),
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.notoSansTc(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF2D6A9F),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _BounceDots(controller: _chaseCtrl),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-/// 舞台：🐭 老鼠在前、🐱 貓在後追趕，搭配尾跡小星星
+/// 三顆跳動圓點進度指示器
+class _BounceDots extends AnimatedWidget {
+  const _BounceDots({required AnimationController controller})
+      : super(listenable: controller);
+
+  @override
+  Widget build(BuildContext context) {
+    final t = (listenable as AnimationController).value;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (i) {
+        final phase = ((t * 3) - i).clamp(0.0, 1.0);
+        final s = 0.5 + 0.5 * sin(phase * pi).clamp(0.0, 1.0);
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 5),
+          child: Transform.scale(
+            scale: s,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color.lerp(
+                  const Color(0xFF2D6A9F).withOpacity(0.3),
+                  const Color(0xFF2D6A9F),
+                  s,
+                ),
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+/// 全螢幕追逐場景：🐭 前跑、🐱 後追、雲朵飄移、草地、星芒尾跡
 class _ChaseStage extends StatelessWidget {
   final AnimationController chaseCtrl;
   final AnimationController bounceCtrl;
+  final AnimationController cloudCtrl;
 
-  const _ChaseStage({required this.chaseCtrl, required this.bounceCtrl});
+  const _ChaseStage({
+    required this.chaseCtrl,
+    required this.bounceCtrl,
+    required this.cloudCtrl,
+  });
 
-  static const _stageHeight = 160.0;
-  static const _floor = 110.0;        // 角色底部距舞台頂的距離
-  static const _catSize = 52.0;
-  static const _mouseSize = 46.0;
-  static const _gap = 88.0;           // 預設貓鼠水平間距
+  static const _catFontSize = 90.0;
+  static const _mouseFontSize = 78.0;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (ctx, constraints) {
-      final stageW = constraints.maxWidth;
-      final travelW = stageW - _catSize - 24; // 可移動寬度
+      final w = constraints.maxWidth;
+      final h = constraints.maxHeight;
+      final groundY = h * 0.62; // 地板在 62% 高度
+      final travelW = w - _catFontSize - 24;
 
-      return SizedBox(
-        height: _stageHeight,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // ── 地板線 ────────────────────────────────────────────────
-            Positioned(
-              bottom: _stageHeight - _floor - 2,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 2,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      Colors.grey.shade300,
-                      Colors.grey.shade300,
-                      Colors.transparent,
-                    ],
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // ── 雲朵（緩慢飄移）──────────────────────────────────────────
+          AnimatedBuilder(
+            animation: cloudCtrl,
+            builder: (_, __) {
+              final t = cloudCtrl.value;
+              return Stack(
+                children: [
+                  Positioned(
+                    left: (w * (0.05 + t * 0.6)) % (w + 80) - 40,
+                    top: h * 0.06,
+                    child: const Text('☁️',
+                        style: TextStyle(fontSize: 52)),
                   ),
+                  Positioned(
+                    left: (w * (0.55 + t * 0.45)) % (w + 70) - 35,
+                    top: h * 0.17,
+                    child: const Text('⛅',
+                        style: TextStyle(fontSize: 40)),
+                  ),
+                  Positioned(
+                    left: (w * (0.25 + t * 0.35)) % (w + 60) - 30,
+                    top: h * 0.03,
+                    child: const Text('☁️',
+                        style: TextStyle(fontSize: 34)),
+                  ),
+                ],
+              );
+            },
+          ),
+
+          // ── 地板線（草地色）──────────────────────────────────────────
+          Positioned(
+            top: groundY,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 4,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.transparent,
+                    Color(0xFF6DBE6D),
+                    Color(0xFF6DBE6D),
+                    Colors.transparent,
+                  ],
                 ),
               ),
             ),
+          ),
 
-            // ── 角色（貓 + 老鼠 + 尾跡星星）─────────────────────────
-            AnimatedBuilder(
-              animation: Listenable.merge([chaseCtrl, bounceCtrl]),
-              builder: (_, __) {
-                final t = chaseCtrl.value;   // 0→1 追逐進度
-                final b = bounceCtrl.value;  // 0→1→0 彈跳
+          // ── 草叢裝飾 ─────────────────────────────────────────────────
+          Positioned(
+            top: groundY - 10,
+            left: w * 0.08,
+            child: const Text('🌿', style: TextStyle(fontSize: 20)),
+          ),
+          Positioned(
+            top: groundY - 9,
+            left: w * 0.42,
+            child: const Text('🌱', style: TextStyle(fontSize: 17)),
+          ),
+          Positioned(
+            top: groundY - 8,
+            right: w * 0.12,
+            child: const Text('🌿', style: TextStyle(fontSize: 16)),
+          ),
 
-                // 追逐結尾讓貓加速靠近老鼠（sin 曲線讓間距縮小）
-                final catProgress = t;
-                final mouseProgress = (t + 0.18).clamp(0.0, 1.0);
+          // ── 角色動畫 ─────────────────────────────────────────────────
+          AnimatedBuilder(
+            animation: Listenable.merge([chaseCtrl, bounceCtrl]),
+            builder: (_, __) {
+              final t = chaseCtrl.value;
+              final b = bounceCtrl.value;
 
-                final catX = travelW * catProgress;
-                final mouseX = (travelW * mouseProgress + _gap).clamp(0.0, stageW - _mouseSize);
+              final mouseProgress = (t + 0.18).clamp(0.0, 1.0);
+              final catProgress = t;
 
-                final catBounce = -10.0 * sin(b * pi);
-                final mouseBounce = -13.0 * sin((b + 0.2) * pi);
+              final catX = travelW * catProgress;
+              final mouseX =
+                  (travelW * mouseProgress + 100).clamp(0.0, w - _mouseFontSize);
 
-                // 星星尾跡透明度（老鼠後方）
-                final sparkOpacity = (sin(t * pi * 8) * 0.5 + 0.5).clamp(0.0, 1.0);
+              // sin 曲線彈跳（自然跑步感）
+              final catBounce = -16.0 * sin(b * pi);
+              final mouseBounce = -20.0 * sin((b + 0.22) * pi);
 
-                final baseY = _floor - _catSize;
+              final sparkOpacity =
+                  (sin(t * pi * 7) * 0.5 + 0.5).clamp(0.0, 1.0);
 
-                return Stack(
-                  children: [
-                    // ✨ 尾跡星星 1
-                    Positioned(
-                      left: mouseX - 14,
-                      top: baseY + mouseBounce + 4,
-                      child: Opacity(
-                        opacity: sparkOpacity * 0.8,
-                        child: const Text('✨', style: TextStyle(fontSize: 14)),
+              // 角色腳底對齊地板
+              final charBaseY = groundY - _catFontSize + 6;
+
+              return Stack(
+                children: [
+                  // ── 速度線（貓身後）
+                  Positioned(
+                    left: catX - 36,
+                    top: charBaseY + catBounce + 36,
+                    child: Opacity(
+                      opacity: 0.45,
+                      child: Text(
+                        '— — —',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade400,
+                          letterSpacing: -3,
+                        ),
                       ),
                     ),
-                    // ✨ 尾跡星星 2
-                    Positioned(
-                      left: mouseX - 28,
-                      top: baseY + mouseBounce + 14,
-                      child: Opacity(
-                        opacity: (1 - sparkOpacity) * 0.6,
-                        child: const Text('⭐', style: TextStyle(fontSize: 10)),
-                      ),
+                  ),
+
+                  // ── 星芒尾跡（老鼠身後）
+                  Positioned(
+                    left: mouseX - 26,
+                    top: charBaseY + mouseBounce + 8,
+                    child: Opacity(
+                      opacity: sparkOpacity * 0.9,
+                      child: const Text('✨',
+                          style: TextStyle(fontSize: 26)),
                     ),
-                    // 🐭 老鼠
-                    Positioned(
-                      left: mouseX,
-                      top: baseY + mouseBounce,
-                      child: Transform(
-                        alignment: Alignment.center,
-                        transform: Matrix4.identity()..scale(-1.0, 1.0), // 面朝右（逃跑方向）
-                        child: const Text('🐭', style: TextStyle(fontSize: 40)),
-                      ),
+                  ),
+                  Positioned(
+                    left: mouseX - 52,
+                    top: charBaseY + mouseBounce + 22,
+                    child: Opacity(
+                      opacity: (1 - sparkOpacity) * 0.7,
+                      child: const Text('⭐',
+                          style: TextStyle(fontSize: 18)),
                     ),
-                    // 🐱 貓
-                    Positioned(
-                      left: catX,
-                      top: baseY + catBounce,
-                      child: const Text('🐱', style: TextStyle(fontSize: 46)),
+                  ),
+                  Positioned(
+                    left: mouseX - 72,
+                    top: charBaseY + mouseBounce + 12,
+                    child: Opacity(
+                      opacity: sparkOpacity * 0.5,
+                      child: const Text('💫',
+                          style: TextStyle(fontSize: 14)),
                     ),
-                  ],
-                );
-              },
-            ),
-          ],
-        ),
+                  ),
+
+                  // ── 🐭 老鼠（水平翻轉，面朝逃跑方向）
+                  Positioned(
+                    left: mouseX,
+                    top: charBaseY + mouseBounce,
+                    child: Transform(
+                      alignment: Alignment.center,
+                      transform: Matrix4.identity()..scale(-1.0, 1.0),
+                      child: const Text('🐭',
+                          style: TextStyle(fontSize: _mouseFontSize)),
+                    ),
+                  ),
+
+                  // ── 🐱 貓
+                  Positioned(
+                    left: catX,
+                    top: charBaseY + catBounce,
+                    child: const Text('🐱',
+                        style: TextStyle(fontSize: _catFontSize)),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
       );
     });
   }
 }
+
+// ─── 錯誤畫面 ─────────────────────────────────────────────────────────────────
 
 class _ErrorView extends StatelessWidget {
   final String message;

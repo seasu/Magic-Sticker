@@ -3,21 +3,19 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/models/sticker_style.dart';
 import '../models/sticker_config.dart';
 import '../models/sticker_font.dart';
 import 'sticker_canvas.dart';
 
 /// 點圖後彈出的編輯 Bottom Sheet
 ///
-/// 提供六種編輯功能：
-/// - 圖片縮放/位移（pinch-zoom + pan）
-/// - 文字編輯（即時預覽）
-/// - 字型選擇（5 種繁中字體）
-/// - 字體大小調整（0.4x – 2.0x 滑桿）
-/// - 文字垂直位置調整（滑桿）
-/// - 配色選擇（8 組預設色系）
-/// - 產圖風格（Q版卡通 / 普普風 / 像素風 / 素描 / 水彩）
+/// 提供四種編輯功能：
+///   1. 文字編輯（即時預覽）
+///   2. 字型選擇（5 種繁中字體）
+///   3. 配色選擇（8 組預設色系）
+///   4. 文字拖拉 / 捏合縮放 / 旋轉（直接在預覽上操作）
+///
+/// 產圖風格已移至主畫面的風格選擇列。
 class StickerEditSheet extends StatefulWidget {
   final int stickerIndex;
   final String initialText;
@@ -25,18 +23,28 @@ class StickerEditSheet extends StatefulWidget {
   final double initialScale;
   final Offset initialOffset;
   final int initialFontIndex;
-  final int initialStyleIndex;
-  final double initialFontSizeScale;
+
+  /// 文字初始位置與角度（手勢控制，無滑桿）
+  final double initialTextXAlign;
   final double initialTextYAlign;
+  final double initialTextAngle;
+  final double initialFontSizeScale;
+
   final Uint8List? subjectBytes;
   final Uint8List? generatedImage;
+
   final ValueChanged<String> onTextChanged;
   final ValueChanged<int> onSchemeChanged;
   final void Function(double scale, Offset offset) onTransformChanged;
   final ValueChanged<int> onFontChanged;
-  final ValueChanged<int> onStyleChanged;
-  final ValueChanged<double> onFontSizeScaleChanged;
-  final ValueChanged<double> onTextYAlignChanged;
+
+  /// 文字手勢回呼：拖拉/捏合/旋轉後觸發，傳回最新的 (xAlign, yAlign, angle, sizeScale)
+  final void Function(
+    double xAlign,
+    double yAlign,
+    double angle,
+    double sizeScale,
+  ) onTextGestureChanged;
 
   const StickerEditSheet({
     super.key,
@@ -46,18 +54,17 @@ class StickerEditSheet extends StatefulWidget {
     required this.initialScale,
     required this.initialOffset,
     this.initialFontIndex = 0,
-    this.initialStyleIndex = 0,
-    this.initialFontSizeScale = 1.0,
+    this.initialTextXAlign = 0.0,
     this.initialTextYAlign = 0.85,
+    this.initialTextAngle = 0.0,
+    this.initialFontSizeScale = 1.0,
     this.subjectBytes,
     this.generatedImage,
     required this.onTextChanged,
     required this.onSchemeChanged,
     required this.onTransformChanged,
     required this.onFontChanged,
-    required this.onStyleChanged,
-    required this.onFontSizeScaleChanged,
-    required this.onTextYAlignChanged,
+    required this.onTextGestureChanged,
   });
 
   @override
@@ -68,9 +75,10 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
   late final TextEditingController _textCtrl;
   late int _schemeIndex;
   late int _fontIndex;
-  late int _styleIndex;
-  late double _fontSizeScale;
+  late double _textXAlign;
   late double _textYAlign;
+  late double _textAngle;
+  late double _textSizeScale;
 
   @override
   void initState() {
@@ -78,9 +86,10 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
     _textCtrl = TextEditingController(text: widget.initialText);
     _schemeIndex = widget.initialSchemeIndex;
     _fontIndex = widget.initialFontIndex;
-    _styleIndex = widget.initialStyleIndex;
-    _fontSizeScale = widget.initialFontSizeScale;
+    _textXAlign = widget.initialTextXAlign;
     _textYAlign = widget.initialTextYAlign;
+    _textAngle = widget.initialTextAngle;
+    _textSizeScale = widget.initialFontSizeScale;
   }
 
   @override
@@ -100,7 +109,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Drag handle ───────────────────────────────────────────
+            // ── Drag handle ────────────────────────────────────────────
             const SizedBox(height: 12),
             Container(
               width: 40,
@@ -112,7 +121,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
             ),
             const SizedBox(height: 12),
 
-            // ── 標題 ──────────────────────────────────────────────────
+            // ── 標題 ───────────────────────────────────────────────────
             Text(
               '貼圖 ${widget.stickerIndex + 1} 編輯',
               style: const TextStyle(
@@ -121,33 +130,67 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                 color: Colors.black87,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
-            // ── 貼圖預覽（可縮放/拖曳）+ 虛線邊界框 ──────────────────
+            // ── 貼圖預覽（文字可拖拉/捏合/旋轉）+ 虛線邊界框 ──────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: CustomPaint(
-                foregroundPainter: const _BoundaryPainter(),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: StickerCanvas(
-                    subjectBytes: widget.subjectBytes,
-                    generatedImage: widget.generatedImage,
-                    text: _textCtrl.text,
-                    config: config,
-                    initialScale: widget.initialScale,
-                    initialOffset: widget.initialOffset,
-                    fontIndex: _fontIndex,
-                    fontSizeScale: _fontSizeScale,
-                    textYAlign: _textYAlign,
-                    onTransformChanged: widget.onTransformChanged,
+              child: Stack(
+                children: [
+                  CustomPaint(
+                    foregroundPainter: const _BoundaryPainter(),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: StickerCanvas(
+                        subjectBytes: widget.subjectBytes,
+                        generatedImage: widget.generatedImage,
+                        text: _textCtrl.text,
+                        config: config,
+                        initialScale: widget.initialScale,
+                        initialOffset: widget.initialOffset,
+                        fontIndex: _fontIndex,
+                        fontSizeScale: _textSizeScale,
+                        textXAlign: _textXAlign,
+                        textYAlign: _textYAlign,
+                        textAngle: _textAngle,
+                        enableTextGestures: true,
+                        onTransformChanged: widget.onTransformChanged,
+                        onTextGestureChanged: (xAlign, yAlign, angle, scale) {
+                          setState(() {
+                            _textXAlign = xAlign;
+                            _textYAlign = yAlign;
+                            _textAngle = angle;
+                            _textSizeScale = scale;
+                          });
+                          widget.onTextGestureChanged(
+                              xAlign, yAlign, angle, scale);
+                        },
+                      ),
+                    ),
                   ),
-                ),
+                  // 操作提示
+                  Positioned(
+                    bottom: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        '拖拉・捏合・旋轉文字',
+                        style: TextStyle(fontSize: 10, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 20),
 
-            // ── 文字編輯 ──────────────────────────────────────────────
+            // ── 文字編輯 ───────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
@@ -169,7 +212,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                       counterText: '',
                     ),
                     onChanged: (val) {
-                      setState(() {}); // 即時更新預覽
+                      setState(() {});
                       widget.onTextChanged(val);
                     },
                   ),
@@ -178,7 +221,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
             ),
             const SizedBox(height: 20),
 
-            // ── 字型選擇 ──────────────────────────────────────────────
+            // ── 字型選擇 ───────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
@@ -234,113 +277,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
             ),
             const SizedBox(height: 20),
 
-            // ── 字體大小 ──────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      _SectionLabel('字體大小'),
-                      const Spacer(),
-                      Text(
-                        '${(_fontSizeScale * 100).round()}%',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 3,
-                      thumbShape: const RoundSliderThumbShape(
-                          enabledThumbRadius: 8),
-                      overlayShape: const RoundSliderOverlayShape(
-                          overlayRadius: 16),
-                    ),
-                    child: Slider(
-                      value: _fontSizeScale,
-                      min: 0.4,
-                      max: 2.0,
-                      divisions: 32,
-                      onChanged: (v) {
-                        setState(() => _fontSizeScale = v);
-                        widget.onFontSizeScaleChanged(v);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 4),
-
-            // ── 文字位置 ──────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      _SectionLabel('文字位置'),
-                      const Spacer(),
-                      Text(
-                        _textYAlign < -0.3
-                            ? '偏上'
-                            : _textYAlign > 0.3
-                                ? '偏下'
-                                : '置中',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text('上',
-                          style: TextStyle(
-                              fontSize: 11, color: Colors.grey.shade500)),
-                      Expanded(
-                        child: SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            trackHeight: 3,
-                            thumbShape: const RoundSliderThumbShape(
-                                enabledThumbRadius: 8),
-                            overlayShape: const RoundSliderOverlayShape(
-                                overlayRadius: 16),
-                          ),
-                          child: Slider(
-                            value: _textYAlign,
-                            min: -1.0,
-                            max: 1.0,
-                            divisions: 40,
-                            onChanged: (v) {
-                              setState(() => _textYAlign = v);
-                              widget.onTextYAlignChanged(v);
-                            },
-                          ),
-                        ),
-                      ),
-                      Text('下',
-                          style: TextStyle(
-                              fontSize: 11, color: Colors.grey.shade500)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // ── 配色選擇 ──────────────────────────────────────────────
+            // ── 配色選擇 ───────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
@@ -367,13 +304,15 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                             shape: BoxShape.circle,
                             color: c.borderColor,
                             border: isSelected
-                                ? Border.all(color: Colors.black87, width: 2.5)
+                                ? Border.all(
+                                    color: Colors.black87, width: 2.5)
                                 : Border.all(
                                     color: Colors.transparent, width: 2.5),
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color: c.borderColor.withOpacity(0.5),
+                                      color:
+                                          c.borderColor.withOpacity(0.5),
                                       blurRadius: 8,
                                       offset: const Offset(0, 3),
                                     )
@@ -387,82 +326,9 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-
-            // ── 產圖風格 ──────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SectionLabel('產圖風格'),
-                  const SizedBox(height: 4),
-                  Text(
-                    '變更後將重新生成貼圖',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade500,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: List.generate(StickerStyle.values.length, (i) {
-                        final style = StickerStyle.values[i];
-                        final isSelected = i == _styleIndex;
-                        return GestureDetector(
-                          onTap: () {
-                            if (i == _styleIndex) return;
-                            HapticFeedback.mediumImpact();
-                            setState(() => _styleIndex = i);
-                            widget.onStyleChanged(i);
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            margin: const EdgeInsets.only(right: 8),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Colors.black87
-                                  : Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(22),
-                              border: Border.all(
-                                color: isSelected
-                                    ? Colors.black87
-                                    : Colors.grey.shade300,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(style.emoji,
-                                    style: const TextStyle(fontSize: 15)),
-                                const SizedBox(width: 6),
-                                Text(
-                                  style.label,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                ],
-              ),
-            ),
             const SizedBox(height: 24),
 
-            // ── 完成按鈕 ──────────────────────────────────────────────
+            // ── 完成按鈕 ───────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: SizedBox(
@@ -510,7 +376,7 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-// ─── 貼圖最大邊界虛線框 ─────────────────────────────────────────────────────
+// ─── 貼圖最大邊界虛線框 ──────────────────────────────────────────────────────
 
 class _BoundaryPainter extends CustomPainter {
   const _BoundaryPainter();

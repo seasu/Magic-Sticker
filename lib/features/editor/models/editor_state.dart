@@ -27,8 +27,10 @@ class EditorState {
   final List<Offset> imageOffsets;        // 每張貼圖的位移量
   final List<int> fontIndices;            // 每張貼圖的字型索引 (0-4)
   final List<int> styleIndices;           // 每張貼圖的產圖風格索引 (0-4)
-  final List<double> fontSizeScales;      // 每張貼圖的字體大小倍率 (0.4–2.0)
-  final List<double> textYAligns;         // 每張貼圖的文字垂直對齊 (-1.0=上, 1.0=下)
+  final List<double> fontSizeScales;      // 每張貼圖的字體大小倍率 (0.3–3.0)
+  final List<double> textXAligns;         // 文字水平對齊 (-1.5=左, 0=中, 1.5=右)
+  final List<double> textYAligns;         // 文字垂直對齊 (-1.5=上, 0.85=近底部)
+  final List<double> textAngles;          // 文字旋轉角度（弧度，0=不旋轉）
 
   EditorState({
     required this.originalImagePath,
@@ -44,7 +46,9 @@ class EditorState {
     List<int>? fontIndices,
     List<int>? styleIndices,
     List<double>? fontSizeScales,
+    List<double>? textXAligns,
     List<double>? textYAligns,
+    List<double>? textAngles,
   })  : stickerTexts = stickerTexts ?? List.from(_kFallbackTexts),
         generatedImages = generatedImages ?? List.filled(8, null),
         imageErrors = imageErrors ?? List.filled(8, null),
@@ -54,7 +58,9 @@ class EditorState {
         fontIndices = fontIndices ?? List.filled(8, 0),
         styleIndices = styleIndices ?? List.filled(8, 0),
         fontSizeScales = fontSizeScales ?? List.filled(8, 1.0),
-        textYAligns = textYAligns ?? List.filled(8, 0.85);
+        textXAligns = textXAligns ?? List.filled(8, 0.0),
+        textYAligns = textYAligns ?? List.filled(8, 0.85),
+        textAngles = textAngles ?? List.filled(8, 0.0);
 
   EditorState copyWith({
     Uint8List? subjectBytes,
@@ -69,7 +75,9 @@ class EditorState {
     List<int>? fontIndices,
     List<int>? styleIndices,
     List<double>? fontSizeScales,
+    List<double>? textXAligns,
     List<double>? textYAligns,
+    List<double>? textAngles,
   }) {
     return EditorState(
       originalImagePath: originalImagePath,
@@ -85,7 +93,9 @@ class EditorState {
       fontIndices: fontIndices ?? this.fontIndices,
       styleIndices: styleIndices ?? this.styleIndices,
       fontSizeScales: fontSizeScales ?? this.fontSizeScales,
+      textXAligns: textXAligns ?? this.textXAligns,
       textYAligns: textYAligns ?? this.textYAligns,
+      textAngles: textAngles ?? this.textAngles,
     );
   }
 }
