@@ -82,7 +82,7 @@ class _PickImageButtonState extends State<PickImageButton>
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF5864).withOpacity(0.32),
+            color: const Color(0xFFFF5864).withValues(alpha: 0.32),
             blurRadius: 22,
             offset: const Offset(0, 8),
           ),

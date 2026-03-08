@@ -206,7 +206,7 @@ class _SwipeBadge extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: color, width: 3),
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

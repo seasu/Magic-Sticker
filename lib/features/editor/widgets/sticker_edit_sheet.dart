@@ -416,7 +416,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                                         ? [
                                             BoxShadow(
                                               color:
-                                                  c.borderColor.withOpacity(0.5),
+                                                  c.borderColor.withValues(alpha: 0.5),
                                               blurRadius: 8,
                                               offset: const Offset(0, 3),
                                             )
@@ -538,7 +538,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.90),
+                color: Colors.white.withValues(alpha: 0.90),
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(24)),
               ),
@@ -616,7 +616,7 @@ class _ModeButton extends StatelessWidget {
         curve: Curves.easeOutCubic,
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isActive ? activeColor.withOpacity(0.10) : Colors.grey.shade100,
+          color: isActive ? activeColor.withValues(alpha: 0.10) : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isActive ? activeColor : Colors.grey.shade200,

@@ -475,18 +475,18 @@ class _MiniStickerCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.13),
+            color: Colors.black.withValues(alpha: 0.13),
             blurRadius: 22,
             offset: const Offset(0, 9),
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
         ],
         border: Border.all(
-          color: Colors.black.withOpacity(0.06),
+          color: Colors.black.withValues(alpha: 0.06),
         ),
       ),
       child: Column(
@@ -505,7 +505,7 @@ class _MiniStickerCard extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: data.gradientColors.last.withOpacity(0.30),
+                  color: data.gradientColors.last.withValues(alpha: 0.30),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),

@@ -373,7 +373,7 @@ class _StickerCanvasState extends State<StickerCanvas> {
     final color = widget.config.colorScheme.borderColor;
     return Container(
       decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(20),
       ),
     );
@@ -383,7 +383,7 @@ class _StickerCanvasState extends State<StickerCanvas> {
     final color = widget.config.colorScheme.borderColor;
     return Container(
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
     );
@@ -477,7 +477,7 @@ class _RotationHandle extends StatelessWidget {
         Container(
           width: 2,
           height: 20,
-          color: _kHandleColor.withOpacity(0.75),
+          color: _kHandleColor.withValues(alpha: 0.75),
         ),
       ],
     );
@@ -525,7 +525,7 @@ class _ImageSelectionOverlay extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.88),
+                color: Colors.white.withValues(alpha: 0.88),
                 border: Border.all(color: _kHandleColor, width: 2),
                 boxShadow: const [
                   BoxShadow(color: Colors.black26, blurRadius: 6)
@@ -548,7 +548,7 @@ class _ImageSelectionPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final borderPaint = Paint()
-      ..color = _kHandleColor.withOpacity(0.85)
+      ..color = _kHandleColor.withValues(alpha: 0.85)
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 

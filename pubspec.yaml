@@ -1,7 +1,7 @@
 name: magic_morning
 description: AI 一鍵產 LINE 貼圖 — MagicMorning
 publish_to: 'none'
-version: 2.4.7+78
+version: 2.4.8+79
 
 environment:
   sdk: '>=3.3.0 <4.0.0'

@@ -24,7 +24,7 @@ class FramePainter extends CustomPainter {
 
       // Thin accent stroke on top
       final strokePaint = Paint()
-        ..color = style.color.withOpacity(0.4)
+        ..color = style.color.withValues(alpha: 0.4)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5
         ..strokeJoin = StrokeJoin.round
@@ -33,7 +33,7 @@ class FramePainter extends CustomPainter {
     } else {
       // Shadow / glow behind stroke
       final shadowPaint = Paint()
-        ..color = style.color.withOpacity(0.30)
+        ..color = style.color.withValues(alpha: 0.30)
         ..style = PaintingStyle.stroke
         ..strokeWidth = style.strokeWidth + 6
         ..strokeJoin = StrokeJoin.round
@@ -52,7 +52,7 @@ class FramePainter extends CustomPainter {
 
       // White inner highlight
       final highlightPaint = Paint()
-        ..color = Colors.white.withOpacity(0.65)
+        ..color = Colors.white.withValues(alpha: 0.65)
         ..style = PaintingStyle.stroke
         ..strokeWidth = style.strokeWidth * 0.35
         ..strokeJoin = StrokeJoin.round
@@ -114,8 +114,8 @@ class FrameThumbnail extends StatelessWidget {
               ? Border.all(color: const Color(0xFFFD297B), width: 2.5)
               : Border.all(color: Colors.grey.shade200, width: 1.5),
           boxShadow: selected
-              ? [BoxShadow(color: const Color(0xFFFD297B).withOpacity(0.3), blurRadius: 8)]
-              : [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4)],
+              ? [BoxShadow(color: const Color(0xFFFD297B).withValues(alpha: 0.3), blurRadius: 8)]
+              : [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4)],
         ),
         child: Stack(
           children: [
@@ -140,7 +140,7 @@ class FrameThumbnail extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.88),
+                  color: Colors.white.withValues(alpha: 0.88),
                   borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
                 ),
                 child: Text(
