@@ -139,6 +139,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         initialSchemeIndex: state.colorSchemeIndices[idx],
         initialScale: state.imageScales[idx],
         initialOffset: state.imageOffsets[idx],
+        initialImageAngle: state.imageAngles[idx],
         initialFontIndex: state.fontIndices[idx],
         initialTextXAlign: state.textXAligns[idx],
         initialTextYAlign: state.textYAligns[idx],
@@ -148,8 +149,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         generatedImage: state.generatedImages[idx],
         onTextChanged: (text) => notifier.updateStickerText(idx, text),
         onSchemeChanged: (si) => notifier.updateColorSchemeIndex(idx, si),
-        onTransformChanged: (s, o) =>
-            notifier.updateImageTransform(idx, s, o),
+        onTransformChanged: (s, o, a) =>
+            notifier.updateImageTransform(idx, s, o, a),
         onFontChanged: (fi) => notifier.updateFontIndex(idx, fi),
         onTextGestureChanged: (xAlign, yAlign, angle, sizeScale) =>
             notifier.updateTextTransform(
@@ -483,6 +484,7 @@ class _CardStack extends StatelessWidget {
                     state.colorSchemeIndices[currentIndex + 2]],
                 initialScale: state.imageScales[currentIndex + 2],
                 initialOffset: state.imageOffsets[currentIndex + 2],
+                initialImageAngle: state.imageAngles[currentIndex + 2],
                 fontIndex: state.fontIndices[currentIndex + 2],
                 fontSizeScale: state.fontSizeScales[currentIndex + 2],
                 textXAlign: state.textXAligns[currentIndex + 2],
@@ -506,6 +508,7 @@ class _CardStack extends StatelessWidget {
                     state.colorSchemeIndices[currentIndex + 1]],
                 initialScale: state.imageScales[currentIndex + 1],
                 initialOffset: state.imageOffsets[currentIndex + 1],
+                initialImageAngle: state.imageAngles[currentIndex + 1],
                 fontIndex: state.fontIndices[currentIndex + 1],
                 fontSizeScale: state.fontSizeScales[currentIndex + 1],
                 textXAlign: state.textXAligns[currentIndex + 1],
@@ -533,6 +536,7 @@ class _CardStack extends StatelessWidget {
                     kStickerConfigs[state.colorSchemeIndices[currentIndex]],
                 initialScale: state.imageScales[currentIndex],
                 initialOffset: state.imageOffsets[currentIndex],
+                initialImageAngle: state.imageAngles[currentIndex],
                 fontIndex: state.fontIndices[currentIndex],
                 fontSizeScale: state.fontSizeScales[currentIndex],
                 textXAlign: state.textXAligns[currentIndex],
@@ -574,6 +578,7 @@ class _StickerCard extends StatelessWidget {
   final StickerConfig config;
   final double initialScale;
   final Offset initialOffset;
+  final double initialImageAngle;
   final int fontIndex;
   final double fontSizeScale;
   final double textXAlign;
@@ -589,6 +594,7 @@ class _StickerCard extends StatelessWidget {
     required this.config,
     this.initialScale = 1.0,
     this.initialOffset = Offset.zero,
+    this.initialImageAngle = 0.0,
     this.fontIndex = 0,
     this.fontSizeScale = 1.0,
     this.textXAlign = 0.0,
@@ -606,6 +612,7 @@ class _StickerCard extends StatelessWidget {
       config: config,
       initialScale: initialScale,
       initialOffset: initialOffset,
+      initialImageAngle: initialImageAngle,
       fontIndex: fontIndex,
       fontSizeScale: fontSizeScale,
       textXAlign: textXAlign,

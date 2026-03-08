@@ -138,13 +138,17 @@ class _EditorFamilyNotifier
     );
   }
 
-  /// 使用者在編輯 popup 縮放/位移圖片
-  void updateImageTransform(int stickerIdx, double scale, Offset offset) {
+  /// 使用者在編輯 popup 縮放 / 位移 / 旋轉圖片
+  void updateImageTransform(
+      int stickerIdx, double scale, Offset offset, double angle) {
     final scales = List<double>.from(state.imageScales);
     final offsets = List<Offset>.from(state.imageOffsets);
+    final angles = List<double>.from(state.imageAngles);
     scales[stickerIdx] = scale;
     offsets[stickerIdx] = offset;
-    state = state.copyWith(imageScales: scales, imageOffsets: offsets);
+    angles[stickerIdx] = angle;
+    state = state.copyWith(
+        imageScales: scales, imageOffsets: offsets, imageAngles: angles);
   }
 
   /// 重新生成指定索引的 AI 貼圖（單張重試）

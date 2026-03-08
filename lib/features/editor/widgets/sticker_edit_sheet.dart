@@ -30,12 +30,15 @@ class StickerEditSheet extends StatefulWidget {
   final double initialTextAngle;
   final double initialFontSizeScale;
 
+  /// 圖片初始旋轉角度（弧度）
+  final double initialImageAngle;
+
   final Uint8List? subjectBytes;
   final Uint8List? generatedImage;
 
   final ValueChanged<String> onTextChanged;
   final ValueChanged<int> onSchemeChanged;
-  final void Function(double scale, Offset offset) onTransformChanged;
+  final void Function(double scale, Offset offset, double angle) onTransformChanged;
   final ValueChanged<int> onFontChanged;
 
   /// 文字手勢回呼：拖拉/捏合/旋轉後觸發，傳回最新的 (xAlign, yAlign, angle, sizeScale)
@@ -58,6 +61,7 @@ class StickerEditSheet extends StatefulWidget {
     this.initialTextYAlign = 0.85,
     this.initialTextAngle = 0.0,
     this.initialFontSizeScale = 1.0,
+    this.initialImageAngle = 0.0,
     this.subjectBytes,
     this.generatedImage,
     required this.onTextChanged,
@@ -148,6 +152,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                         config: config,
                         initialScale: widget.initialScale,
                         initialOffset: widget.initialOffset,
+                        initialImageAngle: widget.initialImageAngle,
                         fontIndex: _fontIndex,
                         fontSizeScale: _textSizeScale,
                         textXAlign: _textXAlign,
@@ -168,7 +173,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                       ),
                     ),
                   ),
-                  // 操作提示
+                  // 操作提示（選取物件後可移動・縮放・旋轉）
                   Positioned(
                     bottom: 10,
                     right: 10,
@@ -180,7 +185,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Text(
-                        '拖拉・捏合・旋轉文字',
+                        '點選物件 → 移動・縮放・旋轉',
                         style: TextStyle(fontSize: 10, color: Colors.white),
                       ),
                     ),
