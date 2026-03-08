@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' show pi, sin;
 import 'dart:ui' as ui;
 
@@ -8,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -90,7 +92,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       }
 
       final ts = DateTime.now().millisecondsSinceEpoch;
-      await Gal.putImageBytes(bytes, name: 'magic_morning_$ts');
+      final tmpDir = await getTemporaryDirectory();
+      final tmpFile = File('${tmpDir.path}/magic_morning_$ts.png');
+      await tmpFile.writeAsBytes(bytes);
+      await Gal.putImage(tmpFile.path);
+      await tmpFile.delete();
       await FirebaseAnalytics.instance.logEvent(name: 'sticker_generated');
       setState(() {
         _keptCount++;
