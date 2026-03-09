@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 import 'dart:ui' show Offset;
 
+import '../../../core/models/sticker_shape.dart';
+
 enum EditorStatus {
   idle,
   removingBackground,
@@ -18,10 +20,11 @@ class EditorState {
   final String originalImagePath;
   final Uint8List? subjectBytes;          // 去背結果 PNG（保留作 fallback）
   final List<String> stickerTexts;        // 8 組情感標語
-  final List<Uint8List?> generatedImages; // 8 張 Gemini 生成圓形貼圖（null = 仍在生成）
+  final List<Uint8List?> generatedImages; // 8 張 Gemini 生成貼圖（null = 仍在生成）
   final List<String?> imageErrors;        // 對應每張的失敗原因（null = 無錯誤）
   final EditorStatus status;
   final String? errorMessage;
+  final StickerShape stickerShape;        // 全域形狀：圓形 or 方形
   final List<int> colorSchemeIndices;     // 每張貼圖使用哪組配色 (0-7)
   final List<double> imageScales;         // 每張貼圖的縮放值
   final List<Offset> imageOffsets;        // 每張貼圖的位移量
@@ -41,6 +44,7 @@ class EditorState {
     List<String?>? imageErrors,
     this.status = EditorStatus.idle,
     this.errorMessage,
+    this.stickerShape = StickerShape.circle,
     List<int>? colorSchemeIndices,
     List<double>? imageScales,
     List<Offset>? imageOffsets,
@@ -72,6 +76,7 @@ class EditorState {
     List<String?>? imageErrors,
     EditorStatus? status,
     String? errorMessage,
+    StickerShape? stickerShape,
     List<int>? colorSchemeIndices,
     List<double>? imageScales,
     List<Offset>? imageOffsets,
@@ -91,6 +96,7 @@ class EditorState {
       imageErrors: imageErrors ?? this.imageErrors,
       status: status ?? this.status,
       errorMessage: errorMessage,
+      stickerShape: stickerShape ?? this.stickerShape,
       colorSchemeIndices: colorSchemeIndices ?? this.colorSchemeIndices,
       imageScales: imageScales ?? this.imageScales,
       imageOffsets: imageOffsets ?? this.imageOffsets,

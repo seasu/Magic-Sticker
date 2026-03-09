@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' show pi, sin;
+import 'dart:math' show min, pi, sin;
 import 'dart:ui' as ui;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -13,6 +13,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/models/sticker_shape.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/editor_state.dart';
@@ -31,11 +32,13 @@ const _kLikeColor = AppColors.like;
 class EditorScreen extends ConsumerStatefulWidget {
   final String imagePath;
   final int styleIndex;
+  final StickerShape stickerShape;
 
   const EditorScreen({
     super.key,
     required this.imagePath,
     this.styleIndex = 0,
+    this.stickerShape = StickerShape.circle,
   });
 
   @override
@@ -54,8 +57,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(editorStateProvider(widget.imagePath).notifier)
-          .initialize(defaultStyleIndex: widget.styleIndex);
+      ref.read(editorStateProvider(widget.imagePath).notifier).initialize(
+            defaultStyleIndex: widget.styleIndex,
+            stickerShape: widget.stickerShape,
+          );
     });
   }
 
@@ -71,23 +76,34 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       const double targetWidth = 370.0;
       final double pixelRatio = targetWidth / boundary.size.width;
 
-      // ── Step 1: 擷取矩形畫布 ─────────────────────────────────────────
+      // ── Step 1: 擷取正方形畫布（aspectRatio = 1.0）──────────────────
       final rectImage = await boundary.toImage(pixelRatio: pixelRatio);
-
-      // ── Step 2: 套用橢圓遮罩 → 圓形透明 PNG ─────────────────────────
       final w = rectImage.width.toDouble();
       final h = rectImage.height.toDouble();
-      final recorder = ui.PictureRecorder();
-      final exportCanvas = Canvas(recorder);
-      exportCanvas.clipPath(
-        Path()..addOval(Rect.fromLTWH(0, 0, w, h)),
-      );
-      exportCanvas.drawImage(rectImage, Offset.zero, Paint());
-      final circularImage =
-          await recorder.endRecording().toImage(w.toInt(), h.toInt());
+
+      // ── Step 2: 依形狀決定匯出遮罩 ──────────────────────────────────
+      final ui.Image exportImage;
+      if (widget.stickerShape == StickerShape.circle) {
+        // 正圓：取最短邊為直徑，確保寬高相等的圓
+        final size = min(w, h);
+        final left = (w - size) / 2;
+        final top = (h - size) / 2;
+        final recorder = ui.PictureRecorder();
+        final exportCanvas = Canvas(recorder);
+        exportCanvas.clipPath(
+          Path()..addOval(Rect.fromLTWH(0, 0, size, size)),
+        );
+        exportCanvas.drawImage(rectImage, Offset(-left, -top), Paint());
+        exportImage = await recorder
+            .endRecording()
+            .toImage(size.toInt(), size.toInt());
+      } else {
+        // 方形：直接輸出，不加任何遮罩
+        exportImage = rectImage;
+      }
 
       final byteData =
-          await circularImage.toByteData(format: ui.ImageByteFormat.png);
+          await exportImage.toByteData(format: ui.ImageByteFormat.png);
       final bytes = byteData!.buffer.asUint8List();
 
       const int maxBytes = 1 * 1024 * 1024;
@@ -209,6 +225,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         initialFontSizeScale: state.fontSizeScales[idx],
         subjectBytes: state.subjectBytes,
         generatedImage: state.generatedImages[idx],
+        stickerShape: state.stickerShape,
         onTextChanged: (text) => notifier.updateStickerText(idx, text),
         onSchemeChanged: (si) => notifier.updateColorSchemeIndex(idx, si),
         onTransformChanged: (s, o, a) =>
@@ -295,6 +312,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                           .read(
                               editorStateProvider(widget.imagePath).notifier)
                           .retryImageGeneration(_currentIndex),
+                      stickerShape: state.stickerShape,
                     ),
                   ),
 
@@ -419,6 +437,7 @@ class _CardStack extends StatelessWidget {
   final VoidCallback onRejected;
   final VoidCallback onEdit;
   final VoidCallback? onRetry;
+  final StickerShape stickerShape;
 
   const _CardStack({
     required this.state,
@@ -429,6 +448,7 @@ class _CardStack extends StatelessWidget {
     required this.onRejected,
     required this.onEdit,
     this.onRetry,
+    this.stickerShape = StickerShape.circle,
   });
 
   @override
@@ -456,6 +476,7 @@ class _CardStack extends StatelessWidget {
                 textXAlign: state.textXAligns[currentIndex + 2],
                 textYAlign: state.textYAligns[currentIndex + 2],
                 textAngle: state.textAngles[currentIndex + 2],
+                stickerShape: stickerShape,
               ),
             ),
           ),
@@ -480,6 +501,7 @@ class _CardStack extends StatelessWidget {
                 textXAlign: state.textXAligns[currentIndex + 1],
                 textYAlign: state.textYAligns[currentIndex + 1],
                 textAngle: state.textAngles[currentIndex + 1],
+                stickerShape: stickerShape,
               ),
             ),
           ),
@@ -509,6 +531,7 @@ class _CardStack extends StatelessWidget {
                 textYAlign: state.textYAligns[currentIndex],
                 textAngle: state.textAngles[currentIndex],
                 onTap: onEdit,
+                stickerShape: stickerShape,
               ),
               // ── 生成中 badge ──────────────────────────────────────────
               if (state.generatedImages[currentIndex] == null)
@@ -551,6 +574,7 @@ class _StickerCard extends StatelessWidget {
   final double textYAlign;
   final double textAngle;
   final VoidCallback? onTap;
+  final StickerShape stickerShape;
 
   const _StickerCard({
     this.repaintKey,
@@ -567,6 +591,7 @@ class _StickerCard extends StatelessWidget {
     this.textYAlign = 0.85,
     this.textAngle = 0.0,
     this.onTap,
+    this.stickerShape = StickerShape.circle,
   });
 
   @override
@@ -585,29 +610,53 @@ class _StickerCard extends StatelessWidget {
       textYAlign: textYAlign,
       textAngle: textAngle,
       onTap: onTap,
+      stickerShape: stickerShape,
     );
 
-    final card = Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.16),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: repaintKey != null
-          ? RepaintBoundary(key: repaintKey, child: canvas)
-          : canvas,
-    );
+    final inner = repaintKey != null
+        ? RepaintBoundary(key: repaintKey, child: canvas)
+        : canvas;
+
+    // 圓形：卡片外框用圓形陰影；方形：維持圓角矩形陰影
+    final card = stickerShape == StickerShape.circle
+        ? Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.16),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: inner,
+          )
+        : Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.16),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: inner,
+          );
 
     if (onTap == null) return card;
 

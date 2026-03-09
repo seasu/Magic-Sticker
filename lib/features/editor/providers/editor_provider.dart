@@ -5,6 +5,7 @@ import 'dart:ui' show Offset;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/models/sticker_shape.dart';
 import '../../../core/models/sticker_spec.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/services/gemini_service.dart';
@@ -32,10 +33,15 @@ class _EditorFamilyNotifier
   /// 初始化：兩步流程
   ///
   /// [defaultStyleIndex] 對應 [StickerStyle.values]，預設 0（Q版卡通）
-  Future<void> initialize({int defaultStyleIndex = 0}) async {
+  /// [stickerShape] 貼圖形狀，預設圓形
+  Future<void> initialize({
+    int defaultStyleIndex = 0,
+    StickerShape stickerShape = StickerShape.circle,
+  }) async {
     state = state.copyWith(
       status: EditorStatus.generatingTexts,
       styleIndices: List.filled(8, defaultStyleIndex),
+      stickerShape: stickerShape,
     );
 
     Uint8List resized;
@@ -182,6 +188,7 @@ class _EditorFamilyNotifier
         _specs![index],
         index: index,
         styleIndex: styleIdx,
+        shape: state.stickerShape,
       );
       final updated = List<Uint8List?>.from(state.generatedImages);
       final errors = List<String?>.from(state.imageErrors);
@@ -222,6 +229,7 @@ class _EditorFamilyNotifier
           specs[i],
           index: i,
           styleIndex: styleIdx,
+          shape: state.stickerShape,
         );
         if (genId != _generationId) return;
         final updated = List<Uint8List?>.from(state.generatedImages);

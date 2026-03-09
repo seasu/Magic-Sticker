@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../app.dart';
+import '../../../core/models/sticker_shape.dart';
 import '../../../core/models/sticker_style.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -81,19 +82,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (picked == null || !context.mounted) return;
 
     // 選完圖後彈出風格選擇 sheet
-    final styleIndex = await showModalBottomSheet<int>(
+    final result = await showModalBottomSheet<({int styleIndex, StickerShape shape})>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const _StylePickerSheet(),
     );
-    if (styleIndex == null || !context.mounted) return;
+    if (result == null || !context.mounted) return;
 
     // 立即跳 editor，loading 馬上開始
     context.push(
       '/editor',
-      extra: EditorArgs(imagePath: picked.path, styleIndex: styleIndex),
+      extra: EditorArgs(
+        imagePath: picked.path,
+        styleIndex: result.styleIndex,
+        stickerShape: result.shape,
+      ),
     );
   }
 
@@ -307,8 +312,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
 // ── 風格選擇 Bottom Sheet ──────────────────────────────────────────────────────
 
-class _StylePickerSheet extends StatelessWidget {
+class _StylePickerSheet extends StatefulWidget {
   const _StylePickerSheet();
+
+  @override
+  State<_StylePickerSheet> createState() => _StylePickerSheetState();
+}
+
+class _StylePickerSheetState extends State<_StylePickerSheet> {
+  StickerShape _shape = StickerShape.circle;
 
   // 每個風格的簡短說明
   static const _descs = [
@@ -363,7 +375,17 @@ class _StylePickerSheet extends StatelessWidget {
               color: AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+
+          // ── 形狀選擇：圓形 / 方形 ───────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _ShapeToggle(
+              selected: _shape,
+              onChanged: (s) => setState(() => _shape = s),
+            ),
+          ),
+          const SizedBox(height: 20),
 
           // ── 風格卡片 3×2 Grid ─────────────────────────────────────
           Padding(
@@ -382,7 +404,9 @@ class _StylePickerSheet extends StatelessWidget {
                   description: _descs[i],
                   onTap: () {
                     HapticFeedback.mediumImpact();
-                    Navigator.of(context).pop(i);
+                    Navigator.of(context).pop(
+                      (styleIndex: i, shape: _shape),
+                    );
                   },
                 );
               }),
@@ -391,6 +415,90 @@ class _StylePickerSheet extends StatelessWidget {
 
           const SizedBox(height: 28),
         ],
+      ),
+    );
+  }
+}
+
+// ── 形狀切換元件（圓形 ⭕ / 方形 ▪）──────────────────────────────────────────
+
+class _ShapeToggle extends StatelessWidget {
+  final StickerShape selected;
+  final ValueChanged<StickerShape> onChanged;
+
+  const _ShapeToggle({required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F2F7),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        children: [
+          _ShapeOption(
+            label: '⭕ 圓形',
+            isSelected: selected == StickerShape.circle,
+            onTap: () => onChanged(StickerShape.circle),
+          ),
+          _ShapeOption(
+            label: '▪ 方形',
+            isSelected: selected == StickerShape.square,
+            onTap: () => onChanged(StickerShape.square),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShapeOption extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ShapeOption({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : null,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: GoogleFonts.notoSansTc(
+              fontSize: 14,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? Colors.black87 : AppColors.textSecondary,
+            ),
+          ),
+        ),
       ),
     );
   }

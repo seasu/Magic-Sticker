@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/models/sticker_shape.dart';
 import '../models/sticker_config.dart';
 import '../models/sticker_font.dart';
 
@@ -24,10 +25,11 @@ const _kHandleColor = Color(0xFF29B6F6); // Blue-400
 ///   - 選取後雙指捏合：縮放物件
 ///   - 選取後雙指旋轉：旋轉物件
 ///
-/// 畫布比例 740 : 640 → 輸出 370×320 px（LINE Creators Market 規格）
+/// 畫布比例 1:1（正方形）→ 圓形輸出 370×370 px，方形同尺寸
 class StickerCanvas extends StatefulWidget {
   final Uint8List? subjectBytes;
   final Uint8List? generatedImage;
+  final StickerShape stickerShape;
   final String text;
   final StickerConfig config;
 
@@ -77,12 +79,13 @@ class StickerCanvas extends StatefulWidget {
     double sizeScale,
   )? onTextGestureChanged;
 
-  static const double aspectRatio = 740 / 640;
+  static const double aspectRatio = 1.0; // 正方形畫布
 
   const StickerCanvas({
     super.key,
     this.subjectBytes,
     this.generatedImage,
+    this.stickerShape = StickerShape.circle,
     required this.text,
     required this.config,
     this.initialScale = 1.0,
@@ -307,7 +310,7 @@ class _StickerCanvasState extends State<StickerCanvas> {
       widget.generatedImage != null && widget.generatedImage!.isEmpty;
 
   Widget _buildAiImage() {
-    return ClipRect(
+    final content = ClipRect(
       child: LayoutBuilder(
         builder: (ctx, constraints) {
           _canvasSize = constraints.biggest;
@@ -386,6 +389,11 @@ class _StickerCanvasState extends State<StickerCanvas> {
         },
       ),
     );
+    // 圓形模式：預覽時加 ClipOval（不影響 RepaintBoundary 擷取）
+    if (widget.stickerShape == StickerShape.circle) {
+      return ClipOval(child: content);
+    }
+    return content;
   }
 
   Widget _buildFailedPlaceholder() {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/models/sticker_shape.dart';
 import 'core/theme/app_theme.dart';
 import 'features/dev_log/screens/log_viewer_screen.dart';
 import 'features/editor/screens/editor_screen.dart';
@@ -10,8 +11,13 @@ import 'features/home/screens/home_screen.dart';
 class EditorArgs {
   final String imagePath;
   final int styleIndex;
+  final StickerShape stickerShape;
 
-  const EditorArgs({required this.imagePath, required this.styleIndex});
+  const EditorArgs({
+    required this.imagePath,
+    required this.styleIndex,
+    this.stickerShape = StickerShape.circle,
+  });
 }
 
 final _router = GoRouter(
@@ -28,6 +34,7 @@ final _router = GoRouter(
         return EditorScreen(
           imagePath: args.imagePath,
           styleIndex: args.styleIndex,
+          stickerShape: args.stickerShape,
         );
       },
     ),

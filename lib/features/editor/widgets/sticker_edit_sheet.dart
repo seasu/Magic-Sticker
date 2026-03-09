@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/models/sticker_shape.dart';
 import '../../../core/models/sticker_style.dart';
 import '../models/sticker_config.dart';
 import '../models/sticker_font.dart';
@@ -37,6 +38,7 @@ class StickerEditSheet extends StatefulWidget {
 
   final Uint8List? subjectBytes;
   final Uint8List? generatedImage;
+  final StickerShape stickerShape;
 
   final ValueChanged<String> onTextChanged;
   final ValueChanged<int> onSchemeChanged;
@@ -71,6 +73,7 @@ class StickerEditSheet extends StatefulWidget {
     this.initialImageAngle = 0.0,
     this.subjectBytes,
     this.generatedImage,
+    this.stickerShape = StickerShape.circle,
     required this.onTextChanged,
     required this.onSchemeChanged,
     required this.onTransformChanged,
@@ -209,6 +212,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                     generatedImage: widget.generatedImage,
                     text: _textCtrl.text,
                     config: config,
+                    stickerShape: widget.stickerShape,
                     initialScale: widget.initialScale,
                     initialOffset: widget.initialOffset,
                     initialImageAngle: widget.initialImageAngle,

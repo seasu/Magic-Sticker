@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:http/http.dart' as http;
 
+import '../models/sticker_shape.dart';
 import '../models/sticker_spec.dart';
 import '../models/sticker_style.dart';
 import 'firebase_service.dart';
@@ -24,11 +25,13 @@ class StickerGenerationService {
   /// 生成單張貼圖，回傳 PNG bytes；失敗回傳 null
   ///
   /// [styleIndex] 對應 [StickerStyle.values] 的索引（預設 0 = Q版卡通）
+  /// [shape] 貼圖形狀，圓形或方形（影響 prompt）
   Future<Uint8List?> generateSingle(
     Uint8List photoBytes,
     StickerSpec spec, {
     int index = 0,
     int styleIndex = 0,
+    StickerShape shape = StickerShape.circle,
   }) async {
     final style = StickerStyle.values[styleIndex.clamp(0, StickerStyle.values.length - 1)];
     FirebaseService.log(
@@ -44,7 +47,7 @@ class StickerGenerationService {
           'contents': [
             {
               'parts': [
-                {'text': _buildSinglePrompt(spec, style)},
+                {'text': _buildSinglePrompt(spec, style, shape)},
                 {
                   'inlineData': {
                     'mimeType': 'image/jpeg',
@@ -132,24 +135,42 @@ class StickerGenerationService {
 
   // ─── private ────────────────────────────────────────────────────────────
 
-  /// 單張貼圖 prompt：只產生一個圓形貼圖，最簡單最穩定
-  String _buildSinglePrompt(StickerSpec spec, StickerStyle style) {
-    return '''
+  /// 單張貼圖 prompt：依形狀產生圓形或方形貼圖
+  String _buildSinglePrompt(StickerSpec spec, StickerStyle style, StickerShape shape) {
+    if (shape == StickerShape.circle) {
+      return '''
 You are a professional LINE sticker illustrator. Draw ONE single circular sticker based on the person's face in the reference photo.
 
 DESIGN REQUIREMENTS:
-- A single large filled circle, centered, occupying ~90% of the square canvas
+- A single large filled perfect circle, centered, occupying ~90% of the square canvas
+- The circle must be geometrically perfect (equal width and height)
 - Circle background color: ${spec.bgColor}
 - Character expression / pose: ${spec.emotion}
 - ${style.characterDesc}
 - DO NOT draw any text or letters inside the image
 - 3–5 small sparkles / stars scattered inside the circle
 - White outline (4 px) around the circle
-- White background outside the circle
+- Pure white background outside the circle
+
+OUTPUT: A single square image (equal width and height) containing exactly this ONE circular sticker.
+STYLE: ${style.promptSuffix}
+''';
+    } else {
+      return '''
+You are a professional LINE sticker illustrator. Draw ONE single square sticker based on the person's face in the reference photo.
+
+DESIGN REQUIREMENTS:
+- Fill the entire square canvas with ${spec.bgColor} as the background
+- Character expression / pose: ${spec.emotion}
+- ${style.characterDesc}
+- DO NOT draw any text or letters inside the image
+- 3–5 small sparkles / stars scattered in the background
+- A subtle rounded border (4 px) in a complementary color at the edges
 
 OUTPUT: A single square image containing exactly this ONE sticker.
 STYLE: ${style.promptSuffix}
 ''';
+    }
   }
 
   /// API 錯誤時寫入 Crashlytics log

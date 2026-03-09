@@ -1,0 +1,1 @@
+enum StickerShape { circle, square }
