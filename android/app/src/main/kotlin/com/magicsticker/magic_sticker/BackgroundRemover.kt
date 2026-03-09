@@ -1,4 +1,4 @@
-package com.magicmorning.magic_morning
+package com.magicsticker.magic_sticker
 
 import android.content.Context
 import android.graphics.Bitmap

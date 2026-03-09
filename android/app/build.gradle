@@ -16,7 +16,7 @@ def flutterVersionCode = localProperties.getProperty("flutter.versionCode") ?: "
 def flutterVersionName = localProperties.getProperty("flutter.versionName") ?: "1.0.0"
 
 android {
-    namespace "com.magicmorning.magic_morning"
+    namespace "com.magicsticker.magic_sticker"
     compileSdk flutter.compileSdkVersion
     ndkVersion "25.1.8937393"
 
@@ -30,7 +30,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.magicmorning.magic_morning"
+        applicationId "com.magicsticker.magic_sticker"
         minSdk 26  // Android 8.0+，ML Kit Subject Segmentation 需求
         targetSdk flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
