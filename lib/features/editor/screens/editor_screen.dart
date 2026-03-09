@@ -16,6 +16,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../features/billing/providers/credit_provider.dart';
+import '../../../shared/widgets/credit_paywall_dialog.dart';
 import '../models/editor_state.dart';
 import '../models/sticker_config.dart';
 import '../providers/editor_provider.dart';
@@ -249,7 +251,18 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     );
   }
 
-  void _regenerate() {
+  Future<void> _regenerate() async {
+    // 重新生成需要消耗 1 點
+    final credits = ref.read(creditProvider);
+    if (credits <= 0) {
+      FirebaseService.log('EditorScreen._regenerate: no credits → showing paywall');
+      if (!mounted) return;
+      final earned = await CreditPaywallDialog.show(context, ref);
+      if (!earned || !mounted) return;
+    }
+
+    await ref.read(creditProvider.notifier).consumeCredit();
+
     setState(() {
       _currentIndex = 0;
       _keptCount = 0;

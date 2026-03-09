@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'core/services/ads_service.dart';
 import 'core/services/log_service.dart';
 import 'firebase_options.dart';
 
@@ -37,6 +38,9 @@ Future<void> main() async {
   } catch (e) {
     LogService.instance.warning('Firebase initializeApp failed: $e', tag: 'Firebase');
   }
+
+  // AdMob 初始化（含預載 Rewarded Ad）
+  await AdsService.instance.initialize();
 
   runApp(const ProviderScope(child: MagicMorningApp()));
 }

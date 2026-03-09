@@ -13,6 +13,9 @@ import '../../../core/models/sticker_shape.dart';
 import '../../../core/models/sticker_style.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../features/billing/providers/credit_provider.dart';
+import '../../../shared/widgets/credit_badge.dart';
+import '../../../shared/widgets/credit_paywall_dialog.dart';
 import '../widgets/pick_image_button.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -72,16 +75,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
-  /// 兩步流程：先選圖 → 再選風格 → 立即跳 loading
+  /// 兩步流程：先確認點數 → 選圖 → 選風格 → 立即跳 loading
   Future<void> _pickImage(BuildContext context, ImageSource source) async {
     HapticFeedback.mediumImpact();
     FirebaseService.log('HomeScreen._pickImage: source=${source.name}');
+
+    // ① 點數關卡：不足則顯示 Paywall
+    final credits = ref.read(creditProvider);
+    if (credits <= 0) {
+      FirebaseService.log('HomeScreen._pickImage: no credits → showing paywall');
+      final earned = await CreditPaywallDialog.show(context, ref);
+      if (!earned || !context.mounted) return;
+    }
 
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: source, imageQuality: 95);
     if (picked == null || !context.mounted) return;
 
-    // 選完圖後彈出風格選擇 sheet
+    // ② 選完圖後彈出風格選擇 sheet
     final result = await showModalBottomSheet<({int styleIndex, StickerShape shape})>(
       context: context,
       isScrollControlled: true,
@@ -91,7 +102,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
     if (result == null || !context.mounted) return;
 
-    // 立即跳 editor，loading 馬上開始
+    // ③ 扣點（已確認有足夠點數，此步驟必定成功）
+    await ref.read(creditProvider.notifier).consumeCredit();
+
+    // ④ 立即跳 editor，loading 馬上開始
     context.push(
       '/editor',
       extra: EditorArgs(
@@ -153,6 +167,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
             const Spacer(),
+            // 點數徽章
+            const CreditBadge(),
+            const SizedBox(width: 8),
             if (_version.isNotEmpty)
               GestureDetector(
                 onTap: _onVersionTap,
