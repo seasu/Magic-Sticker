@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/sticker_spec.dart';
-import '../../../core/models/sticker_style.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/services/gemini_service.dart';
 import '../../../core/services/sticker_generation_service.dart';
@@ -173,19 +172,10 @@ class _EditorFamilyNotifier
     state = state.copyWith(generatedImages: reset, imageErrors: clearErrors);
 
     final styleIdx = state.styleIndices[index];
-    final style = StickerStyle.values[styleIdx.clamp(0, StickerStyle.values.length - 1)];
 
     try {
       final resized = await ImageProcessor.resizeForNative(
           File(state.originalImagePath));
-
-      // 「原圖」風格：直接使用照片，不呼叫 API
-      if (style.isPhotoMode) {
-        final updated = List<Uint8List?>.from(state.generatedImages);
-        updated[index] = resized;
-        state = state.copyWith(generatedImages: updated);
-        return;
-      }
 
       final bytes = await StickerGenerationService().generateSingle(
         resized,
@@ -225,16 +215,6 @@ class _EditorFamilyNotifier
       if (genId != _generationId) return;
 
       final styleIdx = state.styleIndices[i];
-      final style = StickerStyle.values[styleIdx.clamp(0, StickerStyle.values.length - 1)];
-
-      // 「原圖」風格：直接使用照片，不呼叫 API
-      if (style.isPhotoMode) {
-        if (genId != _generationId) return;
-        final updated = List<Uint8List?>.from(state.generatedImages);
-        updated[i] = photoBytes;
-        state = state.copyWith(generatedImages: updated);
-        continue;
-      }
 
       try {
         final bytes = await service.generateSingle(
