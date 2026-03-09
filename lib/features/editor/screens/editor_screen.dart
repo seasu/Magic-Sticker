@@ -104,6 +104,26 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       await Gal.putImage(tmpFile.path);
       await tmpFile.delete();
       await FirebaseAnalytics.instance.logEvent(name: 'sticker_generated');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle_rounded,
+                    color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text('貼圖已儲存到相簿 ✨',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+              ],
+            ),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
       setState(() {
         _keptCount++;
         _isExporting = false;

@@ -351,6 +351,25 @@ class _StickerCanvasState extends State<StickerCanvas> {
             children: [
               imageContent,
 
+              // ── 人物層（ML Kit 去背，疊在 AI 背景上，同步 transform）──
+              if (widget.subjectBytes != null)
+                Transform.translate(
+                  offset: _imgOffset,
+                  child: Transform.scale(
+                    scale: _imgScale,
+                    child: Transform.rotate(
+                      angle: _imgAngle,
+                      child: Image.memory(
+                        widget.subjectBytes!,
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                        height: double.infinity,
+                        filterQuality: FilterQuality.high,
+                      ),
+                    ),
+                  ),
+                ),
+
               // 圖片選取框（編輯模式下圖片被選中時）
               if (widget.enableTextGestures && _effective == StickerEditTarget.image)
                 _ImageSelectionOverlay(canvasSize: _canvasSize),

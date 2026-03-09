@@ -92,7 +92,6 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
   late double _textYAlign;
   late double _textAngle;
   late double _textSizeScale;
-  bool _isRegenerating = false;
 
   /// 目前開啟的面板
   _PanelMode _panelMode = _PanelMode.none;
@@ -122,9 +121,9 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
     setState(() => _panelMode = _panelMode == mode ? _PanelMode.none : mode);
   }
 
-  /// 使用者點選新風格 → 確認對話框 → 呼叫 API 重新生成
+  /// 使用者點選新風格 → 確認對話框 → 關閉 sheet → 背景重新生成
   Future<void> _onStyleTap(int newIdx) async {
-    if (newIdx == _styleIndex || _isRegenerating) return;
+    if (newIdx == _styleIndex) return;
     HapticFeedback.mediumImpact();
 
     final confirmed = await showDialog<bool>(
@@ -150,13 +149,10 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
 
     if (confirmed != true || !mounted) return;
 
-    setState(() => _isRegenerating = true);
-    await widget.onStyleChanged(newIdx);
-    if (!mounted) return;
-    setState(() {
-      _styleIndex = newIdx;
-      _isRegenerating = false;
-    });
+    // 立即關閉 sheet，讓 editor 的 loading overlay 接手顯示
+    Navigator.of(context).pop();
+    // fire-and-forget：provider 會把 generatedImages[i] 設為 null 觸發 loading
+    widget.onStyleChanged(newIdx);
   }
 
   @override
@@ -317,40 +313,6 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
           ],
         ),
 
-        // ── 重新生成中 Loading 遮罩 ─────────────────────────────────────
-        if (_isRegenerating)
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.90),
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('🐱', style: TextStyle(fontSize: 52)),
-                  const SizedBox(height: 4),
-                  const Text('🐭', style: TextStyle(fontSize: 36)),
-                  const SizedBox(height: 16),
-                  const SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: CircularProgressIndicator(strokeWidth: 3),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'AI 重新生成中…',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -596,7 +558,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
     return SizedBox(
       width: double.infinity,
       child: FilledButton(
-        onPressed: _isRegenerating ? null : () => Navigator.of(context).pop(),
+        onPressed: () => Navigator.of(context).pop(),
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(

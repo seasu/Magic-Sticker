@@ -414,15 +414,16 @@ class _StyleCard extends StatefulWidget {
 class _StyleCardState extends State<_StyleCard>
     with SingleTickerProviderStateMixin {
   late final AnimationController _press;
+  bool _pressed = false;
 
   @override
   void initState() {
     super.initState();
     _press = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 100),
+      duration: const Duration(milliseconds: 90),
       lowerBound: 0.0,
-      upperBound: 0.06,
+      upperBound: 0.07,
     );
   }
 
@@ -435,27 +436,42 @@ class _StyleCardState extends State<_StyleCard>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => _press.forward(),
+      onTapDown: (_) {
+        HapticFeedback.selectionClick();
+        setState(() => _pressed = true);
+        _press.forward();
+      },
       onTapUp: (_) {
+        HapticFeedback.mediumImpact();
         _press.reverse();
+        setState(() => _pressed = false);
         widget.onTap();
       },
-      onTapCancel: () => _press.reverse(),
+      onTapCancel: () {
+        _press.reverse();
+        setState(() => _pressed = false);
+      },
       child: AnimatedBuilder(
         animation: _press,
         builder: (_, child) => Transform.scale(
           scale: 1.0 - _press.value,
           child: child,
         ),
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 90),
+          curve: Curves.easeOut,
           decoration: BoxDecoration(
-            color: Colors.white,
+            gradient: _pressed ? AppColors.gradient : null,
+            color: _pressed ? null : Colors.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.divider, width: 1.5),
+            border: Border.all(
+              color: _pressed ? Colors.transparent : AppColors.divider,
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 12,
+                color: Colors.black.withValues(alpha: _pressed ? 0.14 : 0.06),
+                blurRadius: _pressed ? 18 : 12,
                 offset: const Offset(0, 4),
               ),
             ],
@@ -473,7 +489,7 @@ class _StyleCardState extends State<_StyleCard>
                 style: GoogleFonts.notoSansTc(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+                  color: _pressed ? Colors.white : AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 2),
@@ -482,7 +498,9 @@ class _StyleCardState extends State<_StyleCard>
                 style: GoogleFonts.notoSansTc(
                   fontSize: 9,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.textSecondary,
+                  color: _pressed
+                      ? Colors.white.withValues(alpha: 0.85)
+                      : AppColors.textSecondary,
                 ),
                 textAlign: TextAlign.center,
               ),
