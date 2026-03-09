@@ -21,8 +21,6 @@ final creditProvider = NotifierProvider<CreditNotifier, int>(
 /// 點數存在 Firestore `users/{uid}/credits`。
 /// 切換帳號（匿名 → 登入）時自動重新載入。
 class CreditNotifier extends Notifier<int> {
-  String? _lastUid;
-
   @override
   int build() {
     // 監聽 auth 狀態，用戶切換時重新載入點數
@@ -75,7 +73,6 @@ class CreditNotifier extends Notifier<int> {
   // ── Private ────────────────────────────────────────────────────────────────
 
   void _onUserChanged(User? user) {
-    _lastUid = user?.uid;
     if (user == null) {
       state = 0;
     } else {
