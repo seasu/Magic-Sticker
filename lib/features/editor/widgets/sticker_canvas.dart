@@ -321,7 +321,7 @@ class _StickerCanvasState extends State<StickerCanvas> {
                 angle: _imgAngle,
                 child: Image.memory(
                   widget.generatedImage!,
-                  fit: BoxFit.contain,
+                  fit: BoxFit.cover,
                   width: double.infinity,
                   height: double.infinity,
                   filterQuality: FilterQuality.high,

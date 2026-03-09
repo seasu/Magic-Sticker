@@ -1137,19 +1137,8 @@ class _FunLoadingViewState extends State<_FunLoadingView>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFA8D8EA), // sky blue top
-            Color(0xFFD6EEFF), // light blue mid
-            Color(0xFFF5FAFD), // almost white bottom
-          ],
-          stops: [0.0, 0.55, 1.0],
-        ),
-      ),
+    return ColoredBox(
+      color: Colors.white,
       child: Column(
         children: [
           // ── 大場景動畫區（佔 70%）───────────────────────────────────
@@ -1192,7 +1181,7 @@ class _FunLoadingViewState extends State<_FunLoadingView>
                       style: GoogleFonts.notoSansTc(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF2D6A9F),
+                        color: Colors.black87,
                         height: 1.4,
                       ),
                     ),
@@ -1232,8 +1221,8 @@ class _BounceDots extends AnimatedWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Color.lerp(
-                  const Color(0xFF2D6A9F).withValues(alpha: 0.3),
-                  const Color(0xFF2D6A9F),
+                  Colors.black.withValues(alpha: 0.2),
+                  Colors.black87,
                   s,
                 ),
               ),
