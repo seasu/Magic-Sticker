@@ -93,6 +93,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         exportCanvas.clipPath(
           Path()..addOval(Rect.fromLTWH(0, 0, size, size)),
         );
+        // 先填白底，確保匯出 PNG 無透明像素，避免相簿 / 截圖顯示棋盤格
+        exportCanvas.drawOval(
+          Rect.fromLTWH(0, 0, size, size),
+          Paint()..color = const Color(0xFFFFFFFF),
+        );
         exportCanvas.drawImage(rectImage, Offset(-left, -top), Paint());
         exportImage = await recorder
             .endRecording()
