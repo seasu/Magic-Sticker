@@ -551,7 +551,6 @@ class _StickerCard extends StatelessWidget {
     );
 
     final card = Container(
-      margin: const EdgeInsets.symmetric(horizontal: 28),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
@@ -582,7 +581,7 @@ class _StickerCard extends StatelessWidget {
         card,
         Positioned(
           top: 10,
-          right: 36,
+          right: 8,
           child: GestureDetector(
             onTap: onTap,
             child: Container(
