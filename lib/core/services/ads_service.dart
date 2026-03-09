@@ -25,8 +25,8 @@ class AdsService {
           : 'ca-app-pub-3940256099942544/1712485313'; // Google 官方 iOS 測試 ID
     }
     return Platform.isAndroid
-        ? 'ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY' // TODO: 替換為正式 Android Rewarded ID
-        : 'ca-app-pub-XXXXXXXXXXXXXXXX/ZZZZZZZZZZ'; // TODO: 替換為正式 iOS Rewarded ID
+        ? 'ca-app-pub-0557904547936841/7713706857' // 正式 Android Rewarded ID
+        : 'ca-app-pub-3940256099942544/1712485313'; // iOS 暫用測試 ID（Phase 2 再換）
   }
 
   RewardedAd? _rewardedAd;
