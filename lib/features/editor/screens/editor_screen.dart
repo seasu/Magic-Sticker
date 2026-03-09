@@ -71,9 +71,23 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       const double targetWidth = 370.0;
       final double pixelRatio = targetWidth / boundary.size.width;
 
-      final image = await boundary.toImage(pixelRatio: pixelRatio);
+      // ── Step 1: 擷取矩形畫布 ─────────────────────────────────────────
+      final rectImage = await boundary.toImage(pixelRatio: pixelRatio);
+
+      // ── Step 2: 套用橢圓遮罩 → 圓形透明 PNG ─────────────────────────
+      final w = rectImage.width.toDouble();
+      final h = rectImage.height.toDouble();
+      final recorder = ui.PictureRecorder();
+      final exportCanvas = Canvas(recorder);
+      exportCanvas.clipPath(
+        Path()..addOval(Rect.fromLTWH(0, 0, w, h)),
+      );
+      exportCanvas.drawImage(rectImage, Offset.zero, Paint());
+      final circularImage =
+          await recorder.endRecording().toImage(w.toInt(), h.toInt());
+
       final byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
+          await circularImage.toByteData(format: ui.ImageByteFormat.png);
       final bytes = byteData!.buffer.asUint8List();
 
       const int maxBytes = 1 * 1024 * 1024;
