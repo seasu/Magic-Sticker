@@ -27,6 +27,9 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
+
       - name: Write google-services.json
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON_ANDROID }}

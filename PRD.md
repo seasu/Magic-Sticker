@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | MagicMorning（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.0.4+99 |
+| 目前版本 | v3.0.5+100 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash（圖片生成）|
@@ -202,6 +202,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.0.5 | 2026-03-10 | **App Icon**：更換全新貓咪 icon（Magic Sticker 一鍵貼圖）；CI/CD 加入 `dart run flutter_launcher_icons` 自動生成所有尺寸 |
 | v3.0.4 | 2026-03-10 | **CI/CD 加強**：`google-services.json` 寫入後以 Python 驗證 JSON 格式、`project_info` 欄位、及 placeholder 偵測，錯誤時給出明確訊息 |
 | v3.0.3 | 2026-03-10 | **隱私政策**：新增 Firebase Hosting 靜態隱私政策頁面（`public/privacy.html`）；firebase.json 加入 Hosting 設定；CI/CD 加入 `deploy-hosting` job，push to main 自動部署 |
 | v3.0.2 | 2026-03-10 | **CI/CD 修正**：NDK 升級至 27.0.12077973（符合 Firebase 套件需求）；`GOOGLE_SERVICES_JSON_ANDROID` secret 未設定時 CI 立即 fail，防止空檔案覆蓋 google-services.json |
