@@ -123,6 +123,9 @@ jobs:
       - name: Build Functions
         run: cd functions && npm run build
 
+      - name: Set Firebase project ID
+        run: echo '{"projects":{"default":"${{ secrets.FIREBASE_PROJECT_ID }}"}}' > .firebaserc
+
       - name: Deploy to Firebase
         uses: w9jds/firebase-action@master
         with:
@@ -164,6 +167,9 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set Firebase project ID
+        run: echo '{"projects":{"default":"${{ secrets.FIREBASE_PROJECT_ID }}"}}' > .firebaserc
 
       - name: Deploy to Firebase Hosting
         uses: w9jds/firebase-action@master
