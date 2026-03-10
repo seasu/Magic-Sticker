@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | MagicMorning（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.0.17+112 |
+| 目前版本 | v3.0.18+113 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash（圖片生成）|
@@ -202,6 +202,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.0.18 | 2026-03-10 | **CI fix**：拆分 functions 與 firestore:rules 為獨立 deploy step，rules step 加 continue-on-error 避免 API 未啟用時卡住 functions 部署 |
 | v3.0.17 | 2026-03-10 | **Bug fix**：新增 Android Adaptive Icon（`mipmap-anydpi-v26`），背景填 `#F06292` 消除 icon 圓角黑邊 |
 | v3.0.16 | 2026-03-10 | **Bug fix**：新增 `firestore.rules`，允許匿名用戶讀寫自己的 `users/{uid}` 文件，修正 `permission-denied` 導致匿名登入失敗與點數無法載入問題；CI 加入 `firestore:rules` 自動部署 |
 | v3.0.15 | 2026-03-10 | **Bug fix**：修正看廣告後未加點問題；`AdsService.showRewardedAd` 改用 Completer 等待廣告關閉再 return，確保 `rewarded` 旗標正確；`AuthService.addCredits` 改用 `set merge` 防止文件不存在時靜默失敗 |
