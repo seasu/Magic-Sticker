@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | MagicMorning（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.0.21+116 |
+| 目前版本 | v3.0.22+117 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash（圖片生成）|
@@ -202,6 +202,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.0.22 | 2026-03-10 | **清理**：刪除未使用的 `assets/HEIF影像.jpeg` |
 | v3.0.21 | 2026-03-10 | **資源更新**：手動更新 `app_icon.png` |
 | v3.0.20 | 2026-03-10 | **CI 簽名**：Android Release 簽名改由 GitHub Actions 讀取 Secrets 產生 keystore，`build.gradle` 加入 `key.properties` 讀取邏輯 |
 | v3.0.19 | 2026-03-10 | **內容更新**：privacy.html 聯絡 email 更換為 seasuwang+magicsticker@gmail.com |
