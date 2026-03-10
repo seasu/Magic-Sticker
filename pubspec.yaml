@@ -1,7 +1,7 @@
 name: magic_sticker
 description: AI 一鍵產 LINE 貼圖 — Magic Sticker
 publish_to: 'none'
-version: 3.0.5+100
+version: 3.0.8+103
 
 environment:
   sdk: '>=3.7.0 <4.0.0'
@@ -69,7 +69,7 @@ flutter_launcher_icons:
   image_path: "assets/app_icon.png"
   remove_alpha_ios: true
   min_sdk_android: 26
-  adaptive_icon_background: "#F06292"
+  adaptive_icon_background: "#F8C8D4"
   adaptive_icon_foreground: "assets/app_icon.png"
   web:
     generate: false
