@@ -32,10 +32,27 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON_ANDROID }}
         run: |
           if [ -z "$GOOGLE_SERVICES_JSON" ]; then
-            echo "ERROR: GOOGLE_SERVICES_JSON_ANDROID secret is not set"
+            echo "❌ ERROR: GOOGLE_SERVICES_JSON_ANDROID secret is not set"
             exit 1
           fi
           printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          # 驗證 JSON 格式與必要欄位
+          python3 - <<'PYEOF'
+import json, sys
+try:
+    data = json.load(open("android/app/google-services.json"))
+except json.JSONDecodeError as e:
+    print(f"❌ google-services.json is not valid JSON: {e}")
+    sys.exit(1)
+if "project_info" not in data:
+    print("❌ google-services.json is missing 'project_info' — please re-download from Firebase Console")
+    sys.exit(1)
+proj = data["project_info"].get("project_id", "")
+if "placeholder" in proj:
+    print(f"❌ google-services.json still uses placeholder project '{proj}' — upload the real file")
+    sys.exit(1)
+print(f"✅ google-services.json OK  project_id={proj}")
+PYEOF
 
       - name: Build APK (release)
         run: flutter build apk --release
