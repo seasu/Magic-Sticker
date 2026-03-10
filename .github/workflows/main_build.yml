@@ -28,7 +28,12 @@ jobs:
         run: flutter pub get
 
       - name: Generate launcher icons
-        run: dart run flutter_launcher_icons
+        run: |
+          # 若前景圖不存在，降級使用完整圖（避免 CI 失敗）
+          if [ ! -f assets/app_icon_fg.png ]; then
+            cp assets/app_icon.png assets/app_icon_fg.png
+          fi
+          dart run flutter_launcher_icons
 
       - name: Write google-services.json
         env:
