@@ -28,7 +28,6 @@ import '../widgets/sticker_swipe_card.dart';
 // ── 顏色常數 ──────────────────────────────────────────────────────────────────
 
 const _kBg = AppColors.surface;
-const _kNopeColor = AppColors.nope;
 const _kLikeColor = AppColors.like;
 
 class EditorScreen extends ConsumerStatefulWidget {
@@ -894,117 +893,6 @@ class _SaveButton extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CircleButton extends StatefulWidget {
-  final double size;
-  final IconData? icon;
-  final double iconSize;
-  final Color iconColor;
-  final Color bgColor;
-  final Color? borderColor;
-  final Color shadowColor;
-  final VoidCallback? onTap;
-  final bool isLoading;
-
-  const _CircleButton({
-    required this.size,
-    this.icon,
-    required this.iconSize,
-    required this.iconColor,
-    required this.bgColor,
-    this.borderColor,
-    required this.shadowColor,
-    this.onTap,
-    this.isLoading = false,
-  });
-
-  @override
-  State<_CircleButton> createState() => _CircleButtonState();
-}
-
-class _CircleButtonState extends State<_CircleButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-      reverseDuration: const Duration(milliseconds: 220),
-    );
-    _scale = Tween(begin: 1.0, end: 0.86).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = widget.onTap != null && !widget.isLoading;
-    return GestureDetector(
-      onTapDown: enabled ? (_) => _ctrl.forward() : null,
-      onTapUp: enabled
-          ? (_) {
-              _ctrl.reverse();
-              HapticFeedback.lightImpact();
-              widget.onTap!();
-            }
-          : null,
-      onTapCancel: enabled ? () => _ctrl.reverse() : null,
-      child: AnimatedBuilder(
-        animation: _scale,
-        builder: (_, child) =>
-            Transform.scale(scale: _scale.value, child: child),
-        child: Container(
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: enabled ? widget.bgColor : Colors.grey.shade200,
-            border: widget.borderColor != null && enabled
-                ? Border.all(color: widget.borderColor!, width: 2.5)
-                : null,
-            boxShadow: [
-              if (enabled)
-                BoxShadow(
-                  color: widget.shadowColor.withValues(alpha: 0.28),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
-                  spreadRadius: 1,
-                ),
-            ],
-          ),
-          child: Center(
-            child: widget.isLoading
-                ? SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: widget.iconColor,
-                    ),
-                  )
-                : Icon(
-                    widget.icon,
-                    size: widget.iconSize,
-                    color: enabled
-                        ? widget.iconColor
-                        : Colors.grey.shade400,
-                  ),
           ),
         ),
       ),

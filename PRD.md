@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | MagicMorning（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.0.23+118 |
+| 目前版本 | v3.1.9+130 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash（圖片生成）|
@@ -207,6 +207,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.1.9 | 2026-03-11 | **CI fix**：移除 `editor_screen.dart` 中未使用的 `_kNopeColor` 常數與 `_CircleButton`/`_CircleButtonState` 死碼，修正 `dart analyze --fatal-infos` 的 5 個 `unused_element`/`unused_element_parameter` 警告 |
 | v3.1.8 | 2026-03-11 | **CI fix**：移除 `editor_screen.dart` 中已棄用的 `_ProgressBar` 與 `_TinderButtons` 兩個 unused class，修正 `dart analyze --fatal-infos` 報告的 `unused_element` 警告，CI 恢復正常 |
 | v3.1.7 | 2026-03-11 | **風格示意圖**：`assets/images/` 加入 6 張色塊佔位 PNG（chibi/popArt/pixel/sketch/watercolor/photo）；`_StyleCard` 改用 `Image.asset` 顯示預覽圖（errorBuilder 回退 emoji）；新增 `scripts/generate_style_previews_ci.py` 與 `.github/workflows/generate_previews.yml`（workflow_dispatch 手動觸發，使用 GEMINI_API_KEY secret 生成真實 AI 圖並 commit 回 repo，完成後可移除 workflow 與腳本）|
 | v3.1.6 | 2026-03-11 | **UX 升級**：重新設計登入 Bottom Sheet（initial / loading / success / error 四狀態機）；success 狀態顯示 Google 大頭貼、歡迎名字、+5 點動畫 badge；error 狀態改為 sheet 內重試（不再用 SnackBar）；`CreditBadge` 登入後顯示使用者頭像小圓；首頁版本號移至底部頁尾（不再佔據 AppBar 右側空間）|
