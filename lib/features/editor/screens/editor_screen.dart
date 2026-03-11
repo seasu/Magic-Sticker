@@ -68,14 +68,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   // ─── Actions ──────────────────────────────────────────────────────────────
 
   Future<void> _accept() async {
-    // 若圖片尚未生成，先觸發生成
     final state = ref.read(editorStateProvider(widget.imagePath));
-    if (isNotGeneratedSentinel(state.generatedImages[_currentIndex])) {
+    final img = state.generatedImages[_currentIndex];
+    // 若圖片尚未生成，先觸發生成
+    if (isNotGeneratedSentinel(img)) {
       await _generateImage(_currentIndex);
       return;
     }
     // 圖片仍在生成中，忽略
-    if (state.generatedImages[_currentIndex] == null) return;
+    if (img == null) return;
+    // 圖片生成失敗（empty sentinel），不匯出空白圖
+    if (img.isEmpty) return;
 
     FirebaseService.log('EditorScreen._accept: sticker ${_currentIndex + 1}');
     setState(() => _isExporting = true);
@@ -292,6 +295,26 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     }
   }
 
+  // ─── Build helpers ────────────────────────────────────────────────────────
+
+  /// 依圖片狀態決定底部按鈕：
+  ///   sentinel(length=1)  → 尚未生成  → 顯示「生成·1點」
+  ///   null                → 生成中    → 隱藏（全畫面 loading 覆蓋）
+  ///   empty(length=0)     → 生成失敗  → 顯示「重新生成·1點」（不顯示儲存）
+  ///   bytes(length>1)     → 成功      → 顯示「儲存貼圖」
+  Widget _buildBottomButton(Uint8List? img) {
+    if (isNotGeneratedSentinel(img) || (img != null && img.isEmpty)) {
+      return _GenerateButton(
+        onTap: _isExporting ? null : () => _generateImage(_currentIndex),
+      );
+    }
+    if (img == null) return const SizedBox.shrink(); // loading overlay covers UI
+    return _SaveButton(
+      isExporting: _isExporting,
+      onTap: _isExporting ? null : _accept,
+    );
+  }
+
   // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
@@ -352,19 +375,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   // ── 底部按鈕 ──────────────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: isNotGeneratedSentinel(
-                            state.generatedImages[_currentIndex])
-                        ? _GenerateButton(
-                            onTap: _isExporting
-                                ? null
-                                : () => _generateImage(_currentIndex),
-                          )
-                        : state.generatedImages[_currentIndex] == null
-                            ? const SizedBox.shrink()
-                            : _SaveButton(
-                                isExporting: _isExporting,
-                                onTap: _isExporting ? null : _accept,
-                              ),
+                    child: _buildBottomButton(state.generatedImages[_currentIndex]),
                   ),
                 ],
               ],
@@ -492,16 +503,15 @@ class _CardStack extends StatelessWidget {
 
               // ── 生成中 badge ──────────────────────────────────────────
               if (state.generatedImages[currentIndex] == null)
-                Positioned(
+                const Positioned(
                   top: 8,
                   child: _StatusBadge.loading(),
                 ),
 
-              // ── 生成失敗 badge + 重試 ─────────────────────────────────
+              // ── 生成失敗：全卡片居中覆蓋層 ───────────────────────────
               if (state.generatedImages[currentIndex]?.isEmpty == true)
-                Positioned(
-                  top: 8,
-                  child: _StatusBadge.failed(
+                Positioned.fill(
+                  child: _FailedOverlay(
                     reason: state.imageErrors[currentIndex],
                     onRetry: onRetry,
                   ),
@@ -654,78 +664,117 @@ class _StickerCard extends StatelessWidget {
   }
 }
 
-// ─── AI 狀態 Badge ────────────────────────────────────────────────────────────
+// ─── 生成失敗：大型居中覆蓋層 ─────────────────────────────────────────────────
 
-class _StatusBadge extends StatelessWidget {
-  final bool isFailed;
+/// 圖片生成失敗時，蓋在整張卡片上的全屏錯誤提示。
+/// 點擊整個覆蓋層即可重試；長按（debug only）顯示原始錯誤。
+class _FailedOverlay extends StatelessWidget {
   final String? reason;
   final VoidCallback? onRetry;
 
-  const _StatusBadge.loading()
-      : isFailed = false,
-        reason = null,
-        onRetry = null;
-
-  const _StatusBadge.failed({this.reason, this.onRetry}) : isFailed = true;
+  const _FailedOverlay({this.reason, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
-    if (isFailed) {
-      return GestureDetector(
-        onTap: () {
-          HapticFeedback.mediumImpact();
-          onRetry?.call();
-        },
-        onLongPress: reason == null
-            ? null
-            : () => showDialog<void>(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text('API 錯誤詳情'),
-                    content: SingleChildScrollView(
-                        child: SelectableText(reason!)),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('關閉'),
-                      ),
-                    ],
-                  ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        onRetry?.call();
+      },
+      onLongPress: reason == null
+          ? null
+          : () => showDialog<void>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('API 錯誤詳情'),
+                  content:
+                      SingleChildScrollView(child: SelectableText(reason!)),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('關閉'),
+                    ),
+                  ],
                 ),
-        child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.red.shade600,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.red.withValues(alpha: 0.35),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
               ),
-            ],
-          ),
-          child: const Row(
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xCC1A1A1A),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Center(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 13, color: Colors.white),
-              SizedBox(width: 5),
-              Text(
-                'AI 生成失敗，點此重試',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600),
+              // 圖標
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: Colors.red.shade400.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.error_outline_rounded,
+                  size: 40,
+                  color: Colors.red.shade300,
+                ),
               ),
-              SizedBox(width: 5),
-              Icon(Icons.refresh, size: 13, color: Colors.white),
+              const SizedBox(height: 16),
+              // 主標題
+              const Text(
+                'AI 生成失敗',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // 重試按鈕樣式
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.refresh_rounded, size: 18, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text(
+                      '點此重試',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
+}
 
+// ─── AI 狀態 Badge ────────────────────────────────────────────────────────────
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge.loading();
+
+  @override
+  Widget build(BuildContext context) {
     return const _CatChaseMiniBadge();
   }
 }

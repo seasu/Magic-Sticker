@@ -245,19 +245,17 @@ class AuthService {
       final data = doc.data() ?? {};
       if (data['isAnonymous'] != true) return; // 已升級過，不重複
 
-      // 升級到登入點數（kLoginBonusCredits），若原有點數更多則保留
-      final newCredits = previousCredits < kLoginBonusCredits
-          ? kLoginBonusCredits
-          : previousCredits;
+      // 在現有點數基礎上累加登入獎勵
+      final currentCredits = (data['credits'] as int?) ?? previousCredits;
       tx.update(ref, {
-        'credits': newCredits,
+        'credits': currentCredits + kLoginBonusCredits,
         'isAnonymous': false,
         'promotedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
       // NOTE: creditHistory writes are reserved for Cloud Functions only.
     });
-    FirebaseService.log('AuthService: user promoted uid=$uid → $kLoginBonusCredits credits');
+    FirebaseService.log('AuthService: user promoted uid=$uid +$kLoginBonusCredits credits');
   }
 }
 

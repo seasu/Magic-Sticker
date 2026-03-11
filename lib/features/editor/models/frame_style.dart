@@ -193,7 +193,7 @@ Path _star(Rect bounds, {required int points, required double innerRatio}) {
     final r = i.isEven ? outerR : innerR;
     final x = cx + r * math.cos(angle);
     final y = cy + r * math.sin(angle);
-    if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
+    if (i == 0) { path.moveTo(x, y); } else { path.lineTo(x, y); }
   }
   path.close();
   return path;
@@ -279,7 +279,7 @@ Path _polygon(Rect bounds, {required int sides}) {
     final angle = (2 * math.pi * i / sides) - math.pi / 2;
     final x = cx + r * math.cos(angle);
     final y = cy + r * math.sin(angle);
-    if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
+    if (i == 0) { path.moveTo(x, y); } else { path.lineTo(x, y); }
   }
   path.close();
   return path;
@@ -339,7 +339,7 @@ Path _squircle(Rect bounds) {
     final sinSign = sinT < 0 ? -1.0 : 1.0;
     final x = cx + rx * math.pow(cosT.abs(), 2 / n).toDouble() * cosSign;
     final y = cy + ry * math.pow(sinT.abs(), 2 / n).toDouble() * sinSign;
-    if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
+    if (i == 0) { path.moveTo(x, y); } else { path.lineTo(x, y); }
   }
   path.close();
   return path;
@@ -416,9 +416,9 @@ Path _filmStrip(Rect bounds) {
   final path = Path();
   path.addRRect(RRect.fromRectAndRadius(bounds.deflate(8), const Radius.circular(6)));
   // Punch holes
-  final holeH = 10.0;
-  final holeW = 6.0;
-  final count = 6;
+  const holeH = 10.0;
+  const holeW = 6.0;
+  const count = 6;
   for (int i = 0; i < count; i++) {
     final y = bounds.top + bounds.height * (i + 0.5) / count;
     path.addRRect(RRect.fromRectAndRadius(

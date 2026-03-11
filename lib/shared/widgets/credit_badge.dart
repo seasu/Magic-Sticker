@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/services/auth_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/widgets/login_bottom_sheet.dart';
@@ -11,7 +12,7 @@ import '../../features/billing/providers/credit_provider.dart';
 
 /// AppBar 右上角的點數 + 帳號狀態徽章
 ///
-/// - **已登入**：Google 頭像小圓 + 點數（漸層背景）
+/// - **已登入**：Google 頭像小圓 + 點數（漸層背景），點擊開啟帳號資訊 sheet
 /// - **訪客**：人型 icon + 點數 + 「登入」提示，點擊開啟登入 sheet
 class CreditBadge extends ConsumerWidget {
   const CreditBadge({super.key});
@@ -32,7 +33,7 @@ class CreditBadge extends ConsumerWidget {
     return _LoggedInBadge(
       credits: credits,
       isLow: isLow,
-      onTap: () => context.push('/credit-history'),
+      onTap: () => _UserAccountSheet.show(context, credits),
     );
   }
 }
@@ -59,7 +60,7 @@ class _GuestBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.person_outline_rounded,
+            const Icon(Icons.person_outline_rounded,
                 size: 13, color: AppColors.textSecondary),
             const SizedBox(width: 3),
             Text(
@@ -71,7 +72,7 @@ class _GuestBadge extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 3),
-            Icon(Icons.keyboard_arrow_down_rounded,
+            const Icon(Icons.keyboard_arrow_down_rounded,
                 size: 14, color: AppColors.textSecondary),
           ],
         ),
@@ -196,6 +197,223 @@ class _InitialFallback extends StatelessWidget {
             fontSize: 9,
             fontWeight: FontWeight.w800,
             color: isLow ? AppColors.textSecondary : Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── 帳號資訊 Bottom Sheet ──────────────────────────────────────────────────────
+
+class _UserAccountSheet extends ConsumerWidget {
+  final int credits;
+
+  const _UserAccountSheet({required this.credits});
+
+  static void show(BuildContext context, int credits) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _UserAccountSheet(credits: credits),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = FirebaseAuth.instance.currentUser;
+    final photoUrl = user?.photoURL;
+    final displayName = user?.displayName;
+    final email = user?.email ?? '';
+    final initial = (displayName?.isNotEmpty == true)
+        ? displayName![0].toUpperCase()
+        : (email.isNotEmpty ? email[0].toUpperCase() : '?');
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── 拖曳把手 ──────────────────────────────────────────────
+          Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 24),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.divider,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // ── 大頭貼 ────────────────────────────────────────────────
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: AppColors.gradient,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFD297B).withValues(alpha: 0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(2.5),
+            child: ClipOval(
+              child: photoUrl != null
+                  ? Image.network(
+                      photoUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          _LargeInitial(initial: initial),
+                    )
+                  : _LargeInitial(initial: initial),
+            ),
+          ),
+          const SizedBox(height: 14),
+          // ── 顯示名稱 ──────────────────────────────────────────────
+          if (displayName != null && displayName.isNotEmpty)
+            Text(
+              displayName,
+              style: GoogleFonts.notoSansTc(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          const SizedBox(height: 4),
+          // ── Email ─────────────────────────────────────────────────
+          if (email.isNotEmpty)
+            Text(
+              email,
+              style: GoogleFonts.notoSansTc(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          const SizedBox(height: 20),
+          // ── 點數顯示 ──────────────────────────────────────────────
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.divider),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '剩餘點數',
+                  style: GoogleFonts.notoSansTc(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                Row(
+                  children: [
+                    ShaderMask(
+                      shaderCallback: (bounds) =>
+                          AppColors.gradient.createShader(bounds),
+                      child: const Icon(Icons.bolt_rounded,
+                          size: 18, color: Colors.white),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$credits',
+                      style: GoogleFonts.notoSansTc(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // ── 查看點數紀錄 ──────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: OutlinedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                context.push('/credit-history');
+              },
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                side: const BorderSide(color: AppColors.divider),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+              child: Text(
+                '查看點數紀錄',
+                style: GoogleFonts.notoSansTc(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // ── 登出 ──────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: OutlinedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await AuthService.signOut();
+              },
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                side: BorderSide(
+                    color: AppColors.nope.withValues(alpha: 0.4)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+              child: Text(
+                '登出',
+                style: GoogleFonts.notoSansTc(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.nope,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LargeInitial extends StatelessWidget {
+  final String initial;
+
+  const _LargeInitial({required this.initial});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.white.withValues(alpha: 0.2),
+      child: Center(
+        child: Text(
+          initial,
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
           ),
         ),
       ),

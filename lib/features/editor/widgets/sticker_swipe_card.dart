@@ -52,7 +52,7 @@ class _StickerSwipeCardState extends State<StickerSwipeCard>
       vsync: this,
       duration: const Duration(milliseconds: 380),
     );
-    _anim = AlwaysStoppedAnimation(Offset.zero);
+    _anim = const AlwaysStoppedAnimation(Offset.zero);
     _ctrl.addListener(() => setState(() => _offset = _anim.value));
   }
 

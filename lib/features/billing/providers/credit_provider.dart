@@ -44,9 +44,10 @@ final creditHistoryProvider = FutureProvider.autoDispose<List<CreditHistoryEntry
 class CreditNotifier extends Notifier<int> {
   @override
   int build() {
-    // 監聽 auth 狀態，用戶切換時重新載入點數
+    // 監聽 auth 狀態，用戶切換或匿名升級時重新載入點數
+    // 注意：linkWithCredential 升級訪客帳號時 UID 不變，但 isAnonymous 會從 true → false
     ref.listen<User?>(currentUserProvider, (prev, next) {
-      if (next?.uid != prev?.uid) {
+      if (next?.uid != prev?.uid || prev?.isAnonymous != next?.isAnonymous) {
         _onUserChanged(next);
       }
     });
@@ -76,7 +77,7 @@ class CreditNotifier extends Notifier<int> {
     final success = await AuthService.consumeCredit(uid);
     if (success) {
       state = state - 1;
-      FirebaseService.log('CreditProvider: consumed 1 → remaining ${state}');
+      FirebaseService.log('CreditProvider: consumed 1 → remaining $state');
     }
     return success;
   }
@@ -91,7 +92,7 @@ class CreditNotifier extends Notifier<int> {
 
     await AuthService.addCredits(uid, amount, reason: reason);
     state = state + amount;
-    FirebaseService.log('CreditProvider: +$amount → total ${state}');
+    FirebaseService.log('CreditProvider: +$amount → total $state');
   }
 
   /// Cloud Function 回傳的最新點數直接寫入（免去一次 Firestore 讀取）
