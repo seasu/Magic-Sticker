@@ -499,10 +499,10 @@ class _TextSelectionWidget extends StatelessWidget {
         ),
 
         // 四角縮放控制點
-        Positioned(top: -handleR, left: -handleR, child: const _CircleHandle()),
-        Positioned(top: -handleR, right: -handleR, child: const _CircleHandle()),
-        Positioned(bottom: -handleR, left: -handleR, child: const _CircleHandle()),
-        Positioned(bottom: -handleR, right: -handleR, child: const _CircleHandle()),
+        const Positioned(top: -handleR, left: -handleR, child: _CircleHandle()),
+        const Positioned(top: -handleR, right: -handleR, child: _CircleHandle()),
+        const Positioned(bottom: -handleR, left: -handleR, child: _CircleHandle()),
+        const Positioned(bottom: -handleR, right: -handleR, child: _CircleHandle()),
       ],
     );
   }

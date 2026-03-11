@@ -18,7 +18,7 @@ class StickerColorScheme {
 
 class StickerConfig {
   final StickerColorScheme colorScheme;
-  final List<_StickerDecor> decorations;
+  final List<StickerDecor> decorations;
 
   const StickerConfig({
     required this.colorScheme,
@@ -27,7 +27,7 @@ class StickerConfig {
 }
 
 /// 單一裝飾元素（位置、內容、旋轉）
-class _StickerDecor {
+class StickerDecor {
   final String symbol;   // emoji 或 unicode 符號
   final double top;
   final double? right;
@@ -36,7 +36,7 @@ class _StickerDecor {
   final double angle;   // 旋轉角度（radians）
   final double size;
 
-  const _StickerDecor({
+  const StickerDecor({
     required this.symbol,
     this.top = 0,
     this.right,
@@ -59,11 +59,11 @@ const kStickerConfigs = [
       sparkColor: Color(0xFFFFCC02),
     ),
     decorations: [
-      _StickerDecor(symbol: '👋', top: 10, right: 10, angle: 0.3, size: 28),
-      _StickerDecor(symbol: '✨', top: 36, right: 8, angle: -0.2, size: 20),
-      _StickerDecor(symbol: '✦', top: 12, left: 12, angle: 0.5, size: 16),
-      _StickerDecor(symbol: '⭐', bottom: 64, right: 14, angle: 0.15, size: 22),
-      _StickerDecor(symbol: '★', bottom: 68, left: 16, angle: -0.4, size: 18),
+      StickerDecor(symbol: '👋', top: 10, right: 10, angle: 0.3, size: 28),
+      StickerDecor(symbol: '✨', top: 36, right: 8, angle: -0.2, size: 20),
+      StickerDecor(symbol: '✦', top: 12, left: 12, angle: 0.5, size: 16),
+      StickerDecor(symbol: '⭐', bottom: 64, right: 14, angle: 0.15, size: 22),
+      StickerDecor(symbol: '★', bottom: 68, left: 16, angle: -0.4, size: 18),
     ],
   ),
   // Sticker 2：太棒了！— 天空藍
@@ -75,11 +75,11 @@ const kStickerConfigs = [
       sparkColor: Color(0xFFBBD8FB),
     ),
     decorations: [
-      _StickerDecor(symbol: '👍', top: 8, right: 10, angle: 0.2, size: 28),
-      _StickerDecor(symbol: '✨', top: 10, left: 8, angle: -0.3, size: 24),
-      _StickerDecor(symbol: '★', top: 36, right: 6, angle: 0.4, size: 18),
-      _StickerDecor(symbol: '✦', bottom: 66, right: 12, angle: -0.2, size: 18),
-      _StickerDecor(symbol: '⭐', bottom: 62, left: 18, angle: 0.1, size: 22),
+      StickerDecor(symbol: '👍', top: 8, right: 10, angle: 0.2, size: 28),
+      StickerDecor(symbol: '✨', top: 10, left: 8, angle: -0.3, size: 24),
+      StickerDecor(symbol: '★', top: 36, right: 6, angle: 0.4, size: 18),
+      StickerDecor(symbol: '✦', bottom: 66, right: 12, angle: -0.2, size: 18),
+      StickerDecor(symbol: '⭐', bottom: 62, left: 18, angle: 0.1, size: 22),
     ],
   ),
   // Sticker 3：真的嗎？— 金黃驚訝
@@ -91,11 +91,11 @@ const kStickerConfigs = [
       sparkColor: Color(0xFFFFEC99),
     ),
     decorations: [
-      _StickerDecor(symbol: '❓', top: 8, right: 8, angle: 0.2, size: 28),
-      _StickerDecor(symbol: '❓', top: 10, left: 10, angle: -0.3, size: 22),
-      _StickerDecor(symbol: '❕', top: 38, right: 6, angle: 0.4, size: 20),
-      _StickerDecor(symbol: '💭', bottom: 66, right: 12, angle: -0.2, size: 24),
-      _StickerDecor(symbol: '✦', bottom: 62, left: 18, angle: 0.1, size: 16),
+      StickerDecor(symbol: '❓', top: 8, right: 8, angle: 0.2, size: 28),
+      StickerDecor(symbol: '❓', top: 10, left: 10, angle: -0.3, size: 22),
+      StickerDecor(symbol: '❕', top: 38, right: 6, angle: 0.4, size: 20),
+      StickerDecor(symbol: '💭', bottom: 66, right: 12, angle: -0.2, size: 24),
+      StickerDecor(symbol: '✦', bottom: 62, left: 18, angle: 0.1, size: 16),
     ],
   ),
   // Sticker 4：尷尬了...— 粉嫩害羞
@@ -107,11 +107,11 @@ const kStickerConfigs = [
       sparkColor: Color(0xFFFF80C8),
     ),
     decorations: [
-      _StickerDecor(symbol: '💦', top: 8, right: 8, angle: 0.2, size: 26),
-      _StickerDecor(symbol: '😅', top: 10, left: 10, angle: -0.3, size: 24),
-      _StickerDecor(symbol: '💧', top: 38, right: 6, angle: 0.4, size: 18),
-      _StickerDecor(symbol: '✿', bottom: 66, right: 12, angle: -0.2, size: 20),
-      _StickerDecor(symbol: '·', bottom: 62, left: 18, angle: 0.1, size: 28),
+      StickerDecor(symbol: '💦', top: 8, right: 8, angle: 0.2, size: 26),
+      StickerDecor(symbol: '😅', top: 10, left: 10, angle: -0.3, size: 24),
+      StickerDecor(symbol: '💧', top: 38, right: 6, angle: 0.4, size: 18),
+      StickerDecor(symbol: '✿', bottom: 66, right: 12, angle: -0.2, size: 20),
+      StickerDecor(symbol: '·', bottom: 62, left: 18, angle: 0.1, size: 28),
     ],
   ),
   // Sticker 5：哼！— 火焰憤怒
@@ -123,11 +123,11 @@ const kStickerConfigs = [
       sparkColor: Color(0xFFFFAA00),
     ),
     decorations: [
-      _StickerDecor(symbol: '🔥', top: 8, right: 8, angle: 0.1, size: 28),
-      _StickerDecor(symbol: '🔥', top: 10, left: 10, angle: -0.2, size: 24),
-      _StickerDecor(symbol: '💢', top: 36, right: 6, angle: 0.3, size: 22),
-      _StickerDecor(symbol: '⚡', bottom: 66, right: 12, angle: -0.1, size: 20),
-      _StickerDecor(symbol: '💥', bottom: 62, left: 16, angle: 0.2, size: 22),
+      StickerDecor(symbol: '🔥', top: 8, right: 8, angle: 0.1, size: 28),
+      StickerDecor(symbol: '🔥', top: 10, left: 10, angle: -0.2, size: 24),
+      StickerDecor(symbol: '💢', top: 36, right: 6, angle: 0.3, size: 22),
+      StickerDecor(symbol: '⚡', bottom: 66, right: 12, angle: -0.1, size: 20),
+      StickerDecor(symbol: '💥', bottom: 62, left: 16, angle: 0.2, size: 22),
     ],
   ),
   // Sticker 6：開心！— 清新薄荷
@@ -139,11 +139,11 @@ const kStickerConfigs = [
       sparkColor: Color(0xFFC3FAE8),
     ),
     decorations: [
-      _StickerDecor(symbol: '🌈', top: 8, right: 10, angle: -0.2, size: 28),
-      _StickerDecor(symbol: '🎉', top: 10, left: 8, angle: 0.3, size: 24),
-      _StickerDecor(symbol: '✨', top: 36, right: 8, angle: 0.5, size: 18),
-      _StickerDecor(symbol: '🎊', bottom: 66, right: 14, angle: -0.3, size: 20),
-      _StickerDecor(symbol: '★', bottom: 64, left: 16, angle: 0.4, size: 20),
+      StickerDecor(symbol: '🌈', top: 8, right: 10, angle: -0.2, size: 28),
+      StickerDecor(symbol: '🎉', top: 10, left: 8, angle: 0.3, size: 24),
+      StickerDecor(symbol: '✨', top: 36, right: 8, angle: 0.5, size: 18),
+      StickerDecor(symbol: '🎊', bottom: 66, right: 14, angle: -0.3, size: 20),
+      StickerDecor(symbol: '★', bottom: 64, left: 16, angle: 0.4, size: 20),
     ],
   ),
   // Sticker 7：我想想...— 薰衣草沉思
@@ -155,11 +155,11 @@ const kStickerConfigs = [
       sparkColor: Color(0xFFEECEFF),
     ),
     decorations: [
-      _StickerDecor(symbol: '💭', top: 8, right: 10, angle: -0.2, size: 28),
-      _StickerDecor(symbol: '❓', top: 10, left: 8, angle: 0.3, size: 22),
-      _StickerDecor(symbol: '✦', top: 36, right: 8, angle: 0.5, size: 16),
-      _StickerDecor(symbol: '🔮', bottom: 66, right: 14, angle: -0.3, size: 20),
-      _StickerDecor(symbol: '✧', bottom: 64, left: 16, angle: 0.4, size: 18),
+      StickerDecor(symbol: '💭', top: 8, right: 10, angle: -0.2, size: 28),
+      StickerDecor(symbol: '❓', top: 10, left: 8, angle: 0.3, size: 22),
+      StickerDecor(symbol: '✦', top: 36, right: 8, angle: 0.5, size: 16),
+      StickerDecor(symbol: '🔮', bottom: 66, right: 14, angle: -0.3, size: 20),
+      StickerDecor(symbol: '✧', bottom: 64, left: 16, angle: 0.4, size: 18),
     ],
   ),
   // Sticker 8：再見囉！— 嬰兒藍道別
@@ -171,11 +171,11 @@ const kStickerConfigs = [
       sparkColor: Color(0xFFCAF0F8),
     ),
     decorations: [
-      _StickerDecor(symbol: '👋', top: 8, right: 10, angle: -0.2, size: 28),
-      _StickerDecor(symbol: '😎', top: 10, left: 8, angle: 0.3, size: 24),
-      _StickerDecor(symbol: '✦', top: 36, right: 8, angle: 0.5, size: 16),
-      _StickerDecor(symbol: '✨', bottom: 66, right: 14, angle: -0.3, size: 20),
-      _StickerDecor(symbol: '★', bottom: 64, left: 16, angle: 0.4, size: 18),
+      StickerDecor(symbol: '👋', top: 8, right: 10, angle: -0.2, size: 28),
+      StickerDecor(symbol: '😎', top: 10, left: 8, angle: 0.3, size: 24),
+      StickerDecor(symbol: '✦', top: 36, right: 8, angle: 0.5, size: 16),
+      StickerDecor(symbol: '✨', bottom: 66, right: 14, angle: -0.3, size: 20),
+      StickerDecor(symbol: '★', bottom: 64, left: 16, angle: 0.4, size: 18),
     ],
   ),
 ];

@@ -369,7 +369,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel('配色'),
+          const _SectionLabel('配色'),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -420,7 +420,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel('文字'),
+          const _SectionLabel('文字'),
           const SizedBox(height: 8),
           TextField(
             controller: _textCtrl,
@@ -441,7 +441,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
             },
           ),
           const SizedBox(height: 20),
-          _SectionLabel('字型'),
+          const _SectionLabel('字型'),
           const SizedBox(height: 10),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -499,7 +499,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel('產圖風格'),
+          const _SectionLabel('產圖風格'),
           const SizedBox(height: 4),
           Text(
             '切換後將確認並重新生成本張貼圖',

@@ -67,13 +67,18 @@ class StickerGenerationService {
             .logEvent(name: 'sticker_image_generated');
         return (bytes: bytes, remainingCredits: remaining);
       } on FirebaseFunctionsException catch (e, stack) {
-        // 未認證 → 嘗試重新匿名登入後 retry
+        // 未認證 → 強制刷新 ID token 後 retry（token 過期或 linkWithCredential 後短暫失效）
         if (e.code == 'unauthenticated' && attempt < maxRetries) {
           FirebaseService.log(
             'StickerGenerationService: unauthenticated index=$index, '
-            'retrying sign-in attempt ${attempt + 1}/$maxRetries',
+            'refreshing token attempt ${attempt + 1}/$maxRetries',
           );
-          await AuthService.signInAnonymouslyIfNeeded();
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null) {
+            await user.getIdToken(true); // 強制刷新，忽略快取
+          } else {
+            await AuthService.signInAnonymouslyIfNeeded();
+          }
           continue;
         }
         if (e.code == 'unauthenticated') {

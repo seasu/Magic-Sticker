@@ -41,7 +41,7 @@ class CreditHistoryScreen extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.receipt_long_outlined,
+                  const Icon(Icons.receipt_long_outlined,
                       size: 64, color: AppColors.divider),
                   const SizedBox(height: 16),
                   Text(

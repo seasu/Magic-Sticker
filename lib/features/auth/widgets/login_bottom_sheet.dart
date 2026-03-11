@@ -269,13 +269,13 @@ class _InitialView extends StatelessWidget {
         const SizedBox(height: 28),
 
         // ── 功能說明列 ──────────────────────────────────────────────
-        Row(
+        const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _FeatureChip(icon: Icons.bolt_rounded, label: '5 點獎勵'),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             _FeatureChip(icon: Icons.sync_rounded, label: '跨裝置同步'),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             _FeatureChip(icon: Icons.history_rounded, label: '點數紀錄'),
           ],
         ),
@@ -553,8 +553,8 @@ class _ErrorView extends StatelessWidget {
         Container(
           width: 76,
           height: 76,
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF0F0),
+          decoration: const BoxDecoration(
+            color: Color(0xFFFFF0F0),
             shape: BoxShape.circle,
           ),
           child: const Icon(

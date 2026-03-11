@@ -100,7 +100,7 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
             Container(
               width: 72,
               height: 72,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 gradient: AppColors.gradient,
                 shape: BoxShape.circle,
               ),
