@@ -59,7 +59,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add assets/images/IMG_5211.png assets/images/preview_*.png
+          git add assets/images/cat_source.png assets/images/preview_*.png
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else

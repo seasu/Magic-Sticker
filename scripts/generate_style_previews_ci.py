@@ -22,7 +22,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_DIR = SCRIPT_DIR.parent
 ASSETS_DIR = PROJECT_DIR / "assets" / "images"
-SOURCE_IMAGE = ASSETS_DIR / "IMG_5211.png"
+SOURCE_IMAGE = ASSETS_DIR / "cat_source.png"
 
 SOURCE_IMAGE_PROMPT = (
     "A cute brown tabby cat raising its right paw in a greeting pose, "
