@@ -99,6 +99,24 @@ Flutter (Dart)
 
 ---
 
+## 風格示意圖 (Style Previews)
+
+編輯器中的 6 種風格選擇（Chibi、Pop Art、Pixel、Sketch、Watercolor、Photo）各有一張示意圖，存放於 `assets/images/preview_<style>.png`。
+
+示意圖由 Gemini 2.0 Flash 依據 `assets/images/cat_source.png` 轉換生成。
+
+### 重新生成示意圖
+
+至 GitHub Actions → **Generate Style Preview Images** → **Run workflow**。
+
+| 參數 | 說明 |
+|---|---|
+| `force_regenerate` | `false`（預設）：只補生缺少的圖；`true`：強制全部重新生成 |
+
+> **備註：** 若 `cat_source.png` 不存在，腳本會先用 Gemini 自動生成一張，再進行風格轉換。
+
+---
+
 ## 開發指令集
 
 詳見 [CLAUDE.md](./CLAUDE.md)（AI 開發規範）
