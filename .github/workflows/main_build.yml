@@ -140,6 +140,16 @@ jobs:
       - name: Install Functions dependencies
         run: cd functions && npm install
 
+      - name: Generate functions/.env from GitHub Variables
+        run: |
+          cat > functions/.env <<EOF
+          GEMINI_TEXT_MODEL=${{ vars.GEMINI_TEXT_MODEL || 'gemini-2.0-flash-lite' }}
+          GEMINI_IMAGE_MODEL=${{ vars.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-preview-05-20' }}
+          EOF
+          sed -i 's/^[[:space:]]*//' functions/.env
+          echo "Generated functions/.env:"
+          cat functions/.env
+
       - name: Build Functions
         run: cd functions && npm run build
 

@@ -30,5 +30,7 @@ ios/Flutter/flutter_export_environment.sh
 
 # Secrets
 .env
+functions/.env
+functions/.env.*
 google-services.json
 GoogleService-Info.plist
