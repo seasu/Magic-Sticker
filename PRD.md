@@ -207,6 +207,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.1.5 | 2026-03-11 | **UI 簡化**：選擇貼圖畫面移除頂部八點進度條、卡片堆疊效果及底部 X/❤️ Tinder 按鈕；改為單張卡片顯示，「生成」按鈕移至底部，生成後出現「儲存貼圖」綠色按鈕；圖片未生成時編輯鉛筆按鈕自動 disable |
 | v3.1.4 | 2026-03-11 | **UI 調整**：未生成貼圖時在畫布中央顯示貓咪 🐱 emoji 與「點擊生成貼圖」提示文字，取代純色空白佔位 |
 | v3.1.3 | 2026-03-11 | **UI 調整**：放大「生成 · 1點」按鈕（padding 20/10→32/16、字體 14→18、icon 16→22、圓角 24→32）提升點擊體驗 |
 | v3.1.2 | 2026-03-11 | **Bug fix**：`StickerGenerationService` 呼叫 Cloud Function 前加入 auth 預檢；若 `currentUser == null`（啟動時匿名登入失敗）則先執行 `signInAnonymouslyIfNeeded()` 再呼叫；`unauthenticated` 錯誤加入 retry + 重新認證邏輯，防止 Crashlytics `sticker_single_gen_fn_failed_index0` |

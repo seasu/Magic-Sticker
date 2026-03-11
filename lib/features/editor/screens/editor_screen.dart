@@ -335,10 +335,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     ),
                   )
                 else if (isReady) ...[
-                  // ── 進度條 ────────────────────────────────────────────
-                  _ProgressBar(current: _currentIndex),
-                  const SizedBox(height: 4),
-
                   // ── 卡片層疊 ──────────────────────────────────────────
                   Expanded(
                     child: _CardStack(
@@ -349,24 +345,27 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                       onAccepted: _accept,
                       onRejected: _reject,
                       onEdit: _openEditSheet,
-                      onGenerate: () => _generateImage(_currentIndex),
                       onRetry: () => _generateImage(_currentIndex),
                       stickerShape: state.stickerShape,
                     ),
                   ),
 
-                  // ── Tinder 圓形按鈕 ───────────────────────────────────
+                  // ── 底部按鈕 ──────────────────────────────────────────
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: _TinderButtons(
-                      isExporting: _isExporting,
-                      onNope: _isExporting
-                          ? null
-                          : () => _cardController.reject(),
-                      onLike: _isExporting
-                          ? null
-                          : () => _cardController.accept(),
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: isNotGeneratedSentinel(
+                            state.generatedImages[_currentIndex])
+                        ? _GenerateButton(
+                            onTap: _isExporting
+                                ? null
+                                : () => _generateImage(_currentIndex),
+                          )
+                        : state.generatedImages[_currentIndex] == null
+                            ? const SizedBox.shrink()
+                            : _SaveButton(
+                                isExporting: _isExporting,
+                                onTap: _isExporting ? null : _accept,
+                              ),
                   ),
                 ],
               ],
@@ -475,7 +474,6 @@ class _CardStack extends StatelessWidget {
   final VoidCallback onAccepted;
   final VoidCallback onRejected;
   final VoidCallback onEdit;
-  final VoidCallback? onGenerate;
   final VoidCallback? onRetry;
   final StickerShape stickerShape;
 
@@ -487,66 +485,19 @@ class _CardStack extends StatelessWidget {
     required this.onAccepted,
     required this.onRejected,
     required this.onEdit,
-    this.onGenerate,
     this.onRetry,
     this.stickerShape = StickerShape.circle,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isGenerated = !isNotGeneratedSentinel(state.generatedImages[currentIndex]) &&
+        state.generatedImages[currentIndex] != null &&
+        state.generatedImages[currentIndex]!.isNotEmpty;
+
     return Stack(
       alignment: Alignment.center,
       children: [
-        // 下下張（最底層）
-        if (currentIndex + 2 < 8)
-          Transform.scale(
-            scale: 0.88,
-            child: Opacity(
-              opacity: 0.25,
-              child: _StickerCard(
-                subjectBytes: state.subjectBytes,
-                generatedImage: state.generatedImages[currentIndex + 2],
-                text: state.stickerTexts[currentIndex + 2],
-                config: kStickerConfigs[
-                    state.colorSchemeIndices[currentIndex + 2]],
-                initialScale: state.imageScales[currentIndex + 2],
-                initialOffset: state.imageOffsets[currentIndex + 2],
-                initialImageAngle: state.imageAngles[currentIndex + 2],
-                fontIndex: state.fontIndices[currentIndex + 2],
-                fontSizeScale: state.fontSizeScales[currentIndex + 2],
-                textXAlign: state.textXAligns[currentIndex + 2],
-                textYAlign: state.textYAligns[currentIndex + 2],
-                textAngle: state.textAngles[currentIndex + 2],
-                stickerShape: stickerShape,
-              ),
-            ),
-          ),
-
-        // 下一張（中層）
-        if (currentIndex + 1 < 8)
-          Transform.scale(
-            scale: 0.94,
-            child: Opacity(
-              opacity: 0.50,
-              child: _StickerCard(
-                subjectBytes: state.subjectBytes,
-                generatedImage: state.generatedImages[currentIndex + 1],
-                text: state.stickerTexts[currentIndex + 1],
-                config: kStickerConfigs[
-                    state.colorSchemeIndices[currentIndex + 1]],
-                initialScale: state.imageScales[currentIndex + 1],
-                initialOffset: state.imageOffsets[currentIndex + 1],
-                initialImageAngle: state.imageAngles[currentIndex + 1],
-                fontIndex: state.fontIndices[currentIndex + 1],
-                fontSizeScale: state.fontSizeScales[currentIndex + 1],
-                textXAlign: state.textXAligns[currentIndex + 1],
-                textYAlign: state.textYAligns[currentIndex + 1],
-                textAngle: state.textAngles[currentIndex + 1],
-                stickerShape: stickerShape,
-              ),
-            ),
-          ),
-
         // 目前張（可滑動）
         StickerSwipeCard(
           key: ValueKey(currentIndex),
@@ -571,15 +522,9 @@ class _CardStack extends StatelessWidget {
                 textXAlign: state.textXAligns[currentIndex],
                 textYAlign: state.textYAligns[currentIndex],
                 textAngle: state.textAngles[currentIndex],
-                onTap: onEdit,
+                onTap: isGenerated ? onEdit : null,
                 stickerShape: stickerShape,
               ),
-              // ── 尚未生成：顯示「生成」按鈕 ───────────────────────────
-              if (isNotGeneratedSentinel(state.generatedImages[currentIndex]))
-                Positioned(
-                  bottom: 16,
-                  child: _GenerateButton(onTap: onGenerate),
-                ),
 
               // ── 生成中 badge ──────────────────────────────────────────
               if (state.generatedImages[currentIndex] == null)
@@ -927,6 +872,64 @@ class _CatChaseMiniBadgeState extends State<_CatChaseMiniBadge>
               style: TextStyle(fontSize: 11, color: Colors.white),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── 儲存按鈕（圖片生成後）────────────────────────────────────────────────────
+
+class _SaveButton extends StatelessWidget {
+  final bool isExporting;
+  final VoidCallback? onTap;
+
+  const _SaveButton({required this.isExporting, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        onTap?.call();
+      },
+      child: AnimatedOpacity(
+        opacity: isExporting ? 0.5 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+          decoration: BoxDecoration(
+            color: _kLikeColor,
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [
+              BoxShadow(
+                color: _kLikeColor.withValues(alpha: 0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isExporting
+                    ? Icons.hourglass_top_rounded
+                    : Icons.download_rounded,
+                size: 22,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isExporting ? '儲存中…' : '儲存貼圖',
+                style: const TextStyle(
+                  fontSize: 18,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
