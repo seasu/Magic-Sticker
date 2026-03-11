@@ -157,23 +157,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             const Spacer(),
             // 點數徽章
             const CreditBadge(),
-            const SizedBox(width: 8),
-            if (_version.isNotEmpty)
-              GestureDetector(
-                onTap: _onVersionTap,
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Text(
-                    _version,
-                    style: GoogleFonts.notoSansTc(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -305,6 +288,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   minimumSize: const Size.fromHeight(44),
                   foregroundColor: Colors.red,
                   side: const BorderSide(color: Colors.red),
+                ),
+              ),
+            ],
+            if (_version.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: _onVersionTap,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    _version,
+                    style: GoogleFonts.notoSansTc(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary.withValues(alpha: 0.45),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
             ],
@@ -592,9 +594,18 @@ class _StyleCardState extends State<_StyleCard>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                widget.style.emoji,
-                style: const TextStyle(fontSize: 30),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset(
+                  'assets/images/preview_${widget.style.name}.png',
+                  width: 64,
+                  height: 64,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Text(
+                    widget.style.emoji,
+                    style: const TextStyle(fontSize: 30),
+                  ),
+                ),
               ),
               const SizedBox(height: 6),
               Text(

@@ -335,10 +335,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     ),
                   )
                 else if (isReady) ...[
-                  // ── 進度條 ────────────────────────────────────────────
-                  _ProgressBar(current: _currentIndex),
-                  const SizedBox(height: 4),
-
                   // ── 卡片層疊 ──────────────────────────────────────────
                   Expanded(
                     child: _CardStack(
@@ -349,24 +345,27 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                       onAccepted: _accept,
                       onRejected: _reject,
                       onEdit: _openEditSheet,
-                      onGenerate: () => _generateImage(_currentIndex),
                       onRetry: () => _generateImage(_currentIndex),
                       stickerShape: state.stickerShape,
                     ),
                   ),
 
-                  // ── Tinder 圓形按鈕 ───────────────────────────────────
+                  // ── 底部按鈕 ──────────────────────────────────────────
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: _TinderButtons(
-                      isExporting: _isExporting,
-                      onNope: _isExporting
-                          ? null
-                          : () => _cardController.reject(),
-                      onLike: _isExporting
-                          ? null
-                          : () => _cardController.accept(),
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: isNotGeneratedSentinel(
+                            state.generatedImages[_currentIndex])
+                        ? _GenerateButton(
+                            onTap: _isExporting
+                                ? null
+                                : () => _generateImage(_currentIndex),
+                          )
+                        : state.generatedImages[_currentIndex] == null
+                            ? const SizedBox.shrink()
+                            : _SaveButton(
+                                isExporting: _isExporting,
+                                onTap: _isExporting ? null : _accept,
+                              ),
                   ),
                 ],
               ],
@@ -430,41 +429,6 @@ class _TopBar extends StatelessWidget {
 
 // ─── 進度條 ──────────────────────────────────────────────────────────────────
 
-class _ProgressBar extends StatelessWidget {
-  final int current;
-
-  const _ProgressBar({required this.current});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(8, (i) {
-          final isActive = i == current;
-          final isPast = i < current;
-          return Expanded(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              height: 4,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: isPast
-                    ? _kLikeColor.withValues(alpha: 0.6)
-                    : isActive
-                        ? Colors.black87
-                        : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-}
-
 // ─── 卡片層疊 ─────────────────────────────────────────────────────────────────
 
 class _CardStack extends StatelessWidget {
@@ -475,7 +439,6 @@ class _CardStack extends StatelessWidget {
   final VoidCallback onAccepted;
   final VoidCallback onRejected;
   final VoidCallback onEdit;
-  final VoidCallback? onGenerate;
   final VoidCallback? onRetry;
   final StickerShape stickerShape;
 
@@ -487,66 +450,19 @@ class _CardStack extends StatelessWidget {
     required this.onAccepted,
     required this.onRejected,
     required this.onEdit,
-    this.onGenerate,
     this.onRetry,
     this.stickerShape = StickerShape.circle,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isGenerated = !isNotGeneratedSentinel(state.generatedImages[currentIndex]) &&
+        state.generatedImages[currentIndex] != null &&
+        state.generatedImages[currentIndex]!.isNotEmpty;
+
     return Stack(
       alignment: Alignment.center,
       children: [
-        // 下下張（最底層）
-        if (currentIndex + 2 < 8)
-          Transform.scale(
-            scale: 0.88,
-            child: Opacity(
-              opacity: 0.25,
-              child: _StickerCard(
-                subjectBytes: state.subjectBytes,
-                generatedImage: state.generatedImages[currentIndex + 2],
-                text: state.stickerTexts[currentIndex + 2],
-                config: kStickerConfigs[
-                    state.colorSchemeIndices[currentIndex + 2]],
-                initialScale: state.imageScales[currentIndex + 2],
-                initialOffset: state.imageOffsets[currentIndex + 2],
-                initialImageAngle: state.imageAngles[currentIndex + 2],
-                fontIndex: state.fontIndices[currentIndex + 2],
-                fontSizeScale: state.fontSizeScales[currentIndex + 2],
-                textXAlign: state.textXAligns[currentIndex + 2],
-                textYAlign: state.textYAligns[currentIndex + 2],
-                textAngle: state.textAngles[currentIndex + 2],
-                stickerShape: stickerShape,
-              ),
-            ),
-          ),
-
-        // 下一張（中層）
-        if (currentIndex + 1 < 8)
-          Transform.scale(
-            scale: 0.94,
-            child: Opacity(
-              opacity: 0.50,
-              child: _StickerCard(
-                subjectBytes: state.subjectBytes,
-                generatedImage: state.generatedImages[currentIndex + 1],
-                text: state.stickerTexts[currentIndex + 1],
-                config: kStickerConfigs[
-                    state.colorSchemeIndices[currentIndex + 1]],
-                initialScale: state.imageScales[currentIndex + 1],
-                initialOffset: state.imageOffsets[currentIndex + 1],
-                initialImageAngle: state.imageAngles[currentIndex + 1],
-                fontIndex: state.fontIndices[currentIndex + 1],
-                fontSizeScale: state.fontSizeScales[currentIndex + 1],
-                textXAlign: state.textXAligns[currentIndex + 1],
-                textYAlign: state.textYAligns[currentIndex + 1],
-                textAngle: state.textAngles[currentIndex + 1],
-                stickerShape: stickerShape,
-              ),
-            ),
-          ),
-
         // 目前張（可滑動）
         StickerSwipeCard(
           key: ValueKey(currentIndex),
@@ -571,15 +487,9 @@ class _CardStack extends StatelessWidget {
                 textXAlign: state.textXAligns[currentIndex],
                 textYAlign: state.textYAligns[currentIndex],
                 textAngle: state.textAngles[currentIndex],
-                onTap: onEdit,
+                onTap: isGenerated ? onEdit : null,
                 stickerShape: stickerShape,
               ),
-              // ── 尚未生成：顯示「生成」按鈕 ───────────────────────────
-              if (isNotGeneratedSentinel(state.generatedImages[currentIndex]))
-                Positioned(
-                  bottom: 16,
-                  child: _GenerateButton(onTap: onGenerate),
-                ),
 
               // ── 生成中 badge ──────────────────────────────────────────
               if (state.generatedImages[currentIndex] == null)
@@ -835,10 +745,10 @@ class _GenerateButton extends StatelessWidget {
         onTap?.call();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
         decoration: BoxDecoration(
           gradient: AppColors.gradient,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(32),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.2),
@@ -850,12 +760,12 @@ class _GenerateButton extends StatelessWidget {
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.auto_awesome_rounded, size: 16, color: Colors.white),
-            SizedBox(width: 6),
+            Icon(Icons.auto_awesome_rounded, size: 22, color: Colors.white),
+            SizedBox(width: 8),
             Text(
               '生成 · 1點',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 18,
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
               ),
@@ -933,46 +843,60 @@ class _CatChaseMiniBadgeState extends State<_CatChaseMiniBadge>
   }
 }
 
-// ─── Tinder 大圓形按鈕 ────────────────────────────────────────────────────────
+// ─── 儲存按鈕（圖片生成後）────────────────────────────────────────────────────
 
-class _TinderButtons extends StatelessWidget {
+class _SaveButton extends StatelessWidget {
   final bool isExporting;
-  final VoidCallback? onNope;
-  final VoidCallback? onLike;
+  final VoidCallback? onTap;
 
-  const _TinderButtons({
-    required this.isExporting,
-    required this.onNope,
-    required this.onLike,
-  });
+  const _SaveButton({required this.isExporting, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _CircleButton(
-          size: 64,
-          icon: Icons.close_rounded,
-          iconSize: 30,
-          iconColor: _kNopeColor,
-          bgColor: Colors.white,
-          borderColor: _kNopeColor,
-          shadowColor: _kNopeColor,
-          onTap: onNope,
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        onTap?.call();
+      },
+      child: AnimatedOpacity(
+        opacity: isExporting ? 0.5 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+          decoration: BoxDecoration(
+            color: _kLikeColor,
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [
+              BoxShadow(
+                color: _kLikeColor.withValues(alpha: 0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isExporting
+                    ? Icons.hourglass_top_rounded
+                    : Icons.download_rounded,
+                size: 22,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isExporting ? '儲存中…' : '儲存貼圖',
+                style: const TextStyle(
+                  fontSize: 18,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(width: 52),
-        _CircleButton(
-          size: 76,
-          icon: isExporting ? null : Icons.favorite_rounded,
-          iconSize: 36,
-          iconColor: Colors.white,
-          bgColor: _kLikeColor,
-          shadowColor: _kLikeColor,
-          isLoading: isExporting,
-          onTap: onLike,
-        ),
-      ],
+      ),
     );
   }
 }

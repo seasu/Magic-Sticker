@@ -1,0 +1,73 @@
+name: Generate Style Preview Images
+
+# 一次性 workflow：使用 Gemini AI 生成 6 種風格貓咪示意圖並 commit 回 repo。
+# 成功執行一次後，可刪除此 workflow 與 scripts/generate_style_previews_ci.py。
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_regenerate:
+        description: '強制重新生成（即使圖片已存在）'
+        type: boolean
+        default: false
+
+jobs:
+  generate:
+    name: Generate Preview Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # 允許 commit & push 生成的圖片
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if images already exist
+        id: check
+        run: |
+          STYLES="chibi popArt pixel sketch watercolor photo"
+          MISSING=0
+          for s in $STYLES; do
+            if [ ! -f "assets/images/preview_${s}.png" ] || \
+               [ "${{ github.event.inputs.force_regenerate }}" = "true" ]; then
+              MISSING=1
+              break
+            fi
+          done
+          echo "needs_generation=$MISSING" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        if: steps.check.outputs.needs_generation == '1'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install google-genai
+        if: steps.check.outputs.needs_generation == '1'
+        run: pip install google-genai -q
+
+      - name: Generate style preview images
+        if: steps.check.outputs.needs_generation == '1'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python3 scripts/generate_style_previews_ci.py
+
+      - name: Commit generated images
+        if: steps.check.outputs.needs_generation == '1'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/images/preview_*.png
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "feat: add AI-generated style preview images [skip ci]"
+            git push
+            echo "✅ Images committed and pushed."
+          fi
+
+      - name: Skip message
+        if: steps.check.outputs.needs_generation == '0'
+        run: echo "✅ All preview images already exist. Use force_regenerate=true to regenerate."
