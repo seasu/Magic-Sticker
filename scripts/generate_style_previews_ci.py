@@ -2,7 +2,7 @@
 """
 generate_style_previews_ci.py
 ─────────────────────────────
-CI/CD 專用：使用 Gemini 2.0 Flash 將貓咪圖片轉換為 6 種風格示意圖。
+CI/CD 專用：使用 Gemini 2.0 Flash Exp Image Generation 將貓咪圖片轉換為 6 種風格示意圖。
 在 GitHub Actions 中執行，使用 GEMINI_API_KEY Secret。
 
 若 assets/images/cat_source.png 不存在，腳本會先用 Gemini 文字生成它。
@@ -81,7 +81,7 @@ def generate_source_image(client, types) -> bytes:
     """使用 Gemini 文字生成貓咪來源圖片。"""
     print("🐱 cat_source.png 不存在，正在用 Gemini 生成來源圖片...", flush=True)
     response = client.models.generate_content(
-        model="gemini-2.0-flash-preview-image-generation",
+        model="gemini-2.0-flash-exp-image-generation",
         contents=SOURCE_IMAGE_PROMPT,
         config=types.GenerateContentConfig(
             response_modalities=["image"],
@@ -131,7 +131,7 @@ def main():
 
         try:
             response = client.models.generate_content(
-                model="gemini-2.0-flash-preview-image-generation",
+                model="gemini-2.0-flash-exp-image-generation",
                 contents=[
                     types.Content(
                         role="user",
