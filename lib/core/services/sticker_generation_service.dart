@@ -3,10 +3,12 @@ import 'dart:typed_data';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/sticker_shape.dart';
 import '../models/sticker_spec.dart';
 import '../models/sticker_style.dart';
+import 'auth_service.dart';
 import 'firebase_service.dart';
 
 /// Gemini 貼圖生成服務
@@ -32,6 +34,12 @@ class StickerGenerationService {
       'StickerGenerationService.generateSingle: index=$index '
       'emotion=${spec.emotion} style=${style.label}',
     );
+
+    // 確保呼叫前有 Firebase Auth session（startup 時若網路失敗可能為 null）
+    if (FirebaseAuth.instance.currentUser == null) {
+      FirebaseService.log('StickerGenerationService: no auth session, attempting sign-in');
+      await AuthService.signInAnonymouslyIfNeeded();
+    }
 
     const maxRetries = 3;
 
@@ -59,6 +67,22 @@ class StickerGenerationService {
             .logEvent(name: 'sticker_image_generated');
         return (bytes: bytes, remainingCredits: remaining);
       } on FirebaseFunctionsException catch (e, stack) {
+        // 未認證 → 嘗試重新匿名登入後 retry
+        if (e.code == 'unauthenticated' && attempt < maxRetries) {
+          FirebaseService.log(
+            'StickerGenerationService: unauthenticated index=$index, '
+            'retrying sign-in attempt ${attempt + 1}/$maxRetries',
+          );
+          await AuthService.signInAnonymouslyIfNeeded();
+          continue;
+        }
+        if (e.code == 'unauthenticated') {
+          await FirebaseService.recordError(
+            e, stack, reason: 'sticker_single_gen_fn_failed_index$index',
+          );
+          return (bytes: null, remainingCredits: -1);
+        }
+
         final isRateLimit = e.code == 'resource-exhausted';
 
         // rate-limited without credit message → retry（Cloud Function 已退點）
