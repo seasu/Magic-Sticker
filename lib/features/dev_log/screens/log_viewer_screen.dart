@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/services/log_service.dart';
+
+const _kSpecsModel = 'gemini-2.0-flash-lite';
+const _kImageModel = 'gemini-2.5-flash-preview-05-20';
 
 class LogViewerScreen extends StatefulWidget {
   const LogViewerScreen({super.key});
@@ -115,6 +119,9 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
 
       body: Column(
         children: [
+          // ── Model 資訊 ──────────────────────────────────────────────────────
+          const _ModelInfoCard(),
+
           // ── 篩選列 ─────────────────────────────────────────────────────────
           _FilterBar(
             current: _filter,
@@ -335,6 +342,101 @@ class _LogTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Model 資訊卡 ──────────────────────────────────────────────────────────
+
+class _ModelInfoCard extends StatelessWidget {
+  const _ModelInfoCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.smart_toy_outlined, size: 16, color: cs.primary),
+              const SizedBox(width: 6),
+              Text(
+                'Gemini Models',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: cs.primary,
+                ),
+              ),
+              const Spacer(),
+              FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (_, snap) {
+                  final v = snap.data;
+                  if (v == null) return const SizedBox.shrink();
+                  return Text(
+                    'v${v.version}+${v.buildNumber}',
+                    style: TextStyle(fontSize: 11, color: cs.outline),
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _modelRow(context, 'Specs（文字）', _kSpecsModel),
+          const SizedBox(height: 4),
+          _modelRow(context, 'Image（圖片）', _kImageModel),
+        ],
+      ),
+    );
+  }
+
+  Widget _modelRow(BuildContext context, String label, String model) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        SizedBox(
+          width: 90,
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 11, color: cs.outline),
+          ),
+        ),
+        Expanded(
+          child: GestureDetector(
+            onLongPress: () {
+              Clipboard.setData(ClipboardData(text: model));
+              ScaffoldMessenger.of(context)
+                ..clearSnackBars()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text('已複製 $model'),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+            },
+            child: Text(
+              model,
+              style: const TextStyle(
+                fontSize: 12,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
