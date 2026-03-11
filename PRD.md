@@ -207,6 +207,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.1.1 | 2026-03-11 | **CI fix**：Functions deploy 加 `--force` 自動設定 Artifact Registry cleanup policy，避免容器映像累積產生費用；`firebase-functions` 升級至 `^6.0.0` |
 | v3.1.0 | 2026-03-11 | **計費重構**：1 點 = 1 張圖片（原為 1 點 = 8 張）；`generateStickerSpecs` 免費、`generateStickerImage` 原子性扣 1 點；新增 `creditHistory` Firestore 子集合記錄所有點數異動；新增「點數紀錄」UI 頁面；`CreditBadge` 點擊可查閱異動紀錄；`functions/package.json` Node 22 |
 | v3.0.23 | 2026-03-10 | **資源更新**：更新 `assets/app_icon.png` |
 | v3.0.22 | 2026-03-10 | **清理**：刪除未使用的 `assets/HEIF影像.jpeg` |
