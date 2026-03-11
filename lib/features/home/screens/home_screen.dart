@@ -594,9 +594,18 @@ class _StyleCardState extends State<_StyleCard>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                widget.style.emoji,
-                style: const TextStyle(fontSize: 30),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset(
+                  'assets/images/preview_${widget.style.name}.png',
+                  width: 64,
+                  height: 64,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Text(
+                    widget.style.emoji,
+                    style: const TextStyle(fontSize: 30),
+                  ),
+                ),
               ),
               const SizedBox(height: 6),
               Text(
