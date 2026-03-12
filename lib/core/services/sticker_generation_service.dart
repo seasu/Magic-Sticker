@@ -39,6 +39,19 @@ class StickerGenerationService {
     if (FirebaseAuth.instance.currentUser == null) {
       FirebaseService.log('StickerGenerationService: no auth session, attempting sign-in');
       await AuthService.signInAnonymouslyIfNeeded();
+      // sign-in 仍失敗 → 立即結束，無法呼叫 Cloud Function
+      if (FirebaseAuth.instance.currentUser == null) {
+        FirebaseService.log('StickerGenerationService: sign-in failed, aborting index=$index');
+        return (bytes: null, remainingCredits: -1);
+      }
+    } else {
+      // 預先強制刷新 token，避免因 token 過期導致第一次呼叫就 UNAUTHENTICATED
+      try {
+        await FirebaseAuth.instance.currentUser!.getIdToken(true);
+      } catch (e) {
+        FirebaseService.log('StickerGenerationService: pre-flight token refresh failed: $e');
+        // 繼續嘗試，交由 retry loop 處理
+      }
     }
 
     const maxRetries = 3;
@@ -79,6 +92,13 @@ class StickerGenerationService {
             await user.getIdToken(true); // 強制刷新，忽略快取
           } else {
             await AuthService.signInAnonymouslyIfNeeded();
+            // sign-in 後仍無 session → 無需繼續重試
+            if (FirebaseAuth.instance.currentUser == null) {
+              await FirebaseService.recordError(
+                e, stack, reason: 'sticker_single_gen_fn_failed_no_auth_index$index',
+              );
+              return (bytes: null, remainingCredits: -1);
+            }
           }
           // 退避等待：1s → 2s → 4s，避免在 linkWithCredential token rotation 視窗內立即重試
           await Future.delayed(Duration(seconds: 1 << attempt));
