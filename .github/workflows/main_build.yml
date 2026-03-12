@@ -1,4 +1,4 @@
-name: MagicMorning CI/CD
+name: Magic Sticker CI/CD
 
 on:
   push:
@@ -102,23 +102,23 @@ jobs:
           path: dist/
 
       - name: Rename APK with version
-        run: mv dist/app-release.apk "dist/MagicMorning-${{ steps.ver.outputs.raw }}.apk"
+        run: mv dist/app-release.apk "dist/MagicSticker-${{ steps.ver.outputs.raw }}.apk"
 
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
-          name: "MagicMorning ${{ steps.ver.outputs.raw }}"
+          name: "Magic Sticker ${{ steps.ver.outputs.raw }}"
           body: |
-            ## 📦 MagicMorning `${{ steps.ver.outputs.raw }}`
+            ## 📦 Magic Sticker `${{ steps.ver.outputs.raw }}`
 
             > 自動建置 · commit `${{ github.sha }}`
 
             ### 安裝方式
-            1. 下載下方 `MagicMorning-*.apk`
+            1. 下載下方 `MagicSticker-*.apk`
             2. 手機開啟「允許安裝未知來源」
             3. 點擊 APK 安裝
-          files: "dist/MagicMorning-${{ steps.ver.outputs.raw }}.apk"
+          files: "dist/MagicSticker-${{ steps.ver.outputs.raw }}.apk"
           make_latest: true
           fail_on_unmatched_files: true
 
