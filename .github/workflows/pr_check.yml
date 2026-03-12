@@ -53,3 +53,21 @@ jobs:
 
       - name: Flutter test
         run: flutter test
+
+  functions-check:
+    name: Cloud Functions Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: functions/package.json
+
+      - name: Install dependencies
+        run: cd functions && npm install
+
+      - name: TypeScript compile check
+        run: cd functions && npx tsc --noEmit
