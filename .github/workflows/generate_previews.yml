@@ -16,13 +16,12 @@ jobs:
     name: Generate Preview Images
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # 允許 commit & push 生成的圖片
+      contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check if images already exist
         id: check
@@ -52,10 +51,10 @@ jobs:
         if: steps.check.outputs.needs_generation == '1'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_IMAGE_MODEL: ${{ vars.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-preview-05-20' }}
+          GEMINI_IMAGE_MODEL: ${{ vars.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image' }}
         run: python3 scripts/generate_style_previews_ci.py
 
-      - name: Commit generated images
+      - name: Create PR with generated images
         if: steps.check.outputs.needs_generation == '1'
         run: |
           git config user.name "github-actions[bot]"
@@ -63,11 +62,21 @@ jobs:
           git add assets/images/cat_source.png assets/images/preview_*.png
           if git diff --cached --quiet; then
             echo "No changes to commit."
-          else
-            git commit -m "feat: add AI-generated style preview images [skip ci]"
-            git push
-            echo "✅ Images committed and pushed."
+            exit 0
           fi
+          BRANCH="auto/style-previews-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          git commit -m "feat: add AI-generated style preview images"
+          git push origin "$BRANCH"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "feat: add AI-generated style preview images" \
+            --body "由 **Generate Style Preview Images** workflow 自動產生。\n\n包含 6 種風格示意圖（chibi / popArt / pixel / sketch / watercolor / photo）。" \
+            --label "auto-generated"
+          echo "✅ PR created from branch $BRANCH"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Skip message
         if: steps.check.outputs.needs_generation == '0'

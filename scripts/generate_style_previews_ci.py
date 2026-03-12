@@ -77,7 +77,7 @@ STYLES = {
 }
 
 
-DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-preview-05-20"
+DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
 
 
 def generate_source_image(client, types, model: str) -> bytes:

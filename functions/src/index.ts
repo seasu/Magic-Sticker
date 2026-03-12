@@ -11,7 +11,7 @@ const geminiTextModel = defineString("GEMINI_TEXT_MODEL", {
   description: "Gemini model for text/specs generation",
 });
 const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
-  default: "gemini-2.5-flash-preview-05-20",
+  default: "gemini-2.5-flash-image",
   description: "Gemini model for image generation",
 });
 

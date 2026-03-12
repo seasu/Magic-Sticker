@@ -111,7 +111,7 @@ def generate_with_gemini_flash(api_key: str, style_key: str, style_info: dict, s
         from google import genai
         from google.genai import types
 
-        image_model = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-preview-05-20")
+        image_model = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
         client = genai.Client(api_key=api_key)
 
         source_b64 = base64.b64encode(source_bytes).decode()

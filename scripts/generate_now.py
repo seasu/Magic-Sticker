@@ -7,7 +7,7 @@ from google import genai
 from google.genai import types
 
 API_KEY = os.environ["GEMINI_API_KEY"]
-IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-preview-05-20")
+IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 OUT_DIR = Path(__file__).parent.parent / "assets" / "images"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
