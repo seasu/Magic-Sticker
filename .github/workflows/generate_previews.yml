@@ -64,16 +64,29 @@ jobs:
             echo "No changes to commit."
             exit 0
           fi
+
+          # 遞增版號（patch +1, build +1）以通過 Version Guard
+          CURRENT=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          MAJOR_MINOR=$(echo "$CURRENT" | sed 's/\([0-9]*\.[0-9]*\.\)\([0-9]*\)+\([0-9]*\)/\1/')
+          PATCH=$(echo "$CURRENT" | sed 's/[0-9]*\.[0-9]*\.\([0-9]*\)+.*/\1/')
+          BUILD=$(echo "$CURRENT" | sed 's/.*+//')
+          NEW_PATCH=$((PATCH + 1))
+          NEW_BUILD=$((BUILD + 1))
+          NEW_VER="${MAJOR_MINOR}${NEW_PATCH}+${NEW_BUILD}"
+          sed -i "s/^version: .*/version: ${NEW_VER}/" pubspec.yaml
+          sed -i "s/| 目前版本 | v[^ ]* |/| 目前版本 | v${NEW_VER} |/" PRD.md
+          git add pubspec.yaml PRD.md
+          echo "📦 Version bumped: $CURRENT → $NEW_VER"
+
           BRANCH="auto/style-previews-$(date +%Y%m%d-%H%M%S)"
           git checkout -b "$BRANCH"
-          git commit -m "feat: add AI-generated style preview images"
+          git commit -m "feat: add AI-generated style preview images (v${NEW_VER})"
           git push origin "$BRANCH"
           gh pr create \
             --base main \
             --head "$BRANCH" \
             --title "feat: add AI-generated style preview images" \
-            --body "由 **Generate Style Preview Images** workflow 自動產生。\n\n包含 6 種風格示意圖（chibi / popArt / pixel / sketch / watercolor / photo）。" \
-            --label "auto-generated"
+            --body "由 **Generate Style Preview Images** workflow 自動產生。\n\n包含 6 種風格示意圖（chibi / popArt / pixel / sketch / watercolor / photo）。"
           echo "✅ PR created from branch $BRANCH"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

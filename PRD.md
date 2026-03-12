@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | MagicMorning（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.1.28+149 |
+| 目前版本 | v3.1.30+151 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -207,6 +207,8 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.1.30 | 2026-03-12 | **CI fix**：`generate_previews.yml` commit 前自動遞增 `pubspec.yaml` 版號 + 更新 `PRD.md`，通過 Version Guard |
+| v3.1.29 | 2026-03-12 | **CI fix**：`generate_previews.yml` 移除不存在的 `auto-generated` label，避免 `gh pr create` 失敗 |
 | v3.1.28 | 2026-03-12 | **fix**：`generate_style_previews_ci.py` 修正圖片擷取邏輯（支援 bytes/base64 雙格式）、加入 null-safe 檢查、失敗自動重試 2 次、部分成功不再 exit 1 |
 | v3.1.27 | 2026-03-12 | **CI fix**：`generate_previews.yml` 改為建立 PR 而非直接 push main，符合 branch protection rules |
 | v3.1.26 | 2026-03-12 | **fix**：Gemini image model 預設值從已淘汰的 `gemini-2.5-flash-preview-05-20` 改為 GA 版 `gemini-2.5-flash-image`（修正 CI 404 NOT_FOUND） |
