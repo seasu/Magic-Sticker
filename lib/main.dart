@@ -53,5 +53,5 @@ Future<void> main() async {
   // Android：重裝後 UID 重置，訪客僅給 1 點（降低誘因）✅
   await AuthService.signInAnonymouslyIfNeeded();
 
-  runApp(const ProviderScope(child: MagicMorningApp()));
+  runApp(const ProviderScope(child: MagicStickerApp()));
 }

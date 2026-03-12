@@ -50,13 +50,13 @@ final _router = GoRouter(
   ],
 );
 
-class MagicMorningApp extends StatelessWidget {
-  const MagicMorningApp({super.key});
+class MagicStickerApp extends StatelessWidget {
+  const MagicStickerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'MagicMorning',
+      title: 'Magic Sticker',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       routerConfig: _router,

@@ -1,4 +1,4 @@
-# MagicMorning — AI 一鍵產 LINE 貼圖
+# Magic Sticker — AI 一鍵產 LINE 貼圖
 
 > 選一張照片，Gemini AI 自動幫你生成 8 張圓形卡通 LINE 貼圖，Tinder 滑卡挑選，一鍵存入相簿。
 

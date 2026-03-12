@@ -15,7 +15,7 @@
 
 | 屬性 | 描述 |
 |---|---|
-| **專案名稱** | MagicMorning (自動去背早安貼圖產生器) |
+| **專案名稱** | Magic Sticker (AI 一鍵產 LINE 貼圖) |
 | **平台** | Flutter (Android + iOS) |
 | **目前狀態** | 規劃/文件階段（尚未建立 Flutter 工程） |
 | **版本** | 尚未初始化 (`pubspec.yaml` 待建立) |
@@ -140,7 +140,7 @@ ios/
 |---|---|
 | **「開始去背邏輯開發」** | 從 Android Kotlin 開始編寫 ML Kit 去背程式碼，同時產出 Flutter 端 MethodChannel 調用介面 |
 | **「調整功能需求」** | 分析變動點 → 修改程式碼 → 重新產出更新版 `PRD.md` |
-| **「建立 Flutter 工程」** | 執行 `flutter create --org com.yourname magic_morning`，並依上方目錄結構初始化 |
+| **「建立 Flutter 工程」** | 執行 `flutter create --org com.magicsticker magic_sticker`，並依上方目錄結構初始化 |
 | **「建立 CI/CD」** | 產出 `.github/workflows/main_build.yml`，包含 Android + iOS 完整 Build 流程 |
 
 ---

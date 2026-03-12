@@ -147,7 +147,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
       final ts = DateTime.now().millisecondsSinceEpoch;
       final tmpDir = await getTemporaryDirectory();
-      final tmpFile = File('${tmpDir.path}/magic_morning_$ts.png');
+      final tmpFile = File('${tmpDir.path}/magic_sticker_$ts.png');
       await tmpFile.writeAsBytes(bytes);
       await Gal.putImage(tmpFile.path);
       await tmpFile.delete();

@@ -1,4 +1,4 @@
-# Google Play 上架資料 — MagicMorning
+# Google Play 上架資料 — Magic Sticker
 
 > 最後更新：2026-03-10 ｜ 版本 v3.0.2+97
 
