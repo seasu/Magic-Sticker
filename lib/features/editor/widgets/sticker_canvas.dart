@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/models/sticker_shape.dart';
+import '../../../core/models/sticker_style.dart';
 import '../models/sticker_config.dart';
 import '../models/sticker_font.dart';
 
@@ -57,6 +58,9 @@ class StickerCanvas extends StatefulWidget {
   /// 文字旋轉角度（弧度）
   final double textAngle;
 
+  /// 貼圖風格索引（對應 StickerStyle.values），用於未生成狀態的風格示意圖
+  final int styleIndex;
+
   /// true → 啟用選取模式（編輯 Sheet），false → 主卡片模式
   final bool enableTextGestures;
 
@@ -99,6 +103,7 @@ class StickerCanvas extends StatefulWidget {
     this.textXAlign = 0.0,
     this.textYAlign = 0.85,
     this.textAngle = 0.0,
+    this.styleIndex = 0,
     this.enableTextGestures = false,
     this.interactive = true,
     this.externalTarget,
@@ -415,6 +420,9 @@ class _StickerCanvasState extends State<StickerCanvas> {
 
   Widget _buildFallback() {
     final color = widget.config.colorScheme.borderColor;
+    final style = StickerStyle.values[
+        widget.styleIndex.clamp(0, StickerStyle.values.length - 1)];
+    final previewAsset = 'assets/images/preview_${style.name}.png';
     return Container(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
@@ -424,14 +432,13 @@ class _StickerCanvasState extends State<StickerCanvas> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              '🐱',
-              style: TextStyle(
-                fontSize: 72,
-                color: color.withValues(alpha: 0.45),
-              ),
+            Image.asset(
+              previewAsset,
+              width: 110,
+              height: 110,
+              opacity: const AlwaysStoppedAnimation(0.55),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               '點擊生成貼圖',
               style: TextStyle(
