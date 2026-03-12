@@ -168,6 +168,36 @@ jobs:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
         continue-on-error: true
 
+      - name: Smoke test — verify Cloud Functions are live
+        run: |
+          REGION="asia-east1"
+          PROJECT="${{ secrets.FIREBASE_PROJECT_ID }}"
+          URL="https://${REGION}-${PROJECT}.cloudfunctions.net/getConfig"
+
+          echo "🔍 Calling getConfig: $URL"
+          RESP=$(curl -sf -X POST "$URL" \
+            -H "Content-Type: application/json" \
+            -d '{"data":{}}' \
+            --max-time 30) || {
+            echo "❌ getConfig unreachable or returned error"
+            exit 1
+          }
+
+          echo "📦 Response: $RESP"
+
+          TEXT_MODEL=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['result']['textModel'])" 2>/dev/null)
+          IMAGE_MODEL=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['result']['imageModel'])" 2>/dev/null)
+
+          if [ -z "$TEXT_MODEL" ] || [ -z "$IMAGE_MODEL" ]; then
+            echo "❌ getConfig returned unexpected format"
+            echo "$RESP"
+            exit 1
+          fi
+
+          echo "✅ Cloud Functions alive"
+          echo "   Text model:  $TEXT_MODEL"
+          echo "   Image model: $IMAGE_MODEL"
+
   # ─── Firebase App Distribution ────────────────────────────
   firebase-distribute:
     name: Firebase App Distribution

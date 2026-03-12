@@ -214,6 +214,7 @@ lib/
 | v3.1.29 | 2026-03-12 | **CI fix**：`generate_previews.yml` 移除不存在的 `auto-generated` label，避免 `gh pr create` 失敗 |
 | v3.1.28 | 2026-03-12 | **fix**：`generate_style_previews_ci.py` 修正圖片擷取邏輯（支援 bytes/base64 雙格式）、加入 null-safe 檢查、失敗自動重試 2 次、部分成功不再 exit 1 |
 | v3.1.38 | 2026-03-12 | **Bug fix**：修正 `UNAUTHENTICATED` 錯誤根因：(1) `main.dart` 改用 `Firebase.initializeApp()` 不帶 placeholder options，避免與 `google-services.json` native 初始化衝突；Crashlytics handler 移到 try 外面確保一定執行；(2) `StickerGenerationService` 新增 `_ensureValidAuth()` — 強制刷新 token 並驗證非空，刷新失敗時做完整 re-auth（signOut + signInAnonymously）；retry 退避延遲加倍（2s/4s/8s） |
+| v3.1.37 | 2026-03-12 | **CI/CD**：(1) deploy-functions 後新增 smoke test，呼叫 `getConfig` 驗證 Cloud Functions 存活且回傳正確 model；(2) PR Check 新增 Cloud Functions TypeScript 編譯檢查 |
 | v3.1.27 | 2026-03-12 | **CI fix**：`generate_previews.yml` 改為建立 PR 而非直接 push main，符合 branch protection rules |
 | v3.1.26 | 2026-03-12 | **fix**：Gemini image model 預設值從已淘汰的 `gemini-2.5-flash-preview-05-20` 改為 GA 版 `gemini-2.5-flash-image`（修正 CI 404 NOT_FOUND） |
 | v3.1.25 | 2026-03-11 | **CI/CD**：deploy-functions job 在部署前從 GitHub Variables（`GEMINI_TEXT_MODEL` / `GEMINI_IMAGE_MODEL`）產生 `functions/.env`；`.gitignore` 加入 `functions/.env` |
