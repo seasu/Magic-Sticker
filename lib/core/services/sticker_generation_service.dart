@@ -68,6 +68,7 @@ class StickerGenerationService {
         return (bytes: bytes, remainingCredits: remaining);
       } on FirebaseFunctionsException catch (e, stack) {
         // 未認證 → 強制刷新 ID token 後 retry（token 過期或 linkWithCredential 後短暫失效）
+        // 加入指數退避延遲（1s / 2s / 4s），讓 Firebase Auth 後端有時間完成 token rotation。
         if (e.code == 'unauthenticated' && attempt < maxRetries) {
           FirebaseService.log(
             'StickerGenerationService: unauthenticated index=$index, '
@@ -79,6 +80,8 @@ class StickerGenerationService {
           } else {
             await AuthService.signInAnonymouslyIfNeeded();
           }
+          // 退避等待：1s → 2s → 4s，避免在 linkWithCredential token rotation 視窗內立即重試
+          await Future.delayed(Duration(seconds: 1 << attempt));
           continue;
         }
         if (e.code == 'unauthenticated') {
