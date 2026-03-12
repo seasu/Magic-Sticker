@@ -419,37 +419,24 @@ class _StickerCanvasState extends State<StickerCanvas> {
   }
 
   Widget _buildFallback() {
-    final color = widget.config.colorScheme.borderColor;
     final style = StickerStyle.values[
         widget.styleIndex.clamp(0, StickerStyle.values.length - 1)];
     final previewAsset = 'assets/images/preview_${style.name}.png';
-    return Container(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.maxWidth * 0.75;
+        return Container(
+          color: Colors.white,
+          child: Center(
+            child: Image.asset(
               previewAsset,
-              width: 110,
-              height: 110,
-              opacity: const AlwaysStoppedAnimation(0.55),
+              width: size,
+              height: size,
+              fit: BoxFit.contain,
             ),
-            const SizedBox(height: 10),
-            Text(
-              '點擊生成貼圖',
-              style: TextStyle(
-                fontSize: 13,
-                color: color.withValues(alpha: 0.45),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
