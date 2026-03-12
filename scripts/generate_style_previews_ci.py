@@ -80,6 +80,29 @@ STYLES = {
 DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
 
 
+MAX_RETRIES = 2
+
+
+def _extract_image_bytes(response) -> bytes | None:
+    """從 Gemini response 取出圖片 bytes。"""
+    candidates = getattr(response, "candidates", None)
+    if not candidates:
+        return None
+    content = getattr(candidates[0], "content", None)
+    if content is None:
+        return None
+    parts = getattr(content, "parts", None)
+    if not parts:
+        return None
+    for part in parts:
+        if part.inline_data is not None:
+            data = part.inline_data.data
+            if isinstance(data, bytes):
+                return data
+            return base64.b64decode(data)
+    return None
+
+
 def generate_source_image(client, types, model: str) -> bytes:
     """使用 Gemini 文字生成貓咪來源圖片。"""
     print("🐱 cat_source.png 不存在，正在用 Gemini 生成來源圖片...", flush=True)
@@ -91,10 +114,10 @@ def generate_source_image(client, types, model: str) -> bytes:
             temperature=0.8,
         ),
     )
-    for part in response.candidates[0].content.parts:
-        if part.inline_data is not None:
-            return base64.b64decode(part.inline_data.data)
-    raise RuntimeError("Gemini 未回傳圖片 (來源圖生成失敗)")
+    img = _extract_image_bytes(response)
+    if img is None:
+        raise RuntimeError("Gemini 未回傳圖片 (來源圖生成失敗)")
+    return img
 
 
 def main():
@@ -131,54 +154,63 @@ def main():
     success_count = 0
     failed = []
 
-    for style_key, prompt in STYLES.items():
+    def _generate_one(style_key: str, prompt: str) -> bool:
         out_path = ASSETS_DIR / f"preview_{style_key}.png"
+        response = client.models.generate_content(
+            model=image_model,
+            contents=[
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part(
+                            inline_data=types.Blob(
+                                mime_type="image/png",
+                                data=source_b64,
+                            )
+                        ),
+                        types.Part(text=prompt),
+                    ],
+                )
+            ],
+            config=types.GenerateContentConfig(
+                response_modalities=["image"],
+                temperature=1.0,
+            ),
+        )
+        img_data = _extract_image_bytes(response)
+        if not img_data:
+            return False
+        out_path.write_bytes(img_data)
+        kb = len(img_data) / 1024
+        print(f"✅ {kb:.0f}KB → {out_path.name}")
+        return True
+
+    for style_key, prompt in STYLES.items():
         print(f"🎨 Generating [{style_key}]...", end=" ", flush=True)
-
-        try:
-            response = client.models.generate_content(
-                model=image_model,
-                contents=[
-                    types.Content(
-                        role="user",
-                        parts=[
-                            types.Part(
-                                inline_data=types.Blob(
-                                    mime_type="image/png",
-                                    data=source_b64,
-                                )
-                            ),
-                            types.Part(text=prompt),
-                        ],
-                    )
-                ],
-                config=types.GenerateContentConfig(
-                    response_modalities=["image"],
-                    temperature=1.0,
-                ),
-            )
-
-            img_data = None
-            for part in response.candidates[0].content.parts:
-                if part.inline_data is not None:
-                    img_data = base64.b64decode(part.inline_data.data)
+        ok = False
+        for attempt in range(1, MAX_RETRIES + 2):
+            try:
+                ok = _generate_one(style_key, prompt)
+                if ok:
                     break
-
-            if img_data:
-                out_path.write_bytes(img_data)
-                print(f"✅ {len(img_data) // 1024}KB → {out_path.name}")
-                success_count += 1
-            else:
-                print("❌ no image in response")
+                if attempt <= MAX_RETRIES:
+                    print(f"⚠️ empty response, retry {attempt}/{MAX_RETRIES}...", end=" ", flush=True)
+            except Exception as e:
+                if attempt <= MAX_RETRIES:
+                    print(f"⚠️ {e}, retry {attempt}/{MAX_RETRIES}...", end=" ", flush=True)
+                else:
+                    print(f"❌ {e}")
+        if ok:
+            success_count += 1
+        else:
+            if not any(style_key == f for f in failed):
+                print("❌ failed after retries")
                 failed.append(style_key)
-
-        except Exception as e:
-            print(f"❌ {e}")
-            failed.append(style_key)
 
     print(f"\n✨ Done: {success_count}/{len(STYLES)} images generated")
     if failed:
         print(f"   Failed: {', '.join(failed)}")
+    if success_count == 0:
         sys.exit(1)
 
 
