@@ -72,8 +72,7 @@ jobs:
             --base main \
             --head "$BRANCH" \
             --title "feat: add AI-generated style preview images" \
-            --body "由 **Generate Style Preview Images** workflow 自動產生。\n\n包含 6 種風格示意圖（chibi / popArt / pixel / sketch / watercolor / photo）。" \
-            --label "auto-generated"
+            --body "由 **Generate Style Preview Images** workflow 自動產生。\n\n包含 6 種風格示意圖（chibi / popArt / pixel / sketch / watercolor / photo）。"
           echo "✅ PR created from branch $BRANCH"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
