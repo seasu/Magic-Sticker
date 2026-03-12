@@ -141,7 +141,7 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
                 enabled: !isLoading,
                 onTap: _login,
                 icon: Icons.person_add_rounded,
-                label: '登入帳號，獲得 5 點',
+                label: '登入帳號，獲得 7 點',
                 sublabel: '跨裝置同步 · 永久保存',
                 gradient: AppColors.gradient,
                 foregroundColor: Colors.white,

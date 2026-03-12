@@ -132,7 +132,7 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
       _state = _SheetState.success;
       _userName = user?.displayName ?? user?.email?.split('@').first ?? '使用者';
       _userPhotoUrl = user?.photoURL;
-      _bonusCredits = 5;
+      _bonusCredits = kLoginBonusCredits;
     });
     _successCtrl.forward();
   }
@@ -247,7 +247,7 @@ class _InitialView extends StatelessWidget {
         ShaderMask(
           shaderCallback: (b) => AppColors.gradient.createShader(b),
           child: Text(
-            '登入獲得 5 點',
+            '登入獲得 7 點',
             style: GoogleFonts.notoSansTc(
               fontSize: 26,
               fontWeight: FontWeight.w900,
@@ -257,7 +257,7 @@ class _InitialView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          '登入帳號可跨裝置同步點數\n首次登入獲得 5 點初始獎勵 🎉',
+          '登入帳號可跨裝置同步點數\n首次登入獲得 7 點初始獎勵 🎉',
           style: GoogleFonts.notoSansTc(
             fontSize: 14,
             fontWeight: FontWeight.w500,

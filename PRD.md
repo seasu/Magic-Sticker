@@ -104,13 +104,13 @@
 ```
 authStateProvider → StreamProvider<User?>
 ├── Firebase Anonymous Auth（訪客）→ Firestore 建立文件，1 點
-├── Google Sign-In / Apple Sign-In → 升級帳號，最低 5 點
+├── Google Sign-In / Apple Sign-In → 升級帳號，最低 7 點
 └── iOS Keychain 保護：重裝後匿名 UID 不變（Android 重裝才重置）
 
 creditProvider → int (點數，來自 Firestore)
 creditHistoryProvider → List<CreditHistoryEntry> (最近 50 筆異動紀錄)
 ├── 訪客首次 1 點（降低重裝誘因）
-├── 登入升級 5 點
+├── 登入升級 7 點
 ├── 看廣告 +1 點（AdMob Rewarded Ad）
 ├── 購買點數包（未來 IAP 串接）
 ├── 每張圖片生成扣 1 點（1 點 = 1 張，非 1 點 = 8 張）
@@ -225,6 +225,7 @@ lib/
 | v3.1.16 | 2026-03-11 | **UI/UX fix**：EditorScreen 生成失敗狀態三項修正：(1) 底部按鈕邏輯修正——失敗（`Uint8List(0)`）時改顯示「生成·1點」而非「儲存貼圖」，避免 token 時序混淆；(2) `_accept()` 新增失敗狀態 guard，防止匯出空白圖；(3) 錯誤提示從頂部小 badge 改為全卡片居中大型覆蓋層（`_FailedOverlay`），文字 24sp+加粗+重試按鈕，視覺更清晰 |
 | v3.1.15 | 2026-03-11 | **Bug fix**：(a) 修正 `StickerGenerationService` 在 `unauthenticated` 錯誤時的 retry 無效問題，改用 `user.getIdToken(true)` 強制刷新 ID token；(b) 移除 `AuthService` 中所有從客戶端寫入 `creditHistory` 的呼叫，`creditHistory` 寫入僅由 Cloud Functions 處理；新增 `ensure_user_doc_failed` 獨立 Crashlytics 錯誤標籤 |
 | v3.1.14 | 2026-03-11 | **Bug fix**：(a) 修正 Google 登入後點數未更新的 3 個問題（`_promoteUser` 改用 in-transaction read、`authStateProvider` 改用 `userChanges()`、`CreditNotifier` 偵測 `isAnonymous` 變化）；(b) **CI fix**：`generate_style_previews_ci.py` 更新 Gemini model name 為 `gemini-2.0-flash-exp-image-generation` |
+| v3.1.33 | 2026-03-12 | **點數調整**：登入獎勵從 5 點提升至 7 點（`kLoginBonusCredits = 7`）；login bottom sheet、credit paywall dialog 文字同步更新 |
 | v3.1.9 | 2026-03-11 | **CI fix**：移除 `editor_screen.dart` 中未使用的 `_kNopeColor` 常數與 `_CircleButton`/`_CircleButtonState` 死碼，修正 `dart analyze --fatal-infos` 的 5 個 `unused_element`/`unused_element_parameter` 警告 |
 | v3.1.8 | 2026-03-11 | **CI fix**：移除 `editor_screen.dart` 中已棄用的 `_ProgressBar` 與 `_TinderButtons` 兩個 unused class，修正 `dart analyze --fatal-infos` 報告的 `unused_element` 警告，CI 恢復正常 |
 | v3.1.7 | 2026-03-11 | **風格示意圖**：`assets/images/` 加入 6 張色塊佔位 PNG（chibi/popArt/pixel/sketch/watercolor/photo）；`_StyleCard` 改用 `Image.asset` 顯示預覽圖（errorBuilder 回退 emoji）；新增 `scripts/generate_style_previews_ci.py` 與 `.github/workflows/generate_previews.yml`（workflow_dispatch 手動觸發，使用 GEMINI_API_KEY secret 生成真實 AI 圖並 commit 回 repo，完成後可移除 workflow 與腳本）|

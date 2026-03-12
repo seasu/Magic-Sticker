@@ -8,7 +8,7 @@ import '../../features/billing/models/credit_history_entry.dart';
 
 /// 點數常數
 const int kGuestInitialCredits = 1;      // 訪客初始點數（刻意給少，降低重裝誘因）
-const int kLoginBonusCredits = 5;        // 登入獎勵（升級訪客 → 正式帳號）
+const int kLoginBonusCredits = 7;        // 登入獎勵（升級訪客 → 正式帳號）
 const int kNewAccountCredits = 5;        // 全新帳號初始點數
 
 /// Firebase Auth + Firestore 用戶管理服務
