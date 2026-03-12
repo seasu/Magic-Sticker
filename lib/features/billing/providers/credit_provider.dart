@@ -47,6 +47,8 @@ class CreditNotifier extends Notifier<int> {
     // 監聽 auth 狀態，用戶切換或匿名升級時重新載入點數
     // 注意：linkWithCredential 升級訪客帳號時 UID 不變，但 isAnonymous 會從 true → false
     ref.listen<User?>(currentUserProvider, (prev, next) {
+      // Reload when UID changes (account switch) OR when isAnonymous flips
+      // false (same-UID anonymous→real upgrade via linkWithCredential).
       if (next?.uid != prev?.uid || prev?.isAnonymous != next?.isAnonymous) {
         _onUserChanged(next);
       }

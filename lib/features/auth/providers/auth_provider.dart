@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 使用 userChanges() 以感知 linkWithCredential 事件（匿名升級時 UID 不變，
 /// 但 isAnonymous / displayName / photoURL 等屬性會變化）
 final authStateProvider = StreamProvider<User?>((ref) {
+  // userChanges() also emits when linkWithCredential / updateProfile occurs,
+  // unlike authStateChanges() which only fires on sign-in/sign-out.
   return FirebaseAuth.instance.userChanges();
 });
 

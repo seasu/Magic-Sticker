@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | MagicMorning（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.1.32+153 |
+| 目前版本 | v3.1.33+154 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -207,6 +207,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.1.33 | 2026-03-12 | **fix**：修正 Google 登入後三個問題：(1) `_promoteUser` 改用 in-transaction read `currentCredits`（修正 `previousCredits` 過期問題）；(2) `authStateProvider` 改用 `userChanges()` 確保 `linkWithCredential` 後 `isAnonymous` 即時更新；(3) `CreditNotifier` 偵測 `isAnonymous` 變化時重載點數 |
 | v3.1.32 | 2026-03-12 | **fix**：`StickerGenerationService` `unauthenticated` retry 加入指數退避延遲（1s/2s/4s），解決 `linkWithCredential` token rotation 視窗內連續重試全失敗、Crashlytics 誤報 `sticker_single_gen_fn_failed_index0` 問題 |
 | v3.1.31 | 2026-03-12 | **CI fix**：`generate_previews.yml` commit 前自動遞增 `pubspec.yaml` 版號 + 更新 `PRD.md`，通過 Version Guard |
 | v3.1.30 | 2026-03-12 | **CI fix**：`generate_previews.yml` commit 前自動遞增 `pubspec.yaml` 版號 + 更新 `PRD.md`，通過 Version Guard |

@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/services/auth_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../billing/providers/credit_provider.dart';
 
 // ── 狀態機 ─────────────────────────────────────────────────────────────────
 
@@ -128,11 +129,14 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
   void _handleSuccess() {
     HapticFeedback.mediumImpact();
     final user = FirebaseAuth.instance.currentUser;
+    // Explicitly reload credits so the badge reflects the login bonus
+    // immediately after _promoteUser writes to Firestore.
+    ref.read(creditProvider.notifier).reload();
     setState(() {
       _state = _SheetState.success;
       _userName = user?.displayName ?? user?.email?.split('@').first ?? '使用者';
       _userPhotoUrl = user?.photoURL;
-      _bonusCredits = 5;
+      _bonusCredits = kLoginBonusCredits;
     });
     _successCtrl.forward();
   }
