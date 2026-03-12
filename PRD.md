@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.1.41+162 |
+| 目前版本 | v3.1.42+163 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -213,6 +213,7 @@ lib/
 | v3.1.30 | 2026-03-12 | **CI fix**：`generate_previews.yml` commit 前自動遞增 `pubspec.yaml` 版號 + 更新 `PRD.md`，通過 Version Guard |
 | v3.1.29 | 2026-03-12 | **CI fix**：`generate_previews.yml` 移除不存在的 `auto-generated` label，避免 `gh pr create` 失敗 |
 | v3.1.28 | 2026-03-12 | **fix**：`generate_style_previews_ci.py` 修正圖片擷取邏輯（支援 bytes/base64 雙格式）、加入 null-safe 檢查、失敗自動重試 2 次、部分成功不再 exit 1 |
+| v3.1.42 | 2026-03-12 | **fix**：Cloud Functions 新增 `resolveUid()` — 當 v2 callable `request.auth` 為 null 時，手動從 Authorization header 解析並 `verifyIdToken` 作為 fallback；加入 server-side structured logging 記錄 auth 狀態，便於診斷 |
 | v3.1.41 | 2026-03-12 | **Bug fix**：修正 UNAUTHENTICATED 真正根因 — Firebase Auth session 跨 app launch 持久化但 ID token 1 小時過期：(1) `main.dart` 啟動時呼叫 `ensureValidToken()` 強制刷新；(2) `GeminiService.generateStickerSpecs` 加入 token 前置刷新 + UNAUTHENTICATED retry 2 次；(3) `AuthService` 新增公開 `ensureValidToken()` 方法 |
 | v3.1.40 | 2026-03-12 | **UI**：editor 畫面尚未生成時，風格示意圖放大至畫布 75% 寬度居中顯示，白底，作為生成前的預覽參考 |
 | v3.1.39 | 2026-03-12 | **rename**：專案名稱從 MagicMorning 統一改為 Magic Sticker（README / PRD / CLAUDE.md / CI workflow / App title / class name / 臨時檔名） |
