@@ -56,10 +56,25 @@ class GeminiService {
 
         return specs;
       } on FirebaseFunctionsException catch (e, stack) {
-        // UNAUTHENTICATED → force re-auth and retry
         if (e.code == 'unauthenticated' && attempt < maxRetries) {
+          // 區分兩種 unauthenticated：
+          //   msg == 'UNAUTHENTICATED'（全大寫）→ Cloud Run IAM 在 function 前攔截
+          //   其他訊息 → resolveUid 拒絕（token 問題，retry 有效）
+          if (_isIamBlock(e)) {
+            FirebaseService.log(
+              'GeminiService: Cloud Run IAM 拒絕（msg=UNAUTHENTICATED）'
+              ' — token retry 無效，請重新部署 Functions with invoker:public',
+            );
+            // IAM 問題，retry 沒用，直接 break
+            await FirebaseService.recordError(
+              e, stack, reason: 'gemini_specs_fn_iam_blocked',
+            );
+            await FirebaseAnalytics.instance.logEvent(name: 'ai_specs_fallback');
+            return _kFallbackSpecs.map(StickerSpec.fromJson).toList();
+          }
+
           FirebaseService.log(
-            'GeminiService: unauthenticated, refreshing token '
+            'GeminiService: token rejected, refreshing '
             'attempt ${attempt + 1}/$maxRetries',
           );
           await Future.delayed(Duration(seconds: 1 << attempt));
@@ -71,7 +86,8 @@ class GeminiService {
           'GeminiService: Cloud Function error code=${e.code} msg=${e.message}',
         );
         await FirebaseService.recordError(
-          e, stack, reason: 'gemini_specs_fn_failed',
+          e, stack,
+          reason: _isIamBlock(e) ? 'gemini_specs_fn_iam_blocked' : 'gemini_specs_fn_failed',
         );
         await FirebaseAnalytics.instance.logEvent(name: 'ai_specs_fallback');
         return _kFallbackSpecs.map(StickerSpec.fromJson).toList();
@@ -86,6 +102,16 @@ class GeminiService {
 
     return _kFallbackSpecs.map(StickerSpec.fromJson).toList();
   }
+
+  // ─── private ──────────────────────────────────────────────────────────────
+
+  /// Cloud Run IAM 攔截的特徵：錯誤碼 unauthenticated + 訊息為全大寫 'UNAUTHENTICATED'。
+  ///
+  /// 若是 resolveUid 拒絕，訊息會是 "No Authorization header..." 或
+  /// "Token verification failed: ..."。
+  /// 兩者修復方式完全不同：IAM 問題需重新部署；token 問題 retry 即可。
+  static bool _isIamBlock(FirebaseFunctionsException e) =>
+      e.code == 'unauthenticated' && e.message == 'UNAUTHENTICATED';
 
   /// Force re-authentication: refresh the ID token; if the token is
   /// unrecoverable (null/empty or getIdToken throws), sign out the anonymous

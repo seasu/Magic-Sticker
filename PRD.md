@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.1.46+167 |
+| 目前版本 | v3.1.49+170 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -207,6 +207,9 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.1.49 | 2026-03-13 | **ux**：`StickerEditSheet` 編輯畫面擴大為滿版——sheet 改為 90% 螢幕高度，canvas 由 `ConstrainedBox(maxHeight: 30%)` 改為 `Expanded + LayoutBuilder`（取寬高最小值確保正方形），填滿可用空間；控制列縮至底部；移除 `Flexible + SingleChildScrollView` |
+| v3.1.48 | 2026-03-13 | **fix(deploy)**：`functions/package.json` deploy script 拆為三步驟：`build → firebase deploy → set-iam`，新增獨立 `set-iam` script 在每次部署後強制以 gcloud 設定 `allUsers → roles/run.invoker`（`generatestickerspecs` + `generatestickerimage`），徹底解決 `firebase deploy` 不穩定套用 `invoker:public` 造成 Cloud Run IAM 攔截的問題 |
+| v3.1.47 | 2026-03-13 | **fix(diag)**：根本原因確認：`UNAUTHENTICATED`（全大寫）= Cloud Run IAM 在 function 程式碼前攔截，非 token 問題。(1) `GeminiService`/`StickerGenerationService` 新增 `_isIamBlock()` 靜態方法，偵測 `e.message == 'UNAUTHENTICATED'` 時立即停止 retry、以 `iam_blocked` reason 上報 Crashlytics；(2) Cloud Functions `index.ts` 在 `resolveUid` 前加 `invoked` log（含 `hasAuth`、`hasAuthHeader` 欄位），出現此 log = IAM 通過，消失 = IAM 攔截。**修復方法：`firebase deploy --only functions` 重新部署讓 `invoker:public` 生效** |
 | v3.1.33 | 2026-03-12 | **fix**：修正 Google 登入後三個問題：(1) `_promoteUser` 改用 in-transaction read `currentCredits`（修正 `previousCredits` 過期問題）；(2) `authStateProvider` 改用 `userChanges()` 確保 `linkWithCredential` 後 `isAnonymous` 即時更新；(3) `CreditNotifier` 偵測 `isAnonymous` 變化時重載點數 |
 | v3.1.32 | 2026-03-12 | **fix**：`StickerGenerationService` `unauthenticated` retry 加入指數退避延遲（1s/2s/4s），解決 `linkWithCredential` token rotation 視窗內連續重試全失敗、Crashlytics 誤報 `sticker_single_gen_fn_failed_index0` 問題 |
 | v3.1.31 | 2026-03-12 | **CI fix**：`generate_previews.yml` commit 前自動遞增 `pubspec.yaml` 版號 + 更新 `PRD.md`，通過 Version Guard |

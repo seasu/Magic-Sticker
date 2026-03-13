@@ -168,165 +168,172 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final screenH = MediaQuery.of(context).size.height;
     final insets = MediaQuery.of(context).viewInsets;
     final config = kStickerConfigs[_schemeIndex];
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ── Drag handle ────────────────────────────────────────────
-        const SizedBox(height: 12),
-        Container(
-          width: 40,
-          height: 4,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade300,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // ── 標題 ───────────────────────────────────────────────────
-        Text(
-          '貼圖 ${widget.stickerIndex + 1} 編輯',
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // ── 貼圖預覽（限高，避免佔滿畫面）───────────────────────────
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.30,
+    return SizedBox(
+      // 90% 螢幕高度：讓 canvas 佔滿，控制列縮到底部
+      height: screenH * 0.90,
+      child: Column(
+        children: [
+          // ── Drag handle ──────────────────────────────────────────
+          const SizedBox(height: 10),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
             ),
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: CustomPaint(
-                foregroundPainter: const _BoundaryPainter(),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: StickerCanvas(
-                    subjectBytes: widget.subjectBytes,
-                    generatedImage: widget.generatedImage,
-                    text: _textCtrl.text,
-                    config: config,
-                    stickerShape: widget.stickerShape,
-                    initialScale: widget.initialScale,
-                    initialOffset: widget.initialOffset,
-                    initialImageAngle: widget.initialImageAngle,
-                    fontIndex: _fontIndex,
-                    fontSizeScale: _textSizeScale,
-                    textXAlign: _textXAlign,
-                    textYAlign: _textYAlign,
-                    textAngle: _textAngle,
-                    enableTextGestures: true,
-                    externalTarget: _editTarget,
-                    onTransformChanged: widget.onTransformChanged,
-                    onTextGestureChanged: (xAlign, yAlign, angle, scale) {
-                      setState(() {
-                        _textXAlign = xAlign;
-                        _textYAlign = yAlign;
-                        _textAngle = angle;
-                        _textSizeScale = scale;
-                      });
-                      widget.onTextGestureChanged(xAlign, yAlign, angle, scale);
-                    },
+          ),
+          const SizedBox(height: 8),
+
+          // ── 標題 ─────────────────────────────────────────────────
+          Text(
+            '貼圖 ${widget.stickerIndex + 1} 編輯',
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // ── 貼圖預覽（填滿剩餘高度，正方形置中）─────────────────
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: LayoutBuilder(
+                builder: (ctx, box) {
+                  // 取寬/高最小值，確保正方形在任何比例下都能完整顯示
+                  final side = box.maxWidth < box.maxHeight
+                      ? box.maxWidth
+                      : box.maxHeight;
+                  return Center(
+                    child: SizedBox(
+                      width: side,
+                      height: side,
+                      child: CustomPaint(
+                        foregroundPainter: const _BoundaryPainter(),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: StickerCanvas(
+                            subjectBytes: widget.subjectBytes,
+                            generatedImage: widget.generatedImage,
+                            text: _textCtrl.text,
+                            config: config,
+                            stickerShape: widget.stickerShape,
+                            initialScale: widget.initialScale,
+                            initialOffset: widget.initialOffset,
+                            initialImageAngle: widget.initialImageAngle,
+                            fontIndex: _fontIndex,
+                            fontSizeScale: _textSizeScale,
+                            textXAlign: _textXAlign,
+                            textYAlign: _textYAlign,
+                            textAngle: _textAngle,
+                            enableTextGestures: true,
+                            externalTarget: _editTarget,
+                            onTransformChanged: widget.onTransformChanged,
+                            onTextGestureChanged: (xAlign, yAlign, angle, scale) {
+                              setState(() {
+                                _textXAlign = xAlign;
+                                _textYAlign = yAlign;
+                                _textAngle = angle;
+                                _textSizeScale = scale;
+                              });
+                              widget.onTextGestureChanged(xAlign, yAlign, angle, scale);
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // ── 三個模式按鈕 ─────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _ModeButton(
+                    icon: Icons.image_search_rounded,
+                    label: '調整圖片',
+                    isActive: _panelMode == _PanelMode.image,
+                    activeColor: const Color(0xFF2196F3),
+                    onTap: () => _togglePanel(_PanelMode.image),
                   ),
                 ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // ── 三個模式按鈕 ───────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: _ModeButton(
-                  icon: Icons.image_search_rounded,
-                  label: '調整圖片',
-                  isActive: _panelMode == _PanelMode.image,
-                  activeColor: const Color(0xFF2196F3),
-                  onTap: () => _togglePanel(_PanelMode.image),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ModeButton(
-                  icon: Icons.text_fields_rounded,
-                  label: '調整文字',
-                  isActive: _panelMode == _PanelMode.text,
-                  activeColor: const Color(0xFFFF9800),
-                  onTap: () => _togglePanel(_PanelMode.text),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ModeButton(
-                  icon: Icons.auto_awesome_rounded,
-                  label: '產圖風格',
-                  isActive: _panelMode == _PanelMode.style,
-                  activeColor: const Color(0xFF9C27B0),
-                  onTap: () => _togglePanel(_PanelMode.style),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // ── Canvas 操作提示（圖片 / 文字模式才顯示）──────────────
-        AnimatedSize(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          child: (_panelMode == _PanelMode.image ||
-                  _panelMode == _PanelMode.text)
-              ? Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-                  child: Text(
-                    _panelMode == _PanelMode.image
-                        ? '單指拖動調整位置・雙指縮放或旋轉・再按「調整圖片」取消'
-                        : '單指拖動調整位置・雙指縮放或旋轉・再按「調整文字」取消',
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.grey.shade500),
-                    textAlign: TextAlign.center,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _ModeButton(
+                    icon: Icons.text_fields_rounded,
+                    label: '調整文字',
+                    isActive: _panelMode == _PanelMode.text,
+                    activeColor: const Color(0xFFFF9800),
+                    onTap: () => _togglePanel(_PanelMode.text),
                   ),
-                )
-              : const SizedBox.shrink(),
-        ),
-
-        // ── 可捲動的面板內容（不含完成按鈕）──────────────────────────
-        Flexible(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              transitionBuilder: (child, anim) =>
-                  FadeTransition(opacity: anim, child: child),
-              child: KeyedSubtree(
-                key: ValueKey(_panelMode),
-                child: _buildPanel(),
-              ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _ModeButton(
+                    icon: Icons.auto_awesome_rounded,
+                    label: '產圖風格',
+                    isActive: _panelMode == _PanelMode.style,
+                    activeColor: const Color(0xFF9C27B0),
+                    onTap: () => _togglePanel(_PanelMode.style),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
 
-        // ── 完成按鈕（固定在底部，永遠可見）─────────────────────────
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-              16, 8, 16, 16 + insets.bottom),
-          child: _buildDoneButton(),
-        ),
-      ],
+          // ── Canvas 操作提示（圖片 / 文字模式才顯示）─────────────
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            child: (_panelMode == _PanelMode.image ||
+                    _panelMode == _PanelMode.text)
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 6, 24, 0),
+                    child: Text(
+                      _panelMode == _PanelMode.image
+                          ? '單指拖動調整位置・雙指縮放或旋轉・再按「調整圖片」取消'
+                          : '單指拖動調整位置・雙指縮放或旋轉・再按「調整文字」取消',
+                      style: TextStyle(
+                          fontSize: 11, color: Colors.grey.shade500),
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+
+          // ── 面板內容（固定高度，不可捲動）────────────────────────
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, anim) =>
+                FadeTransition(opacity: anim, child: child),
+            child: KeyedSubtree(
+              key: ValueKey(_panelMode),
+              child: _buildPanel(),
+            ),
+          ),
+
+          // ── 完成按鈕（固定在底部）───────────────────────────────
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + insets.bottom),
+            child: _buildDoneButton(),
+          ),
+        ],
+      ),
     );
   }
 

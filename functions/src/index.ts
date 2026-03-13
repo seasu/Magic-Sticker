@@ -95,6 +95,12 @@ export const generateStickerSpecs = onCall(
     invoker: "public",
   },
   async (request) => {
+    // ★ 此行出現在 Firebase Logs = Cloud Run IAM 通過，function 程式碼有執行
+    // 若 UNAUTHENTICATED 錯誤時此行消失 = IAM 攔截，需重新部署 invoker:public
+    log("generateStickerSpecs: invoked", {
+      hasAuth: !!request.auth,
+      hasAuthHeader: !!request.rawRequest?.headers?.authorization,
+    });
     const uid = await resolveUid(request);
     log("generateStickerSpecs: auth OK", {uid});
 
@@ -194,6 +200,11 @@ export const generateStickerImage = onCall(
     invoker: "public",
   },
   async (request) => {
+    // ★ 此行出現在 Firebase Logs = Cloud Run IAM 通過，function 程式碼有執行
+    log("generateStickerImage: invoked", {
+      hasAuth: !!request.auth,
+      hasAuthHeader: !!request.rawRequest?.headers?.authorization,
+    });
     const uid = await resolveUid(request);
     log("generateStickerImage: auth OK", {uid});
 
