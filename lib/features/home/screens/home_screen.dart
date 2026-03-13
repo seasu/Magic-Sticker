@@ -373,13 +373,18 @@ class _StylePickerSheetState extends State<_StylePickerSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            '選完後 AI 立刻開始生成 ✨',
-            style: GoogleFonts.notoSansTc(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textSecondary,
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _FlowStep(icon: '🖼️', label: '選照片'),
+                _FlowArrow(),
+                _FlowStep(icon: '🆓', label: '分析概念', hint: '免費'),
+                _FlowArrow(),
+                _FlowStep(icon: '⚡', label: '點選產圖', hint: '各 1 點'),
+              ],
             ),
           ),
           const SizedBox(height: 20),
@@ -423,6 +428,46 @@ class _StylePickerSheetState extends State<_StylePickerSheet> {
           const SizedBox(height: 28),
         ],
       ),
+    );
+  }
+}
+
+// ── 流程步驟提示元件 ──────────────────────────────────────────────────────────
+
+class _FlowStep extends StatelessWidget {
+  const _FlowStep({required this.icon, required this.label, this.hint});
+  final String icon;
+  final String label;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(icon, style: const TextStyle(fontSize: 18)),
+        const SizedBox(height: 2),
+        Text(label,
+            style: GoogleFonts.notoSansTc(
+                fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+        if (hint != null)
+          Text(hint!,
+              style: GoogleFonts.notoSansTc(
+                  fontSize: 10, color: AppColors.textSecondary)),
+      ],
+    );
+  }
+}
+
+class _FlowArrow extends StatelessWidget {
+  const _FlowArrow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Text('›',
+          style: TextStyle(fontSize: 18, color: AppColors.textSecondary)),
     );
   }
 }

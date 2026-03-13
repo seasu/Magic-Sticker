@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' show min, pi, sin;
+import 'dart:math' show cos, min, pi, sin;
 import 'dart:ui' as ui;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -326,6 +326,23 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final isReady = state.status == EditorStatus.ready;
     final isDone = isReady && _currentIndex >= 8;
 
+    // 分析完成時，引導使用者點擊「生成」按鈕（每次進入 ready 都提示一次）
+    ref.listen<EditorState>(editorStateProvider(widget.imagePath), (prev, next) {
+      if (prev?.status == EditorStatus.generatingTexts &&
+          next.status == EditorStatus.ready) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('✨ 8 款貼圖概念生成完畢！點擊「生成 · 1點」來製作第一張'),
+              duration: const Duration(seconds: 5),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        });
+      }
+    });
+
     // 當前張 AI 圖片仍在生成中（null = loading，sentinel = 尚未觸發生成）
     final isCurrentImageLoading = isReady &&
         !isDone &&
@@ -346,7 +363,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 ),
 
                 if (isLoading)
-                  const Expanded(child: _FunLoadingView())
+                  const Expanded(
+                    child: _FunLoadingView(
+                      title: 'AI 分析照片中',
+                      subtitle: '✦ 免費 · 產生 8 款貼圖概念，約 5~10 秒',
+                    ),
+                  )
                 else if (state.errorMessage != null)
                   Expanded(child: _ErrorView(message: state.errorMessage!))
                 else if (isDone)
@@ -384,8 +406,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
             // ── 圖片生成中：全畫面貓追老鼠遮罩（鎖定操作）───────────────
             if (isCurrentImageLoading)
-              const AbsorbPointer(
-                child: _FunLoadingView(),
+              AbsorbPointer(
+                child: _FunLoadingView(
+                  title: 'AI 繪製貼圖中',
+                  subtitle: '✦ 第 ${_currentIndex + 1} 張 · 已扣 1 點，約 20~30 秒',
+                  isImageGen: true,
+                ),
               ),
           ],
         ),
@@ -1152,7 +1178,16 @@ class _CompletionViewState extends State<_CompletionView>
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _FunLoadingView extends StatefulWidget {
-  const _FunLoadingView();
+  const _FunLoadingView({this.title, this.subtitle, this.isImageGen = false});
+
+  /// 大標題，顯示在動畫上方，清楚說明目前在做什麼
+  final String? title;
+
+  /// 輔助說明（時間預估、是否免費等）
+  final String? subtitle;
+
+  /// true = 圖片生成模式（使用不同的訊息組）
+  final bool isImageGen;
 
   @override
   State<_FunLoadingView> createState() => _FunLoadingViewState();
@@ -1166,13 +1201,26 @@ class _FunLoadingViewState extends State<_FunLoadingView>
   int _msgIndex = 0;
   Timer? _msgTimer;
 
-  static const _messages = [
-    '🎬 AI 貓咪正在幫你「追劇」製作貼圖…',
+  // 分析照片、生成文字概念階段（免費）
+  static const _specMessages = [
+    '🔍 分析你的照片表情與場景…',
     '🐭 老鼠：「我就是在追劇啦！」',
     '✨ 施展魔法中，稍等一下下',
-    '🎨 AI 畫師拼命作畫，快好了！',
-    '💨 跑不掉的！AI 馬上追上了',
+    '💡 構思 8 款貼圖方向中…',
+    '💨 快好了，再等一下！',
   ];
+
+  // AI 繪製貼圖圖片階段（付費）
+  static const _imageMessages = [
+    '🖌️ AI 畫師提筆作畫中…',
+    '🎨 上色、調整細節…',
+    '✨ 魔法特效施工中…',
+    '🐱 貓咪監工，確保品質！',
+    '💨 快完成了，再等一下！',
+  ];
+
+  List<String> get _messages =>
+      widget.isImageGen ? _imageMessages : _specMessages;
 
   @override
   void initState() {
@@ -1194,6 +1242,8 @@ class _FunLoadingViewState extends State<_FunLoadingView>
         setState(() => _msgIndex = (_msgIndex + 1) % _messages.length);
       }
     });
+    // Reset index so widget re-use picks up the right message set immediately
+    _msgIndex = 0;
   }
 
   @override
@@ -1211,14 +1261,50 @@ class _FunLoadingViewState extends State<_FunLoadingView>
       color: Colors.white,
       child: Column(
         children: [
+          // ── 狀態標題（告知使用者目前在做什麼）───────────────────────
+          if (widget.title != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+              child: Column(
+                children: [
+                  Text(
+                    widget.title!,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.notoSansTc(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  if (widget.subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.subtitle!,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.notoSansTc(
+                        fontSize: 13,
+                        color: Colors.black45,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
           // ── 大場景動畫區（佔 70%）───────────────────────────────────
           Expanded(
             flex: 7,
-            child: _ChaseStage(
-              chaseCtrl: _chaseCtrl,
-              bounceCtrl: _bounceCtrl,
-              cloudCtrl: _cloudCtrl,
-            ),
+            child: widget.isImageGen
+                ? _PaintStage(
+                    paintCtrl: _chaseCtrl,
+                    bounceCtrl: _bounceCtrl,
+                    driftCtrl: _cloudCtrl,
+                  )
+                : _ChaseStage(
+                    chaseCtrl: _chaseCtrl,
+                    bounceCtrl: _bounceCtrl,
+                    cloudCtrl: _cloudCtrl,
+                  ),
           ),
 
           // ── 訊息區（佔 30%）──────────────────────────────────────────
@@ -1494,6 +1580,210 @@ class _ChaseStage extends StatelessWidget {
           ),
         ],
       );
+    });
+  }
+}
+
+// ─── 貓咪畫師動畫（圖片生成階段）────────────────────────────────────────────────
+
+/// 貓咪坐在畫架前揮動畫筆，筆刷左右掃過畫布，顏料星芒飛濺。
+/// 使用與 [_ChaseStage] 相同的三個 controller 以共用 [_FunLoadingView] 初始化邏輯。
+class _PaintStage extends StatelessWidget {
+  final AnimationController paintCtrl;  // 3800 ms loop → 筆刷擺動 + 星芒閃爍
+  final AnimationController bounceCtrl; // 420 ms loop  → 顏料粒子跳動
+  final AnimationController driftCtrl;  // 9000 ms loop → 背景星星漂移
+
+  const _PaintStage({
+    required this.paintCtrl,
+    required this.bounceCtrl,
+    required this.driftCtrl,
+  });
+
+  static const _catSize = 90.0;
+  static const _brushSize = 48.0;
+  static const _canvasSize = 86.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (ctx, box) {
+      final w = box.maxWidth;
+      final h = box.maxHeight;
+      final groundY = h * 0.62;
+      final charBaseY = groundY - _catSize + 6;
+
+      // 相對位置：貓在左 1/4，畫架在右 3/5
+      final catX = w * 0.08;
+      final easelX = w * 0.54;
+      // 筆刷中心點 = 畫布左緣前方一點
+      final brushCenterX = easelX - 10;
+      final brushCenterY = charBaseY + 14.0;
+
+      return Stack(clipBehavior: Clip.none, children: [
+        // ── 漂移星點（背景）─────────────────────────────────────────────
+        AnimatedBuilder(
+          animation: driftCtrl,
+          builder: (_, __) {
+            final t = driftCtrl.value;
+            return Stack(children: [
+              Positioned(
+                left: (w * (0.05 + t * 0.55)) % (w + 70) - 35,
+                top: h * 0.05,
+                child: const Text('⭐', style: TextStyle(fontSize: 28)),
+              ),
+              Positioned(
+                left: (w * (0.50 + t * 0.40)) % (w + 60) - 30,
+                top: h * 0.16,
+                child: const Text('🌟', style: TextStyle(fontSize: 22)),
+              ),
+              Positioned(
+                left: (w * (0.20 + t * 0.30)) % (w + 50) - 25,
+                top: h * 0.03,
+                child: const Text('✨', style: TextStyle(fontSize: 18)),
+              ),
+            ]);
+          },
+        ),
+
+        // ── 地板 ────────────────────────────────────────────────────────
+        Positioned(
+          top: groundY,
+          left: 0,
+          right: 0,
+          child: Container(
+            height: 4,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [
+                Colors.transparent,
+                Color(0xFF6DBE6D),
+                Color(0xFF6DBE6D),
+                Colors.transparent,
+              ]),
+            ),
+          ),
+        ),
+
+        // ── 地板裝飾 ─────────────────────────────────────────────────────
+        Positioned(
+          top: groundY - 9,
+          left: w * 0.05,
+          child: const Text('🌿', style: TextStyle(fontSize: 18)),
+        ),
+        Positioned(
+          top: groundY - 8,
+          right: w * 0.08,
+          child: const Text('🌱', style: TextStyle(fontSize: 16)),
+        ),
+
+        // ── 主動畫 ───────────────────────────────────────────────────────
+        AnimatedBuilder(
+          animation: Listenable.merge([paintCtrl, bounceCtrl]),
+          builder: (_, __) {
+            final t = paintCtrl.value;
+            final b = bounceCtrl.value;
+
+            // 筆刷：橢圓軌跡（模擬塗抹動作）
+            final strokeX = 22.0 * cos(t * pi * 5);
+            final strokeY = -10.0 * sin(t * pi * 5);
+
+            // 顏料星芒：三顆以不同相位閃爍
+            final sp1 = (sin(t * pi * 6 + 0.0) * 0.5 + 0.5).clamp(0.0, 1.0);
+            final sp2 = (sin(t * pi * 6 + 2.1) * 0.5 + 0.5).clamp(0.0, 1.0);
+            final sp3 = (sin(t * pi * 6 + 4.2) * 0.5 + 0.5).clamp(0.0, 1.0);
+
+            // 顏料粒子（使用 bounceCtrl 相位）
+            final dropBob1 = -7.0 * sin(b * pi);
+            final dropBob2 = -7.0 * sin((b + 0.5) * pi);
+
+            return Stack(children: [
+              // 🎨 調色盤（貓腳邊）
+              Positioned(
+                left: catX + _catSize * 0.55,
+                top: charBaseY + _catSize * 0.72,
+                child: const Text('🎨', style: TextStyle(fontSize: 30)),
+              ),
+
+              // 顏料粒子跳動
+              Positioned(
+                left: catX + _catSize * 0.55 + 6,
+                top: charBaseY + _catSize * 0.55 + dropBob1,
+                child: Opacity(
+                  opacity: 0.75,
+                  child: const Text('🔴', style: TextStyle(fontSize: 13)),
+                ),
+              ),
+              Positioned(
+                left: catX + _catSize * 0.55 + 22,
+                top: charBaseY + _catSize * 0.58 + dropBob2,
+                child: Opacity(
+                  opacity: 0.75,
+                  child: const Text('🔵', style: TextStyle(fontSize: 13)),
+                ),
+              ),
+              Positioned(
+                left: catX + _catSize * 0.55 + 14,
+                top: charBaseY + _catSize * 0.48 + dropBob1,
+                child: Opacity(
+                  opacity: 0.75,
+                  child: const Text('🟡', style: TextStyle(fontSize: 12)),
+                ),
+              ),
+
+              // 🖼️ 畫布（固定）
+              Positioned(
+                left: easelX,
+                top: charBaseY - 18,
+                child: const Text('🖼️',
+                    style: TextStyle(fontSize: _canvasSize)),
+              ),
+
+              // 顏料飛濺 — 畫布周圍
+              Positioned(
+                left: easelX + _canvasSize * 0.85,
+                top: charBaseY - 28,
+                child: Opacity(
+                  opacity: sp1,
+                  child: const Text('✨', style: TextStyle(fontSize: 20)),
+                ),
+              ),
+              Positioned(
+                left: easelX + _canvasSize * 0.55,
+                top: charBaseY - 48,
+                child: Opacity(
+                  opacity: sp2,
+                  child: const Text('💫', style: TextStyle(fontSize: 16)),
+                ),
+              ),
+              Positioned(
+                left: easelX + _canvasSize * 0.80,
+                top: charBaseY + _canvasSize * 0.45,
+                child: Opacity(
+                  opacity: sp3,
+                  child: const Text('⭐', style: TextStyle(fontSize: 14)),
+                ),
+              ),
+
+              // 🖌️ 筆刷（掃描塗抹軌跡）
+              Positioned(
+                left: brushCenterX + strokeX,
+                top: brushCenterY + strokeY,
+                child: Transform.rotate(
+                  angle: -0.6 + strokeX * 0.015, // 隨掃動微微傾斜
+                  child: const Text('🖌️',
+                      style: TextStyle(fontSize: _brushSize)),
+                ),
+              ),
+
+              // 🐱 貓咪（坐著，面朝畫架）
+              Positioned(
+                left: catX,
+                top: charBaseY,
+                child: const Text('🐱',
+                    style: TextStyle(fontSize: _catSize)),
+              ),
+            ]);
+          },
+        ),
+      ]);
     });
   }
 }
