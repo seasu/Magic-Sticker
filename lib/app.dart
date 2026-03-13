@@ -7,6 +7,7 @@ import 'features/billing/screens/credit_history_screen.dart';
 import 'features/dev_log/screens/log_viewer_screen.dart';
 import 'features/editor/screens/editor_screen.dart';
 import 'features/home/screens/home_screen.dart';
+import 'features/sticker_history/screens/sticker_history_screen.dart';
 
 /// 跳轉至 /editor 時攜帶的參數
 class EditorArgs {
@@ -42,6 +43,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/credit-history',
       builder: (_, __) => const CreditHistoryScreen(),
+    ),
+    GoRoute(
+      path: '/sticker-history',
+      builder: (_, __) => const StickerHistoryScreen(),
     ),
     GoRoute(
       path: '/dev-log',
