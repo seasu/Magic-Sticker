@@ -67,8 +67,20 @@ class StickerGenerationService {
             .logEvent(name: 'sticker_image_generated');
         return (bytes: bytes, remainingCredits: remaining);
       } on FirebaseFunctionsException catch (e, stack) {
-        // 未認證 → 強制刷新 ID token 後 retry
         if (e.code == 'unauthenticated' && attempt < maxRetries) {
+          // Cloud Run IAM 攔截（msg 為全大寫 'UNAUTHENTICATED'）→ retry 無效，立即放棄
+          if (_isIamBlock(e)) {
+            FirebaseService.log(
+              'StickerGenerationService: Cloud Run IAM 拒絕 index=$index'
+              ' — 請重新部署 Functions with invoker:public',
+            );
+            await FirebaseService.recordError(
+              e, stack, reason: 'sticker_single_gen_fn_iam_blocked_index$index',
+            );
+            return (bytes: null, remainingCredits: -1);
+          }
+
+          // Token 問題 → retry with re-auth
           FirebaseService.log(
             'StickerGenerationService: unauthenticated index=$index, '
             'attempt ${attempt + 1}/$maxRetries — re-authenticating',
@@ -86,7 +98,10 @@ class StickerGenerationService {
         }
         if (e.code == 'unauthenticated') {
           await FirebaseService.recordError(
-            e, stack, reason: 'sticker_single_gen_fn_failed_index$index',
+            e, stack,
+            reason: _isIamBlock(e)
+                ? 'sticker_single_gen_fn_iam_blocked_index$index'
+                : 'sticker_single_gen_fn_failed_index$index',
           );
           return (bytes: null, remainingCredits: -1);
         }
@@ -212,6 +227,12 @@ STYLE: ${style.promptSuffix}
 ''';
     }
   }
+
+  /// Cloud Run IAM 攔截的特徵：錯誤碼 unauthenticated + 訊息為全大寫 'UNAUTHENTICATED'。
+  ///
+  /// resolveUid 拒絕時訊息是 "No Authorization header..." 或 "Token verification failed..."。
+  static bool _isIamBlock(FirebaseFunctionsException e) =>
+      e.code == 'unauthenticated' && e.message == 'UNAUTHENTICATED';
 
   static Duration? _parseRetryDelay(String message) {
     final m = RegExp(r'retry after (\d+(?:\.\d+)?)s', caseSensitive: false)
