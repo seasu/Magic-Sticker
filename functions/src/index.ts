@@ -104,11 +104,50 @@ export const generateStickerSpecs = onCall(
     const uid = await resolveUid(request);
     log("generateStickerSpecs: auth OK", {uid});
 
-    const {photoBase64} = request.data as {photoBase64: string};
+    const {photoBase64, categoryIds: rawCategoryIds} = request.data as {
+      photoBase64: string;
+      categoryIds?: string[];
+    };
 
     if (!photoBase64) {
       throw new HttpsError("invalid-argument", "photoBase64 is required.");
     }
+
+    // 情感類別 → 預設 8 種或由 client 指定（4–12 種）
+    const DEFAULT_CATEGORY_IDS = [
+      "greeting", "praise", "surprise", "awkward",
+      "angry", "happy", "thinking", "farewell",
+    ];
+    const ids: string[] =
+      Array.isArray(rawCategoryIds) && rawCategoryIds.length >= 4
+        ? rawCategoryIds.slice(0, 12)
+        : DEFAULT_CATEGORY_IDS;
+
+    const CATEGORY_HINTS: Record<string, string> = {
+      greeting: "cheerfully waving hello",
+      praise: "excited thumbs-up with sparkles",
+      surprise: "shocked wide eyes, question marks",
+      awkward: "embarrassed blushing, sweat drop",
+      angry: "angry frowning with flames",
+      happy: "joyful laughing, rainbow confetti",
+      thinking: "thoughtful chin-rubbing, thought bubble",
+      farewell: "waving goodbye with sunglasses",
+      shy: "shy blushing, covering face gently",
+      cool: "smug cool confident sunglasses expression",
+      tired: "tired droopy eyes, yawning heavily",
+      cry: "crying tears flowing dramatically",
+      love: "loving warm smile, heart eyes, rosy cheeks",
+      excited: "star-struck excitement, jumping with joy",
+      scared: "terrified wide eyes, trembling in fear",
+      mischief: "playful mischievous wink, sticking out tongue",
+    };
+
+    const categoryList = ids
+      .map((id) => JSON.stringify({
+        categoryId: id,
+        promptHint: CATEGORY_HINTS[id] ?? id,
+      }))
+      .join(", ");
 
     // ── 呼叫 Gemini 文字 API ────────────────────────────────────────────────
     const apiKey = geminiApiKey.value();
@@ -126,15 +165,16 @@ export const generateStickerSpecs = onCall(
                 "你是一位創意 LINE 貼圖設計師，擅長根據照片人物的個性與氛圍，" +
                 "設計出最適合的貼圖情感組合。\n\n" +
                 "請仔細觀察照片中人物的外型、氣質、表情與場景，" +
-                "為他們設計專屬的 8 張 LINE 貼圖規格。\n\n" +
-                "每張貼圖請【自由發揮】，無需使用固定情感模板。" +
-                "可以根據人物特色選擇有趣、幽默、溫馨或獨特的情感表達。\n\n" +
-                "輸出格式：僅回傳 JSON 陣列（8 個物件），每個物件包含：\n" +
+                "依照以下情感類別清單（按順序），為他們設計專屬的 LINE 貼圖規格。\n\n" +
+                `情感類別清單：[${categoryList}]\n\n` +
+                "每個類別設計一張貼圖，輸出格式：僅回傳 JSON 陣列" +
+                `（${ids.length} 個物件，順序與清單一致），每個物件包含：\n` +
+                '- "categoryId": 對應情感類別 id（原樣回傳，不可修改）\n' +
                 '- "text": 繁體中文標語（2–6 字，口語化有趣，適合貼圖）\n' +
-                '- "emotion": 英文情感描述（用於繪製卡通表情）\n' +
+                '- "emotion": 英文情感描述（用於繪製卡通表情，參考 promptHint 但可自由發揮）\n' +
                 '- "bgColor": 背景色描述（英文色名 + hex，例如 "coral red #FF6B6B"）\n\n' +
                 "範例格式（不要照抄，請根據照片創作）：\n" +
-                '[{"text":"哈囉！","emotion":"cheerfully waving hello","bgColor":"warm peach #F4A261"}]',
+                '[{"categoryId":"greeting","text":"哈囉！","emotion":"cheerfully waving hello","bgColor":"warm peach #F4A261"}]',
             },
             {
               inlineData: {
@@ -176,11 +216,14 @@ export const generateStickerSpecs = onCall(
     }
 
     const specs = JSON.parse(match[0]) as unknown[];
-    if (!Array.isArray(specs) || specs.length < 8) {
-      throw new HttpsError("internal", "Gemini returned fewer than 8 specs.");
+    if (!Array.isArray(specs) || specs.length < ids.length) {
+      throw new HttpsError(
+        "internal",
+        `Gemini returned ${specs.length} specs, expected ${ids.length}.`
+      );
     }
 
-    return {specs: specs.slice(0, 8)};
+    return {specs: specs.slice(0, ids.length)};
   }
 );
 

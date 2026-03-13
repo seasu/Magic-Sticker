@@ -59,34 +59,123 @@ class _EditorFamilyNotifier
       return;
     }
 
-    final specs = await GeminiService().generateStickerSpecs(_cachedResized!);
+    final specs = await GeminiService().generateStickerSpecs(
+      _cachedResized!,
+      categoryIds: state.selectedCategoryIds,
+    );
     _specs = specs;
-    final texts = _specs!.map((s) => s.text).toList();
+    final count = specs.length;
+    final texts = specs.map((s) => s.text).toList();
     state = state.copyWith(
       stickerTexts: texts,
-      generatedImages: List.filled(8, _kNotGeneratedSentinel),
-      imageErrors: List.filled(8, null),
+      categoryIds: specs.map((s) => s.categoryId).toList(),
+      generatedImages: List.filled(count, _kNotGeneratedSentinel),
+      imageErrors: List.filled(count, null),
+      colorSchemeIndices: List.generate(count, (i) => i % 8),
+      imageScales: List.filled(count, 1.0),
+      imageOffsets: List.filled(count, Offset.zero),
+      fontIndices: List.filled(count, 0),
+      styleIndices: List.filled(count, state.styleIndices.isNotEmpty ? state.styleIndices[0] : 0),
+      fontSizeScales: List.filled(count, 1.0),
+      textXAligns: List.filled(count, 0.0),
+      textYAligns: List.filled(count, 0.85),
+      textAngles: List.filled(count, 0.0),
+      imageAngles: List.filled(count, 0.0),
       status: EditorStatus.ready,
     );
   }
 
-  /// 重新讓 AI 自由發揮，生成全新 8 組規格（免費，不扣點）
+  /// 重新讓 AI 依目前選中的情感類別生成全新規格（免費，不扣點）
   Future<void> regenerateTexts() async {
+    final count = state.selectedCategoryIds.length;
     state = state.copyWith(
       status: EditorStatus.generatingTexts,
-      generatedImages: List.filled(8, _kNotGeneratedSentinel),
-      imageErrors: List.filled(8, null),
+      generatedImages: List.filled(count, _kNotGeneratedSentinel),
+      imageErrors: List.filled(count, null),
     );
     try {
       final resized = _cachedResized ??
           await ImageProcessor.resizeForNative(File(state.originalImagePath));
       _cachedResized = resized;
-      final specs = await GeminiService().generateStickerSpecs(resized);
+      final specs = await GeminiService().generateStickerSpecs(
+        resized,
+        categoryIds: state.selectedCategoryIds,
+      );
       _specs = specs;
-      final texts = _specs!.map((s) => s.text).toList();
-      state = state.copyWith(stickerTexts: texts, status: EditorStatus.ready);
+      final newCount = specs.length;
+      final texts = specs.map((s) => s.text).toList();
+      state = state.copyWith(
+        stickerTexts: texts,
+        categoryIds: specs.map((s) => s.categoryId).toList(),
+        generatedImages: List.filled(newCount, _kNotGeneratedSentinel),
+        imageErrors: List.filled(newCount, null),
+        colorSchemeIndices: List.generate(newCount, (i) => i % 8),
+        imageScales: List.filled(newCount, 1.0),
+        imageOffsets: List.filled(newCount, Offset.zero),
+        fontIndices: List.filled(newCount, 0),
+        styleIndices: List.filled(newCount, state.styleIndices.isNotEmpty ? state.styleIndices[0] : 0),
+        fontSizeScales: List.filled(newCount, 1.0),
+        textXAligns: List.filled(newCount, 0.0),
+        textYAligns: List.filled(newCount, 0.85),
+        textAngles: List.filled(newCount, 0.0),
+        imageAngles: List.filled(newCount, 0.0),
+        status: EditorStatus.ready,
+      );
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack, reason: 'editor_regen_failed');
+      state = state.copyWith(status: EditorStatus.ready);
+    }
+  }
+
+  /// 使用者選擇新的情感類別組合，重新生成規格（免費，不扣點）
+  Future<void> updateSelectedCategories(List<String> ids) async {
+    if (ids.length < 4 || ids.length > 12) return;
+    final count = ids.length;
+    state = state.copyWith(
+      selectedCategoryIds: ids,
+      status: EditorStatus.generatingTexts,
+      stickerTexts: List.filled(count, ''),
+      categoryIds: List.filled(count, ''),
+      generatedImages: List.filled(count, _kNotGeneratedSentinel),
+      imageErrors: List.filled(count, null),
+      colorSchemeIndices: List.generate(count, (i) => i % 8),
+      imageScales: List.filled(count, 1.0),
+      imageOffsets: List.filled(count, Offset.zero),
+      fontIndices: List.filled(count, 0),
+      styleIndices: List.filled(count, state.styleIndices.isNotEmpty ? state.styleIndices[0] : 0),
+      fontSizeScales: List.filled(count, 1.0),
+      textXAligns: List.filled(count, 0.0),
+      textYAligns: List.filled(count, 0.85),
+      textAngles: List.filled(count, 0.0),
+      imageAngles: List.filled(count, 0.0),
+    );
+    try {
+      final resized = _cachedResized ??
+          await ImageProcessor.resizeForNative(File(state.originalImagePath));
+      _cachedResized = resized;
+      final specs = await GeminiService().generateStickerSpecs(resized, categoryIds: ids);
+      _specs = specs;
+      final newCount = specs.length;
+      final texts = specs.map((s) => s.text).toList();
+      state = state.copyWith(
+        stickerTexts: texts,
+        categoryIds: specs.map((s) => s.categoryId).toList(),
+        generatedImages: List.filled(newCount, _kNotGeneratedSentinel),
+        imageErrors: List.filled(newCount, null),
+        colorSchemeIndices: List.generate(newCount, (i) => i % 8),
+        imageScales: List.filled(newCount, 1.0),
+        imageOffsets: List.filled(newCount, Offset.zero),
+        fontIndices: List.filled(newCount, 0),
+        styleIndices: List.filled(newCount, 0),
+        fontSizeScales: List.filled(newCount, 1.0),
+        textXAligns: List.filled(newCount, 0.0),
+        textYAligns: List.filled(newCount, 0.85),
+        textAngles: List.filled(newCount, 0.0),
+        imageAngles: List.filled(newCount, 0.0),
+        status: EditorStatus.ready,
+      );
+    } catch (e, stack) {
+      await FirebaseService.recordError(e, stack, reason: 'editor_update_categories_failed');
       state = state.copyWith(status: EditorStatus.ready);
     }
   }

@@ -5,20 +5,23 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/emotion_category.dart';
 import '../models/sticker_spec.dart';
 import 'auth_service.dart';
 import 'firebase_service.dart';
 
 /// 8 組預設 fallback（Cloud Function 失敗時使用）
+///
+/// 與 kDefaultCategoryIds 順序一致，含 categoryId。
 const _kFallbackSpecs = [
-  {'text': '哈囉！',    'emotion': 'cheerfully waving hello',            'bgColor': 'warm peach #F4A261'},
-  {'text': '太棒了！',  'emotion': 'excited thumbs-up with sparkles',    'bgColor': 'sky blue #74C0FC'},
-  {'text': '真的嗎？',  'emotion': 'shocked wide eyes, question marks',  'bgColor': 'golden yellow #FFD43B'},
-  {'text': '尷尬了...', 'emotion': 'embarrassed blushing, sweat drop',   'bgColor': 'soft pink #FFB3C6'},
-  {'text': '哼！',      'emotion': 'angry frowning with flames',         'bgColor': 'deep red #FF6B6B'},
-  {'text': '開心！',    'emotion': 'joyful laughing, rainbow confetti',  'bgColor': 'mint green #63E6BE'},
-  {'text': '我想想...', 'emotion': 'thoughtful chin-rubbing, thought bubble', 'bgColor': 'lavender #C084FC'},
-  {'text': '再見囉！',  'emotion': 'waving goodbye with sunglasses',     'bgColor': 'baby blue #ADE8F4'},
+  {'categoryId': 'greeting', 'text': '哈囉！',    'emotion': 'cheerfully waving hello',            'bgColor': 'warm peach #F4A261'},
+  {'categoryId': 'praise',   'text': '太棒了！',  'emotion': 'excited thumbs-up with sparkles',    'bgColor': 'sky blue #74C0FC'},
+  {'categoryId': 'surprise', 'text': '真的嗎？',  'emotion': 'shocked wide eyes, question marks',  'bgColor': 'golden yellow #FFD43B'},
+  {'categoryId': 'awkward',  'text': '尷尬了...', 'emotion': 'embarrassed blushing, sweat drop',   'bgColor': 'soft pink #FFB3C6'},
+  {'categoryId': 'angry',    'text': '哼！',      'emotion': 'angry frowning with flames',         'bgColor': 'deep red #FF6B6B'},
+  {'categoryId': 'happy',    'text': '開心！',    'emotion': 'joyful laughing, rainbow confetti',  'bgColor': 'mint green #63E6BE'},
+  {'categoryId': 'thinking', 'text': '我想想...', 'emotion': 'thoughtful chin-rubbing, thought bubble', 'bgColor': 'lavender #C084FC'},
+  {'categoryId': 'farewell', 'text': '再見囉！',  'emotion': 'waving goodbye with sunglasses',     'bgColor': 'baby blue #ADE8F4'},
 ];
 
 class GeminiService {
@@ -26,10 +29,18 @@ class GeminiService {
 
   /// 呼叫 Cloud Function `generateStickerSpecs`。
   ///
-  /// Spec 預覽免費，不扣點。
-  /// 失敗時回傳 fallback specs，確保使用者仍能看到預覽。
-  Future<List<StickerSpec>> generateStickerSpecs(Uint8List imageBytes) async {
+  /// [categoryIds] 指定要生成的情感類別（不傳則使用預設 8 種）。
+  /// Spec 預覽免費，不扣點。失敗時回傳 fallback specs。
+  Future<List<StickerSpec>> generateStickerSpecs(
+    Uint8List imageBytes, {
+    List<String>? categoryIds,
+  }) async {
     FirebaseService.log('GeminiService.generateStickerSpecs: start');
+
+    // 解析請求的情感類別（若未指定則使用預設 8 種）
+    final ids = (categoryIds != null && categoryIds.isNotEmpty)
+        ? categoryIds
+        : kDefaultCategoryIds;
 
     // 確保有有效的 auth session + token
     await AuthService.ensureValidToken();
@@ -45,32 +56,29 @@ class GeminiService {
 
         final result = await callable.call<Map<String, dynamic>>({
           'photoBase64': base64Encode(imageBytes),
+          'categoryIds': ids,
         });
 
         final data = result.data;
         final rawSpecs = (data['specs'] as List).cast<Map<String, dynamic>>();
-        final specs = rawSpecs.take(8).map(StickerSpec.fromJson).toList();
+        final specs = rawSpecs.take(ids.length).map(StickerSpec.fromJson).toList();
 
-        FirebaseService.log('GeminiService.generateStickerSpecs: done');
+        FirebaseService.log('GeminiService.generateStickerSpecs: done (${specs.length} specs)');
         await FirebaseAnalytics.instance.logEvent(name: 'ai_specs_generated');
 
         return specs;
       } on FirebaseFunctionsException catch (e, stack) {
         if (e.code == 'unauthenticated' && attempt < maxRetries) {
-          // 區分兩種 unauthenticated：
-          //   msg == 'UNAUTHENTICATED'（全大寫）→ Cloud Run IAM 在 function 前攔截
-          //   其他訊息 → resolveUid 拒絕（token 問題，retry 有效）
           if (_isIamBlock(e)) {
             FirebaseService.log(
               'GeminiService: Cloud Run IAM 拒絕（msg=UNAUTHENTICATED）'
               ' — token retry 無效，請重新部署 Functions with invoker:public',
             );
-            // IAM 問題，retry 沒用，直接 break
             await FirebaseService.recordError(
               e, stack, reason: 'gemini_specs_fn_iam_blocked',
             );
             await FirebaseAnalytics.instance.logEvent(name: 'ai_specs_fallback');
-            return _kFallbackSpecs.map(StickerSpec.fromJson).toList();
+            return _buildFallback(ids);
           }
 
           FirebaseService.log(
@@ -90,26 +98,45 @@ class GeminiService {
           reason: _isIamBlock(e) ? 'gemini_specs_fn_iam_blocked' : 'gemini_specs_fn_failed',
         );
         await FirebaseAnalytics.instance.logEvent(name: 'ai_specs_fallback');
-        return _kFallbackSpecs.map(StickerSpec.fromJson).toList();
+        return _buildFallback(ids);
       } catch (e, stack) {
         await FirebaseService.recordError(
           e, stack, reason: 'gemini_specs_unexpected_failed',
         );
         await FirebaseAnalytics.instance.logEvent(name: 'ai_specs_fallback');
-        return _kFallbackSpecs.map(StickerSpec.fromJson).toList();
+        return _buildFallback(ids);
       }
     }
 
-    return _kFallbackSpecs.map(StickerSpec.fromJson).toList();
+    return _buildFallback(ids);
   }
 
   // ─── private ──────────────────────────────────────────────────────────────
 
+  /// 依請求的 categoryIds 建立 fallback specs。
+  ///
+  /// 若某 id 有預設 fallback spec 則用之；否則從 kEmotionCategories 生成最小規格。
+  static List<StickerSpec> _buildFallback(List<String> ids) {
+    final fallbackMap = {
+      for (final m in _kFallbackSpecs) m['categoryId'] as String: m,
+    };
+    return ids.map((id) {
+      final m = fallbackMap[id];
+      if (m != null) return StickerSpec.fromJson(m);
+      // 找不到預設 fallback → 從 kEmotionCategories 取 promptHint 當 emotion
+      final cat = findCategory(id);
+      return StickerSpec(
+        text: cat?.label ?? id,
+        emotion: cat?.promptHint ?? id,
+        bgColor: 'soft blue #74C0FC',
+        categoryId: id,
+      );
+    }).toList();
+  }
+
   /// Cloud Run IAM 攔截的特徵：錯誤碼 unauthenticated + 訊息為全大寫 'UNAUTHENTICATED'。
   ///
-  /// 若是 resolveUid 拒絕，訊息會是 "No Authorization header..." 或
-  /// "Token verification failed: ..."。
-  /// 兩者修復方式完全不同：IAM 問題需重新部署；token 問題 retry 即可。
+  /// resolveUid 拒絕時訊息是 "No Authorization header..." 或 "Token verification failed..."。
   static bool _isIamBlock(FirebaseFunctionsException e) =>
       e.code == 'unauthenticated' && e.message == 'UNAUTHENTICATED';
 
