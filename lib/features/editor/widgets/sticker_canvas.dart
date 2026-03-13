@@ -313,7 +313,7 @@ class _StickerCanvasState extends State<StickerCanvas> {
   }
 
   bool get _hasAiImage =>
-      widget.generatedImage != null && widget.generatedImage!.isNotEmpty;
+      widget.generatedImage != null && widget.generatedImage!.length > 1;
 
   bool get _hasFailed =>
       widget.generatedImage != null && widget.generatedImage!.isEmpty;

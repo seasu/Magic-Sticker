@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/sticker_spec.dart';
 import 'auth_service.dart';
@@ -55,15 +56,14 @@ class GeminiService {
 
         return specs;
       } on FirebaseFunctionsException catch (e, stack) {
-        // UNAUTHENTICATED → refresh token and retry
+        // UNAUTHENTICATED → force re-auth and retry
         if (e.code == 'unauthenticated' && attempt < maxRetries) {
           FirebaseService.log(
             'GeminiService: unauthenticated, refreshing token '
             'attempt ${attempt + 1}/$maxRetries',
           );
           await Future.delayed(Duration(seconds: 1 << attempt));
-          await AuthService.signInAnonymouslyIfNeeded();
-          await AuthService.ensureValidToken();
+          await _forceReAuth();
           continue;
         }
 
@@ -85,5 +85,36 @@ class GeminiService {
     }
 
     return _kFallbackSpecs.map(StickerSpec.fromJson).toList();
+  }
+
+  /// Force re-authentication: refresh the ID token; if the token is
+  /// unrecoverable (null/empty or getIdToken throws), sign out the anonymous
+  /// session and create a new one.  Social-login users are only force-refreshed
+  /// (signing them out would require re-presenting the social login UI).
+  static Future<void> _forceReAuth() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      await AuthService.signInAnonymouslyIfNeeded();
+      return;
+    }
+
+    try {
+      final token = await user.getIdToken(true);
+      if (token != null && token.isNotEmpty) {
+        FirebaseService.log('GeminiService._forceReAuth: token refreshed uid=${user.uid}');
+        return;
+      }
+    } catch (e) {
+      FirebaseService.log('GeminiService._forceReAuth: getIdToken failed: $e');
+    }
+
+    // Token unrecoverable — recreate anonymous session (social users keep
+    // their current state; signing them out would lock them out entirely).
+    if (user.isAnonymous) {
+      FirebaseService.log('GeminiService._forceReAuth: signing out broken anonymous session');
+      await FirebaseAuth.instance.signOut();
+      await AuthService.signInAnonymouslyIfNeeded();
+    }
   }
 }
