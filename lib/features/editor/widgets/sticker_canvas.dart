@@ -171,6 +171,11 @@ class _StickerCanvasState extends State<StickerCanvas> {
     _textYAlign = widget.textYAlign;
     _textAngle = widget.textAngle;
     _textSizeScale = widget.fontSizeScale;
+    // 編輯 popup 開啟時 generatedImage 一開始就非 null，
+    // didUpdateWidget 的條件不會觸發，在此補上 auto-fit
+    if (widget.generatedImage != null) {
+      _autoFitGeneratedImage(widget.generatedImage!);
+    }
   }
 
   @override
