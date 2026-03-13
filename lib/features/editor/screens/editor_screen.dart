@@ -21,6 +21,8 @@ import '../../../shared/widgets/credit_paywall_dialog.dart';
 import '../models/editor_state.dart';
 import '../models/sticker_config.dart';
 import '../providers/editor_provider.dart';
+import '../../../core/models/emotion_category.dart';
+import '../widgets/emotion_picker_sheet.dart';
 import '../widgets/sticker_canvas.dart';
 import '../widgets/sticker_edit_sheet.dart';
 import '../widgets/sticker_swipe_card.dart';
@@ -47,7 +49,8 @@ class EditorScreen extends ConsumerStatefulWidget {
 }
 
 class _EditorScreenState extends ConsumerState<EditorScreen> {
-  final _repaintKeys = List.generate(8, (_) => GlobalKey());
+  // 最大支援 12 種情感（4–12 可選），預先建立足夠的 key
+  final _repaintKeys = List.generate(12, (_) => GlobalKey());
   final _cardController = StickerSwipeCardController();
 
   int _currentIndex = 0;
@@ -166,6 +169,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             ),
             backgroundColor: const Color(0xFF4CAF50),
             behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 96),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10)),
             duration: const Duration(seconds: 2),
@@ -199,7 +203,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         GalExceptionType.notEnoughSpace => '儲存空間不足，請清理後重試',
         _ => '儲存失敗，請重試',
       };
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 96),
+      ));
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack,
           reason: 'editor_export_failed');
@@ -209,7 +217,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('儲存失敗，請重試')),
+        const SnackBar(
+          content: Text('儲存失敗，請重試'),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.fromLTRB(12, 0, 12, 96),
+        ),
       );
     }
   }
@@ -271,6 +283,30 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     ref.read(editorStateProvider(widget.imagePath).notifier).regenerateTexts();
   }
 
+  void _openEmotionPicker() {
+    final state = ref.read(editorStateProvider(widget.imagePath));
+    final notifier = ref.read(editorStateProvider(widget.imagePath).notifier);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => EmotionPickerSheet(
+        selectedIds: state.selectedCategoryIds,
+        onConfirm: (ids) {
+          Navigator.pop(context);
+          setState(() {
+            _currentIndex = 0;
+            _keptCount = 0;
+          });
+          notifier.updateSelectedCategories(ids);
+        },
+      ),
+    );
+  }
+
   /// 使用者點擊「生成」按鈕，消耗 1 點產生圖片
   Future<void> _generateImage(int index) async {
     final credits = ref.read(creditProvider);
@@ -324,7 +360,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final isLoading = state.status == EditorStatus.removingBackground ||
         state.status == EditorStatus.generatingTexts;
     final isReady = state.status == EditorStatus.ready;
-    final isDone = isReady && _currentIndex >= 8;
+    final totalCount = state.stickerTexts.length;
+    final isDone = isReady && _currentIndex >= totalCount;
 
     // 分析完成時，引導使用者點擊「生成」按鈕（每次進入 ready 都提示一次）
     ref.listen<EditorState>(editorStateProvider(widget.imagePath), (prev, next) {
@@ -332,11 +369,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           next.status == EditorStatus.ready) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
+          final n = next.stickerTexts.length;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('✨ 8 款貼圖概念生成完畢！點擊「生成 · 1點」來製作第一張'),
+              content: Text('✨ $n 款貼圖概念生成完畢！點擊「生成 · 1點」來製作第一張'),
               duration: const Duration(seconds: 5),
               behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.fromLTRB(12, 0, 12, 96),
             ),
           );
         });
@@ -346,6 +385,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     // 當前張 AI 圖片仍在生成中（null = loading，sentinel = 尚未觸發生成）
     final isCurrentImageLoading = isReady &&
         !isDone &&
+        _currentIndex < state.generatedImages.length &&
         state.generatedImages[_currentIndex] == null;
 
     return Scaffold(
@@ -360,6 +400,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 _TopBar(
                   onBack: () => context.go('/'),
                   onRefresh: (isReady && !isDone) ? _regenerate : null,
+                  onEmotionPicker: (isReady && !isDone) ? _openEmotionPicker : null,
                 ),
 
                 if (isLoading)
@@ -395,6 +436,19 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     ),
                   ),
 
+                  // ── 情感標籤 + 頁次 ───────────────────────────────────
+                  if (state.categoryIds.isNotEmpty &&
+                      _currentIndex < state.categoryIds.length &&
+                      state.categoryIds[_currentIndex].isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _EmotionLabel(
+                        categoryId: state.categoryIds[_currentIndex],
+                        index: _currentIndex,
+                        total: totalCount,
+                      ),
+                    ),
+
                   // ── 底部按鈕 ──────────────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -425,8 +479,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 class _TopBar extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback? onRefresh;
+  final VoidCallback? onEmotionPicker;
 
-  const _TopBar({required this.onBack, this.onRefresh});
+  const _TopBar({required this.onBack, this.onRefresh, this.onEmotionPicker});
 
   @override
   Widget build(BuildContext context) {
@@ -449,6 +504,15 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           const Spacer(),
+          if (onEmotionPicker != null)
+            IconButton(
+              onPressed: onEmotionPicker,
+              icon: const Icon(Icons.emoji_emotions_rounded),
+              style: IconButton.styleFrom(foregroundColor: Colors.black54),
+              tooltip: '情感類型',
+            )
+          else
+            const SizedBox(width: 48),
           if (onRefresh != null)
             IconButton(
               onPressed: onRefresh,
@@ -464,7 +528,61 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-// ─── 進度條 ──────────────────────────────────────────────────────────────────
+// ─── 情感標籤 ─────────────────────────────────────────────────────────────────
+
+class _EmotionLabel extends StatelessWidget {
+  final String categoryId;
+  final int index;
+  final int total;
+
+  const _EmotionLabel({
+    required this.categoryId,
+    required this.index,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cat = findCategory(categoryId);
+    if (cat == null) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(cat.emoji, style: const TextStyle(fontSize: 15)),
+          const SizedBox(width: 5),
+          Text(
+            cat.label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.black54,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 1,
+            height: 12,
+            color: Colors.black26,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${index + 1} / $total',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.black38,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 // ─── 卡片層疊 ─────────────────────────────────────────────────────────────────
 

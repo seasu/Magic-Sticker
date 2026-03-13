@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'dart:ui' show Offset;
 
+import '../../../core/models/emotion_category.dart';
 import '../../../core/models/sticker_shape.dart';
 
 enum EditorStatus {
@@ -35,6 +36,8 @@ class EditorState {
   final List<double> textYAligns;         // 文字垂直對齊 (-1.5=上, 0.85=近底部)
   final List<double> textAngles;          // 文字旋轉角度（弧度，0=不旋轉）
   final List<double> imageAngles;         // 圖片旋轉角度（弧度，0=不旋轉）
+  final List<String> categoryIds;         // 每張貼圖對應的情感 id（來自 AI specs）
+  final List<String> selectedCategoryIds; // 使用者選中的情感 id（4–12 種，預設 8 種）
 
   EditorState({
     required this.originalImagePath,
@@ -55,7 +58,11 @@ class EditorState {
     List<double>? textYAligns,
     List<double>? textAngles,
     List<double>? imageAngles,
-  })  : stickerTexts = stickerTexts ?? List.from(_kFallbackTexts),
+    List<String>? categoryIds,
+    List<String>? selectedCategoryIds,
+  })  : categoryIds = categoryIds ?? List.filled(8, ''),
+        selectedCategoryIds = selectedCategoryIds ?? List<String>.from(kDefaultCategoryIds),
+        stickerTexts = stickerTexts ?? List.from(_kFallbackTexts),
         generatedImages = generatedImages ?? List.filled(8, null),
         imageErrors = imageErrors ?? List.filled(8, null),
         colorSchemeIndices = colorSchemeIndices ?? List.generate(8, (i) => i),
@@ -87,6 +94,8 @@ class EditorState {
     List<double>? textYAligns,
     List<double>? textAngles,
     List<double>? imageAngles,
+    List<String>? categoryIds,
+    List<String>? selectedCategoryIds,
   }) {
     return EditorState(
       originalImagePath: originalImagePath,
@@ -107,6 +116,8 @@ class EditorState {
       textYAligns: textYAligns ?? this.textYAligns,
       textAngles: textAngles ?? this.textAngles,
       imageAngles: imageAngles ?? this.imageAngles,
+      categoryIds: categoryIds ?? this.categoryIds,
+      selectedCategoryIds: selectedCategoryIds ?? this.selectedCategoryIds,
     );
   }
 }
