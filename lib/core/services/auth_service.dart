@@ -174,11 +174,36 @@ class AuthService {
           },
           SetOptions(merge: true),
         );
-        // NOTE: creditHistory writes are reserved for Cloud Functions only
-        // (Firestore rules: allow read only for clients).
       });
+      // 寫入點數歷史（非原子，失敗不影響主流程）
+      await _writeHistoryEntry(uid,
+          type: 'earned', amount: amount, reason: reason);
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack, reason: 'add_credits_failed');
+    }
+  }
+
+  /// 寫入一筆點數歷史紀錄（best-effort，失敗僅記錄）
+  static Future<void> _writeHistoryEntry(
+    String uid, {
+    required String type,
+    required int amount,
+    required String reason,
+  }) async {
+    try {
+      await _db
+          .collection('users')
+          .doc(uid)
+          .collection('creditHistory')
+          .add({
+        'type': type,
+        'amount': amount,
+        'reason': reason,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e, stack) {
+      await FirebaseService.recordError(e, stack,
+          reason: 'write_credit_history_failed');
     }
   }
 
@@ -235,33 +260,40 @@ class AuthService {
   /// 確保 Firestore 有該用戶文件；首次建立時分配點數
   static Future<void> _ensureUserDoc(String uid, {required bool isGuest}) async {
     final ref = _userDoc(uid);
+    bool created = false;
+    final credits = isGuest ? kGuestInitialCredits : kNewAccountCredits;
     await _db.runTransaction((tx) async {
       final doc = await tx.get(ref);
       if (doc.exists) return; // 已存在，不覆蓋
-      final credits = isGuest ? kGuestInitialCredits : kNewAccountCredits;
+      created = true;
       tx.set(ref, {
         'credits': credits,
         'isAnonymous': isGuest,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      // NOTE: creditHistory writes are reserved for Cloud Functions only
-      // (Firestore rules: allow read only for clients). Initial credit is
-      // visible on the user document itself.
     });
-    FirebaseService.log(
-      'AuthService: user doc created uid=$uid isGuest=$isGuest',
-    );
+    if (created) {
+      FirebaseService.log(
+        'AuthService: user doc created uid=$uid isGuest=$isGuest',
+      );
+      await _writeHistoryEntry(uid,
+          type: 'earned',
+          amount: credits,
+          reason: CreditHistoryReason.newAccount);
+    }
   }
 
   /// 訪客升級：標記為非匿名，補發登入獎勵點數
   static Future<void> _promoteUser(String uid, {required int previousCredits}) async {
     final ref = _userDoc(uid);
+    bool promoted = false;
     await _db.runTransaction((tx) async {
       final doc = await tx.get(ref);
       final data = doc.data() ?? {};
       if (data['isAnonymous'] != true) return; // 已升級過，不重複
 
+      promoted = true;
       // 在現有點數基礎上累加登入獎勵
       final currentCredits = (data['credits'] as int?) ?? previousCredits;
       tx.update(ref, {
@@ -270,9 +302,15 @@ class AuthService {
         'promotedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      // NOTE: creditHistory writes are reserved for Cloud Functions only.
     });
-    FirebaseService.log('AuthService: user promoted uid=$uid +$kLoginBonusCredits credits');
+    if (promoted) {
+      FirebaseService.log(
+          'AuthService: user promoted uid=$uid +$kLoginBonusCredits credits');
+      await _writeHistoryEntry(uid,
+          type: 'earned',
+          amount: kLoginBonusCredits,
+          reason: CreditHistoryReason.loginBonus);
+    }
   }
 }
 
