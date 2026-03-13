@@ -59,118 +59,123 @@ class _EmotionPickerSheetState extends State<EmotionPickerSheet> {
     final canConfirm = count >= _kMin && count <= _kMax;
 
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ── 拖曳把手 ──────────────────────────────────────────────────────
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(top: 12, bottom: 4),
-            decoration: BoxDecoration(
-              color: Colors.black12,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-
-          // ── 標題列 ────────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(
-              children: [
-                const Text(
-                  '選擇情感類型',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black87,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  '$_kMin–$_kMax 種',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.black45,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // ── 4×4 情感格子 ──────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                childAspectRatio: 1.0,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── 拖曳把手 ──────────────────────────────────────────────────────
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              decoration: BoxDecoration(
+                color: Colors.black12,
+                borderRadius: BorderRadius.circular(2),
               ),
-              itemCount: kEmotionCategories.length,
-              itemBuilder: (_, i) {
-                final cat = kEmotionCategories[i];
-                final isSelected = _selected.contains(cat.id);
-                return _EmotionCell(
-                  category: cat,
-                  isSelected: isSelected,
-                  onTap: () => _toggle(cat.id),
-                );
-              },
             ),
-          ),
 
-          const SizedBox(height: 16),
-
-          // ── 確認按鈕 ──────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: SizedBox(
-              width: double.infinity,
-              child: AnimatedOpacity(
-                opacity: canConfirm ? 1.0 : 0.4,
-                duration: const Duration(milliseconds: 200),
-                child: GestureDetector(
-                  onTap: canConfirm
-                      ? () {
-                          HapticFeedback.mediumImpact();
-                          widget.onConfirm(List<String>.from(_selected));
-                        }
-                      : null,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    decoration: BoxDecoration(
-                      gradient: AppColors.gradient,
-                      borderRadius: BorderRadius.circular(32),
-                      boxShadow: canConfirm
-                          ? [
-                              BoxShadow(
-                                color: const Color(0xFFFF5864).withValues(alpha: 0.30),
-                                blurRadius: 14,
-                                offset: const Offset(0, 4),
-                              ),
-                            ]
-                          : null,
+            // ── 標題列 ────────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                children: [
+                  const Text(
+                    '選擇情感類型',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
                     ),
-                    child: Text(
-                      '確認（$count 種情感）',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                  ),
+                  const Spacer(),
+                  Text(
+                    '已選 $count 種（$_kMin–$_kMax）',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: count < _kMin || count > _kMax
+                          ? const Color(0xFFFF5864)
+                          : Colors.black45,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── 4×4 情感格子 ──────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  childAspectRatio: 0.95,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemCount: kEmotionCategories.length,
+                itemBuilder: (_, i) {
+                  final cat = kEmotionCategories[i];
+                  final isSelected = _selected.contains(cat.id);
+                  return _EmotionCell(
+                    category: cat,
+                    isSelected: isSelected,
+                    onTap: () => _toggle(cat.id),
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── 確認按鈕 ──────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SizedBox(
+                width: double.infinity,
+                child: AnimatedOpacity(
+                  opacity: canConfirm ? 1.0 : 0.4,
+                  duration: const Duration(milliseconds: 200),
+                  child: GestureDetector(
+                    onTap: canConfirm
+                        ? () {
+                            HapticFeedback.mediumImpact();
+                            widget.onConfirm(List<String>.from(_selected));
+                          }
+                        : null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.gradient,
+                        borderRadius: BorderRadius.circular(32),
+                        boxShadow: canConfirm
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFFFF5864).withValues(alpha: 0.30),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Text(
+                        '確認（$count 種情感）',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-        ],
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }

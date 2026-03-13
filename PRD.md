@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.1.50+171 |
+| 目前版本 | v3.1.51+172 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -207,6 +207,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.1.51 | 2026-03-13 | **fix(ux)**：情感標籤 fallback + EmotionPickerSheet 捲動修復 — (1) `_EmotionLabel` 改為 fallback：AI 未回傳 categoryId（舊 CF 版本）時自動使用 `selectedCategoryIds[i]`，確保標籤永遠顯示；(2) `EmotionPickerSheet` 外層改為 `SingleChildScrollView`，防止 4×4 格在小螢幕溢出並確保確認按鈕可見；(3) 標題列選取數改為即時顯示「已選 N 種（4–12）」 |
 | v3.1.50 | 2026-03-13 | **feat**：情感類型標示 + 自訂情感 + SnackBar 修復 — (1) 新增 `EmotionCategory` 模型（16 種，前 8 預設）及 `kDefaultCategoryIds`；`StickerSpec` 加入 `categoryId` 欄位；`GeminiService.generateStickerSpecs` 加入 `categoryIds` 參數，改為固定類別生成（client 傳 categoryIds，server 依清單順序呼叫 Gemini 並要求回傳 categoryId）；Cloud Function `generateStickerSpecs` 加入 server-side `CATEGORY_HINTS` 對照表，支援 4–12 種 categoryIds；(2) `EditorState` 加入 `categoryIds`/`selectedCategoryIds`；`EditorProvider` 同步 categoryIds 並新增 `updateSelectedCategories()`；(3) `editor_screen.dart` 在卡片下方新增 `_EmotionLabel` chip 顯示「👋 打招呼 · 1/8」；`_TopBar` 加入情感 picker 按鈕（😊）；新增 `EmotionPickerSheet`（4×4 格子，4–12 選，勾選動畫）；(4) 所有浮動 SnackBar 加入 `margin: EdgeInsets.fromLTRB(12, 0, 12, 96)` 避免遮住底部按鈕 |
 | v3.1.49 | 2026-03-13 | **ux**：`StickerEditSheet` 編輯畫面擴大為滿版——sheet 改為 90% 螢幕高度，canvas 由 `ConstrainedBox(maxHeight: 30%)` 改為 `Expanded + LayoutBuilder`（取寬高最小值確保正方形），填滿可用空間；控制列縮至底部；移除 `Flexible + SingleChildScrollView` |
 | v3.1.48 | 2026-03-13 | **fix(deploy)**：`functions/package.json` deploy script 拆為三步驟：`build → firebase deploy → set-iam`，新增獨立 `set-iam` script 在每次部署後強制以 gcloud 設定 `allUsers → roles/run.invoker`（`generatestickerspecs` + `generatestickerimage`），徹底解決 `firebase deploy` 不穩定套用 `invoker:public` 造成 Cloud Run IAM 攔截的問題 |
