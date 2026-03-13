@@ -326,6 +326,23 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final isReady = state.status == EditorStatus.ready;
     final isDone = isReady && _currentIndex >= 8;
 
+    // 分析完成時，引導使用者點擊「生成」按鈕（每次進入 ready 都提示一次）
+    ref.listen<EditorState>(editorStateProvider(widget.imagePath), (prev, next) {
+      if (prev?.status == EditorStatus.generatingTexts &&
+          next.status == EditorStatus.ready) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('✨ 8 款貼圖概念生成完畢！點擊「生成 · 1點」來製作第一張'),
+              duration: const Duration(seconds: 5),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        });
+      }
+    });
+
     // 當前張 AI 圖片仍在生成中（null = loading，sentinel = 尚未觸發生成）
     final isCurrentImageLoading = isReady &&
         !isDone &&
@@ -346,7 +363,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 ),
 
                 if (isLoading)
-                  const Expanded(child: _FunLoadingView())
+                  const Expanded(
+                    child: _FunLoadingView(
+                      title: 'AI 分析照片中',
+                      subtitle: '✦ 免費 · 產生 8 款貼圖概念，約 5~10 秒',
+                    ),
+                  )
                 else if (state.errorMessage != null)
                   Expanded(child: _ErrorView(message: state.errorMessage!))
                 else if (isDone)
@@ -384,8 +406,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
             // ── 圖片生成中：全畫面貓追老鼠遮罩（鎖定操作）───────────────
             if (isCurrentImageLoading)
-              const AbsorbPointer(
-                child: _FunLoadingView(),
+              AbsorbPointer(
+                child: _FunLoadingView(
+                  title: 'AI 繪製貼圖中',
+                  subtitle: '✦ 第 ${_currentIndex + 1} 張 · 已扣 1 點，約 20~30 秒',
+                  isImageGen: true,
+                ),
               ),
           ],
         ),
@@ -1152,7 +1178,16 @@ class _CompletionViewState extends State<_CompletionView>
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _FunLoadingView extends StatefulWidget {
-  const _FunLoadingView();
+  const _FunLoadingView({this.title, this.subtitle, this.isImageGen = false});
+
+  /// 大標題，顯示在動畫上方，清楚說明目前在做什麼
+  final String? title;
+
+  /// 輔助說明（時間預估、是否免費等）
+  final String? subtitle;
+
+  /// true = 圖片生成模式（使用不同的訊息組）
+  final bool isImageGen;
 
   @override
   State<_FunLoadingView> createState() => _FunLoadingViewState();
@@ -1166,13 +1201,26 @@ class _FunLoadingViewState extends State<_FunLoadingView>
   int _msgIndex = 0;
   Timer? _msgTimer;
 
-  static const _messages = [
-    '🎬 AI 貓咪正在幫你「追劇」製作貼圖…',
+  // 分析照片、生成文字概念階段（免費）
+  static const _specMessages = [
+    '🔍 分析你的照片表情與場景…',
     '🐭 老鼠：「我就是在追劇啦！」',
     '✨ 施展魔法中，稍等一下下',
-    '🎨 AI 畫師拼命作畫，快好了！',
-    '💨 跑不掉的！AI 馬上追上了',
+    '💡 構思 8 款貼圖方向中…',
+    '💨 快好了，再等一下！',
   ];
+
+  // AI 繪製貼圖圖片階段（付費）
+  static const _imageMessages = [
+    '🖌️ AI 畫師提筆作畫中…',
+    '🎨 上色、調整細節…',
+    '✨ 魔法特效施工中…',
+    '🐱 貓咪監工，確保品質！',
+    '💨 快完成了，再等一下！',
+  ];
+
+  List<String> get _messages =>
+      widget.isImageGen ? _imageMessages : _specMessages;
 
   @override
   void initState() {
@@ -1194,6 +1242,8 @@ class _FunLoadingViewState extends State<_FunLoadingView>
         setState(() => _msgIndex = (_msgIndex + 1) % _messages.length);
       }
     });
+    // Reset index so widget re-use picks up the right message set immediately
+    _msgIndex = 0;
   }
 
   @override
@@ -1211,6 +1261,36 @@ class _FunLoadingViewState extends State<_FunLoadingView>
       color: Colors.white,
       child: Column(
         children: [
+          // ── 狀態標題（告知使用者目前在做什麼）───────────────────────
+          if (widget.title != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+              child: Column(
+                children: [
+                  Text(
+                    widget.title!,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.notoSansTc(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  if (widget.subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.subtitle!,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.notoSansTc(
+                        fontSize: 13,
+                        color: Colors.black45,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
           // ── 大場景動畫區（佔 70%）───────────────────────────────────
           Expanded(
             flex: 7,

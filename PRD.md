@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.1.44+165 |
+| 目前版本 | v3.1.45+166 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -213,6 +213,7 @@ lib/
 | v3.1.30 | 2026-03-12 | **CI fix**：`generate_previews.yml` commit 前自動遞增 `pubspec.yaml` 版號 + 更新 `PRD.md`，通過 Version Guard |
 | v3.1.29 | 2026-03-12 | **CI fix**：`generate_previews.yml` 移除不存在的 `auto-generated` label，避免 `gh pr create` 失敗 |
 | v3.1.28 | 2026-03-12 | **fix**：`generate_style_previews_ci.py` 修正圖片擷取邏輯（支援 bytes/base64 雙格式）、加入 null-safe 檢查、失敗自動重試 2 次、部分成功不再 exit 1 |
+| v3.1.45 | 2026-03-13 | **ux**：重新規劃使用流程三個卡關點：(1) 風格選擇 Sheet 副標題改為三步流程圖示（`_FlowStep` + `_FlowArrow`），明確區分「免費分析」與「各 1 點產圖」；(2) `_FunLoadingView` 新增 `title`/`subtitle`/`isImageGen` 參數，並拆分兩組 rotating messages（spec 分析組 vs 圖片生成組），在動畫上方顯示大標題（如「AI 分析照片中 · 免費 · 約 5~10 秒」vs「AI 繪製貼圖中 · 第 N 張 · 已扣 1 點 · 約 20~30 秒」）；(3) `editor_screen.dart` 加入 `ref.listen` 在 `generatingTexts → ready` 轉換時自動彈出引導 SnackBar「✨ 8 款概念生成完畢！點擊『生成 · 1點』…」 |
 | v3.1.44 | 2026-03-12 | **fix**：(1) `StickerCanvas._hasAiImage` 從 `isNotEmpty` 改為 `length > 1`，修正未生成 sentinel（`Uint8List(1)`）被當作有效圖片資料傳給 `Image.memory()` 導致的 `Exception: Invalid image data` FlutterError；(2) `GeminiService` 新增 `_forceReAuth()` 取代 retry 迴圈中原本無效的 `signInAnonymouslyIfNeeded()`（user 已存在時為 no-op），改為強制 `getIdToken(true)` 刷新、刷新失敗時對匿名帳號執行完整 signOut + re-signIn，與 `StickerGenerationService._ensureValidAuth` 行為一致 |
 | v3.1.43 | 2026-03-12 | **fix（根因）**：所有 Cloud Functions `onCall` 加入 `invoker: "public"` — v2 callable 跑在 Cloud Run 上，預設不允許未經 GCP IAM 驗證的呼叫，手機 App 的 Firebase Auth token 不等於 GCP IAM 認證，請求在到達 function handler 前就被 Cloud Run 擋掉回傳 UNAUTHENTICATED |
 | v3.1.42 | 2026-03-12 | **fix**：Cloud Functions 新增 `resolveUid()` — 當 v2 callable `request.auth` 為 null 時，手動從 Authorization header 解析並 `verifyIdToken` 作為 fallback；加入 server-side structured logging 記錄 auth 狀態，便於診斷 |
