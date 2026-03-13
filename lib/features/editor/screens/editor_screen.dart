@@ -554,10 +554,10 @@ class _EmotionBar extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     cat.label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black72,
+                      color: Colors.black.withValues(alpha: 0.72),
                     ),
                   ),
                   const SizedBox(width: 3),
