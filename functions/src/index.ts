@@ -8,7 +8,7 @@ admin.initializeApp();
 const db = admin.firestore();
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
 const geminiTextModel = defineString("GEMINI_TEXT_MODEL", {
-  default: "gemini-2.0-flash-lite",
+  default: "gemini-2.0-flash",
   description: "Gemini model for text/specs generation",
 });
 const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
