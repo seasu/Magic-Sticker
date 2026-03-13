@@ -103,15 +103,12 @@ jobs:
           git checkout -b "$BRANCH"
           git commit -m "feat: add AI-generated style×emotion preview images (v${NEW_VER})"
           git push origin "$BRANCH"
+          PR_BODY=$(printf '由 **Generate Style×Emotion Preview Images** workflow 自動產生。\n\n包含 6 種風格 × 16 種情感 = 96 張示意圖（preview_{style}_{emotion}.png）。\n\nPrompt 格式與 App 實際產圖一致，示意圖呈現效果忠實反映正式貼圖風格。')
           gh pr create \
             --base main \
             --head "$BRANCH" \
-            --title "feat: add AI-generated style×emotion preview images" \
-            --body "由 **Generate Style×Emotion Preview Images** workflow 自動產生。
-
-包含 6 種風格 × 16 種情感 = 96 張示意圖（\`preview_{style}_{emotion}.png\`）。
-
-Prompt 格式與 App 實際產圖一致，示意圖呈現效果忠實反映正式貼圖風格。"
+            --title "feat: add AI-generated style x emotion preview images" \
+            --body "$PR_BODY"
           echo "✅ PR created from branch $BRANCH"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
