@@ -372,10 +372,22 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           final n = next.stickerTexts.length;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✨ $n 款貼圖概念生成完畢！點擊「生成 · 1點」來製作第一張'),
+              content: Text(
+                '✨ $n 款貼圖概念生成完畢！點擊「生成 · 1點」來製作第一張',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: Colors.white,
+                ),
+              ),
               duration: const Duration(seconds: 5),
               behavior: SnackBarBehavior.floating,
+              backgroundColor: const Color(0xDD1A1A2E),
               margin: const EdgeInsets.fromLTRB(12, 0, 12, 96),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
         });
