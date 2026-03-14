@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.1.81+202 |
+| 目前版本 | v3.1.84+205 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -29,15 +29,21 @@
 
 > Gemini API Key 不再打包進 App，完全存放於 Firebase Cloud Functions 環境變數，防止反編譯洩漏。
 
+**v3.1.84 新增：Firebase App Check**
+
+> 所有 Cloud Functions 與 Firestore 存取均須通過 App Check 裝置驗證（Android: Play Integrity / Debug Token；iOS Phase 2: DeviceCheck），防止非官方客戶端盜用 API。
+
 **生成流程**
 ```
 選圖 → Resize（≤1080px）
   → Cloud Function: generateStickerSpecs（免費）
+      ├── 驗證 App Check（enforceAppCheck: true）
       ├── 驗證 Firebase Auth
       └── 呼叫 Gemini 2.0 Flash（文字）→ 取得 8 組規格（不扣點）
   → Editor 顯示 8 張 Spec 預覽卡片（文字 + 情緒 + 背景色）
   → 使用者點擊「生成 · 1點」觸發個別貼圖生成
       → Cloud Function: generateStickerImage（1 點/張）
+          ├── 驗證 App Check（enforceAppCheck: true）
           ├── 驗證 Firebase Auth
           ├── Firestore Transaction 原子性扣 1 點
           ├── 寫入 creditHistory 紀錄

@@ -1,3 +1,4 @@
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
@@ -25,6 +26,18 @@ Future<void> main() async {
     }
   } catch (e) {
     LogService.instance.warning('Firebase initializeApp failed: $e', tag: 'Firebase');
+  }
+
+  // Firebase App Check（防止非官方 App 呼叫 Cloud Functions）
+  try {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider:
+          kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+      appleProvider:
+          kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
+    );
+  } catch (e) {
+    LogService.instance.warning('App Check activate failed: $e', tag: 'AppCheck');
   }
 
   // 全域錯誤攔截（放在 try 外面確保一定執行）

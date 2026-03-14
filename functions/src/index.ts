@@ -93,6 +93,7 @@ export const generateStickerSpecs = onCall(
     memory: "512MiB",
     secrets: [geminiApiKey],
     invoker: "public",
+    enforceAppCheck: true,
   },
   async (request) => {
     // ★ 此行出現在 Firebase Logs = Cloud Run IAM 通過，function 程式碼有執行
@@ -101,6 +102,9 @@ export const generateStickerSpecs = onCall(
       hasAuth: !!request.auth,
       hasAuthHeader: !!request.rawRequest?.headers?.authorization,
     });
+    if (!request.app) {
+      throw new HttpsError("failed-precondition", "App Check verification failed.");
+    }
     const uid = await resolveUid(request);
     log("generateStickerSpecs: auth OK", {uid});
 
@@ -241,6 +245,7 @@ export const generateStickerImage = onCall(
     memory: "1GiB",
     secrets: [geminiApiKey],
     invoker: "public",
+    enforceAppCheck: true,
   },
   async (request) => {
     // ★ 此行出現在 Firebase Logs = Cloud Run IAM 通過，function 程式碼有執行
@@ -248,6 +253,9 @@ export const generateStickerImage = onCall(
       hasAuth: !!request.auth,
       hasAuthHeader: !!request.rawRequest?.headers?.authorization,
     });
+    if (!request.app) {
+      throw new HttpsError("failed-precondition", "App Check verification failed.");
+    }
     const uid = await resolveUid(request);
     log("generateStickerImage: auth OK", {uid});
 

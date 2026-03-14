@@ -1,7 +1,7 @@
 name: magic_sticker
 description: AI 一鍵產 LINE 貼圖 — Magic Sticker
 publish_to: 'none'
-version: 3.1.83+204
+version: 3.1.84+205
 
 environment:
   sdk: '>=3.7.0 <4.0.0'
@@ -25,6 +25,7 @@ dependencies:
   firebase_core: ^3.3.0
   firebase_crashlytics: ^4.1.0
   firebase_analytics: ^11.2.0
+  firebase_app_check: ^0.3.2+2
 
   # AI 文案 & 圖片生成（透過 Cloud Functions 代理，App 不含 API Key）
   cloud_functions: ^5.1.3

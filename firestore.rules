@@ -1,14 +1,18 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 用戶文件：只允許本人讀寫（匿名用戶亦可，只要 auth.uid 對得上）
+    // 用戶文件：只允許本人讀寫，且必須通過 App Check（防止非官方客戶端直接存取）
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if request.auth != null
+                         && request.auth.uid == uid
+                         && request.app != null;
 
       // 點數紀錄：本人可讀、可新增（不可修改或刪除）
       // 客戶端負責 earned 記錄；Cloud Functions 負責 spent/refund 記錄
       match /creditHistory/{docId} {
-        allow read, create: if request.auth != null && request.auth.uid == uid;
+        allow read, create: if request.auth != null
+                            && request.auth.uid == uid
+                            && request.app != null;
       }
     }
   }
