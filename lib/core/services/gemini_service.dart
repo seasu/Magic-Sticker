@@ -60,7 +60,10 @@ class GeminiService {
         });
 
         final data = result.data;
-        final rawSpecs = (data['specs'] as List).cast<Map<String, dynamic>>();
+        final rawList = (data['specs'] as List<dynamic>);
+        final rawSpecs = rawList
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
         final specs = rawSpecs.take(ids.length).map(StickerSpec.fromJson).toList();
 
         FirebaseService.log('GeminiService.generateStickerSpecs: done (${specs.length} specs)');

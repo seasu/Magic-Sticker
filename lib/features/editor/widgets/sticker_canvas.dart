@@ -173,7 +173,8 @@ class _StickerCanvasState extends State<StickerCanvas> {
     _textSizeScale = widget.fontSizeScale;
     // 編輯 popup 開啟時 generatedImage 一開始就非 null，
     // didUpdateWidget 的條件不會觸發，在此補上 auto-fit
-    if (widget.generatedImage != null) {
+    // length > 1：排除 sentinel(1) 與失敗狀態(0)，只處理真實圖片
+    if (widget.generatedImage != null && widget.generatedImage!.length > 1) {
       _autoFitGeneratedImage(widget.generatedImage!);
     }
   }
@@ -184,7 +185,8 @@ class _StickerCanvasState extends State<StickerCanvas> {
 
     // 圖片首次到達時重置視角
     // Gemini 產出的圓形貼圖圓圈約佔畫布 90–95%，以 1.12x 補足至填滿 ClipOval
-    if (old.generatedImage == null && widget.generatedImage != null) {
+    if (old.generatedImage == null && widget.generatedImage != null &&
+        widget.generatedImage!.length > 1) {
       _imgOffset = Offset.zero;
       _imgScale = 1.12; // temporary default；isolate 計算完後會更新
       _imgAngle = 0.0;
