@@ -12,6 +12,7 @@ class CreditHistoryReason {
   static const newAccount = 'new_account';
   static const loginBonus = 'login_bonus';
   static const rewardedAd = 'rewarded_ad';
+  static const purchase = 'purchase';  // IAP 點數包購買
   static const generateStickerImage = 'generate_sticker_image';
   static const rateLimited = 'rate_limited';
   static const apiError = 'api_error';
@@ -66,6 +67,8 @@ class CreditHistoryEntry {
         return '登入獎勵';
       case CreditHistoryReason.rewardedAd:
         return '觀看廣告';
+      case CreditHistoryReason.purchase:
+        return '購買點數包';
       case CreditHistoryReason.generateStickerImage:
         return '生成貼圖';
       case CreditHistoryReason.rateLimited:

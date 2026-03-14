@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'firebase_service.dart';
 
@@ -15,6 +16,34 @@ import 'firebase_service.dart';
 class AdsService {
   AdsService._();
   static final instance = AdsService._();
+
+  // ── 每日廣告上限 ───────────────────────────────────────────────────────────
+  static const int kDailyAdLimit = 3;
+  static const _kPrefDate  = 'ad_date';
+  static const _kPrefCount = 'ad_count';
+
+  String _todayString() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}';
+  }
+
+  /// 取得今日已觀看廣告次數（跨日自動重置）
+  Future<int> getTodayAdCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = _todayString();
+    if (prefs.getString(_kPrefDate) != today) {
+      await prefs.setString(_kPrefDate, today);
+      await prefs.setInt(_kPrefCount, 0);
+      return 0;
+    }
+    return prefs.getInt(_kPrefCount) ?? 0;
+  }
+
+  Future<void> _incrementAdCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final current = await getTodayAdCount();
+    await prefs.setInt(_kPrefCount, current + 1);
+  }
 
   // ── Ad Unit IDs ────────────────────────────────────────────────────────────
   // 測試 ID（開發期間使用 Google 官方測試 unit）
@@ -96,11 +125,19 @@ class AdsService {
   /// 顯示激勵廣告。
   ///
   /// [onRewarded] — 使用者完整看完廣告後呼叫（可在此增加點數）
-  /// [onFailed]   — 廣告未就緒或顯示失敗時呼叫
+  /// [onFailed]   — 廣告未就緒、顯示失敗、或已達每日上限時呼叫
   Future<void> showRewardedAd({
     required VoidCallback onRewarded,
     VoidCallback? onFailed,
   }) async {
+    // 每日上限檢查
+    final count = await getTodayAdCount();
+    if (count >= kDailyAdLimit) {
+      FirebaseService.log('AdsService: daily ad limit reached ($count/$kDailyAdLimit)');
+      onFailed?.call();
+      return;
+    }
+
     if (_rewardedAd == null) {
       FirebaseService.log('AdsService: ad not ready');
       loadRewardedAd();
@@ -116,6 +153,7 @@ class AdsService {
           FirebaseService.log(
             'AdsService: user earned reward — ${reward.amount} ${reward.type}',
           );
+          _incrementAdCount(); // 記錄已觀看
           onRewarded();
         },
       );

@@ -9,6 +9,7 @@ import '../../core/theme/app_colors.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/widgets/login_bottom_sheet.dart';
 import '../../features/billing/providers/credit_provider.dart';
+import '../../features/billing/widgets/credit_shop_sheet.dart';
 
 /// AppBar 右上角的點數 + 帳號狀態徽章
 ///
@@ -342,6 +343,43 @@ class _UserAccountSheet extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
+          // ── 購買點數 ──────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+                CreditShopSheet.show(context);
+              },
+              child: Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: AppColors.gradient,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    const Icon(Icons.bolt_rounded,
+                        size: 18, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Text(
+                      '購買點數',
+                      style: GoogleFonts.notoSansTc(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const Spacer(),
+                    const Icon(Icons.chevron_right_rounded,
+                        size: 20, color: Colors.white),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           // ── 查看點數紀錄 ──────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),

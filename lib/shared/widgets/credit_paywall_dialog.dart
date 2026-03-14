@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/widgets/login_bottom_sheet.dart';
 import '../../features/billing/providers/credit_provider.dart';
+import '../../features/billing/widgets/credit_shop_sheet.dart';
 
 /// 點數不足時彈出的 Paywall 對話框
 ///
@@ -36,6 +37,15 @@ class CreditPaywallDialog extends ConsumerStatefulWidget {
 class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
   bool _isWatchingAd = false;
   bool _isLoggingIn = false;
+  int _todayAdCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    AdsService.instance.getTodayAdCount().then((count) {
+      if (mounted) setState(() => _todayAdCount = count);
+    });
+  }
 
   // ── 看廣告 ────────────────────────────────────────────────────────────────
 
@@ -62,7 +72,10 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
     );
 
     if (mounted) {
-      setState(() => _isWatchingAd = false);
+      setState(() {
+        _isWatchingAd = false;
+        if (rewarded) _todayAdCount++;
+      });
       if (rewarded) Navigator.of(context).pop(true);
     }
   }
@@ -87,6 +100,7 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
   Widget build(BuildContext context) {
     final isGuest = ref.watch(isGuestProvider);
     final isLoading = _isWatchingAd || _isLoggingIn;
+    final adLimitReached = _todayAdCount >= AdsService.kDailyAdLimit;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -169,33 +183,30 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
             // ── 看廣告 +1 點 ─────────────────────────────────────────
             _OptionButton(
               isLoading: _isWatchingAd,
-              enabled: !isLoading,
+              enabled: !isLoading && !adLimitReached,
               onTap: _watchAd,
               icon: Icons.play_circle_outline_rounded,
               label: '看廣告，獲得 1 點',
-              sublabel: '短片約 15–30 秒',
+              sublabel: adLimitReached
+                  ? '今日已達上限（$_todayAdCount/${AdsService.kDailyAdLimit}）'
+                  : '短片約 15–30 秒',
               gradient: null,
               foregroundColor: AppColors.textPrimary,
               borderColor: AppColors.divider,
             ),
             const SizedBox(height: 10),
 
-            // ── 購買點數（預留）──────────────────────────────────────
+            // ── 購買點數包 ────────────────────────────────────────────
             _OptionButton(
               isLoading: false,
               enabled: !isLoading,
               onTap: () {
                 Navigator.of(context).pop(false);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('購買功能即將推出 🛒',
-                      style: GoogleFonts.notoSansTc(fontSize: 13)),
-                  behavior: SnackBarBehavior.floating,
-                  duration: const Duration(seconds: 2),
-                ));
+                CreditShopSheet.show(context);
               },
               icon: Icons.shopping_bag_outlined,
               label: '購買點數包',
-              sublabel: '即將推出',
+              sublabel: '一次買斷・永久有效',
               gradient: null,
               foregroundColor: AppColors.textPrimary,
               borderColor: AppColors.divider,

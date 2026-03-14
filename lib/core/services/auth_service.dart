@@ -157,6 +157,10 @@ class AuthService {
     }
   }
 
+  /// 購買點數包後增加點數（內部呼叫 addCredits，reason = purchase）
+  static Future<void> addCreditsFromPurchase(String uid, int amount) =>
+      addCredits(uid, amount, reason: CreditHistoryReason.purchase);
+
   /// 增加點數（看廣告 / 登入獎勵後呼叫）
   static Future<void> addCredits(
     String uid,

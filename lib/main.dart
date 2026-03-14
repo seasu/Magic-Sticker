@@ -8,6 +8,7 @@ import 'app.dart';
 import 'core/services/ads_service.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/log_service.dart';
+import 'features/billing/services/iap_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,6 +48,9 @@ Future<void> main() async {
 
   // AdMob 初始化（含預載 Rewarded Ad）
   await AdsService.instance.initialize();
+
+  // IAP 初始化（監聽購買流 + 載入商品）
+  await IAPService.instance.initialize();
 
   // 匿名登入（訪客模式）：確保每個用戶都有 Firebase UID
   await AuthService.signInAnonymouslyIfNeeded();

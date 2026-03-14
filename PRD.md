@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.1.77+198 |
+| 目前版本 | v3.1.81+202 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -208,6 +208,11 @@ lib/
 | 版本 | 日期 | 摘要 |
 |---|---|---|
 | v3.1.77 | 2026-03-14 | **feat(loading)**：以影片取代 Flutter 手刻 loading 動畫 — (1) 新增 `video_player: ^2.9.2` 依賴；(2) `_FunLoadingViewState` 改用 `VideoPlayerController.asset('assets/loading_animation.mp4')`，靜音迴圈播放，`FittedBox.cover` 填滿 70% 動畫區；(3) 刪除 `_ChaseStage`、`_GroomStage`（共 -423 行）；(4) 更新 `_imageMessages` 移除「貓洗臉」文案；(5) 保留相同的旋轉提示文字 + `_BounceDots` 進度指示器；錯誤 fallback：影片初始化失敗時靜默降級（`_videoError = true`）不 crash。 |
+| v3.1.81 | 2026-03-14 | **fix(prompt)**：Gemini 圖片生成 Prompt 全面改為繁體中文 — `sticker_generation_service.dart` 圓形／方形 Prompt 主體翻譯為中文結構（【畫布規格】【角色設計】【裝飾】【配色】【輸出】）；`sticker_style.dart` 的 `characterDesc`（6 種風格）與 `promptSuffix`（6 種風格）同步中文化，動態變數（`spec.emotion`、`spec.bgColor`）仍維持英文。 |
+| v3.1.80 | 2026-03-14 | **fix(precision)**：優化貼圖精準度 — (1) `sticker_canvas.dart` Auto-fit scale 改用正確 Cover 公式：`max(iW/contentW, iH/contentH) × 1.05`，修正原本 `max÷max` 導致非正方形內容短軸留空隙的問題；(2) `sticker_generation_service.dart` 強化圓形 Prompt：改為逐項 CRITICAL 結構，新增「4 corner pixels MUST be transparent」具體約束、明確指定角色位於圓圈上方 70% 區域、circle edge 改為「hard sharp alpha cutoff」措辭，提升 Gemini 理解精準度。 |
+| v3.1.79 | 2026-03-14 | **chore(deps)**：`flutter pub get` 解析 `in_app_purchase ^3.2.0` 全部 transitive 依賴，更新 `pubspec.lock`（`in_app_purchase 3.2.3`、`in_app_purchase_android`、`in_app_purchase_platform_interface` 等）。 |
+| v3.1.78 | 2026-03-14 | **feat(billing)**：點數商店上線 — 新增 `CreditShopSheet`（嘗鮮包 8pt NT$30 / 創作者包 24pt NT$79 / 達人包 80pt NT$199），`in_app_purchase ^3.2.0` 串接 Google Play；廣告每日上限 3 次（`SharedPreferences` 跨日重置）；購買入口整合至首頁 credit badge 帳號 sheet。 |
+| v3.1.77 | 2026-03-14 | **feat(loading)**：以 `loading_animation.mp4` 取代手刻貓咪 Loading 動畫，移除 `_ChaseStage`/`_GroomStage`（-423 行），改用 `VideoPlayerController`。 |
 | v3.1.76 | 2026-03-14 | **chore(assets)**：新增 loading 動畫影片素材（`assets/loading_animation.mp4`，從原始長檔名重命名），供後續取代現有 Flutter 動畫 loading 使用。 |
 | v3.1.75 | 2026-03-14 | **fix(canvas)**：Auto-fit 改進 — (1) `_findContentBounds` 新增近黑色像素排除（R/G/B < 40），消除黑色外框干擾 bounding box；加入 fallback pass（排除黑色後無彩色像素時改用 alpha-only）；回傳值補上 `imageHeight`；(2) `_autoFitGeneratedImage` 新增置中 offset 計算，將彩色內容中心對齊畫布中心（Transform.scale 公式補償）；新增 `_canvasSize == Size.zero` 防呆，`initState` 呼叫時延至下一幀再執行；(3) `StickerGenerationService` 加入 `kDebugMode` Prompt 印出（格式化 debugPrint），方便測試調整 Prompt 內容。 |
 | v3.1.67 | 2026-03-14 | **feat(history)**：新增「生成紀錄」功能 — (1) `StickerArchiveService`：點數圖片生成後立即以 fire-and-forget 方式將 AI PNG 存入 `app_documents/sticker_archives/`，元資料存於 `SharedPreferences`，上限 200 筆自動淘汰最舊；(2) `StickerHistoryScreen`：2 欄 Grid，支援下載至相簿（`gal`）、長按刪除；(3) HomeScreen AppBar 新增 `history_rounded` 入口按鈕；(4) 新增 `/sticker-history` 路由；零新依賴。 |

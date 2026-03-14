@@ -293,9 +293,11 @@ class _StickerCanvasState extends State<StickerCanvas> {
       final iW   = bounds[4].toDouble();
       final iH   = bounds[5].toDouble();
 
-      // Scale：讓彩色內容最大軸填滿圓框（1.05× 把殘留外框薄邊推到 ClipOval 外）
-      final contentSize = max(maxX - minX, maxY - minY);
-      final newScale = (max(iW, iH) / contentSize * 1.05).clamp(1.0, 3.0);
+      // Scale：Cover 計算——兩個方向都必須填滿，取較大倍率（1.05× 推殘留薄邊出 ClipOval）
+      // 注意：不可用 max÷max，否則當內容非正方形時短軸仍有空隙
+      final scaleX = iW / (maxX - minX);
+      final scaleY = iH / (maxY - minY);
+      final newScale = (max(scaleX, scaleY) * 1.05).clamp(1.0, 3.0);
 
       // Offset：把彩色內容中心對齊畫布中心
       // Transform 順序：先 Translate（_imgOffset）再 Scale（_imgScale，從畫布中心縮放）
