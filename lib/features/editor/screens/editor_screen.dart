@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' show cos, min, pi, sin;
+import 'dart:math' show min, pi, sin;
 import 'dart:ui' as ui;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -12,6 +12,7 @@ import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/services/firebase_service.dart';
@@ -412,7 +413,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 _TopBar(onBack: () => context.go('/')),
 
                 if (isLoading)
-                  const Expanded(
+                  Expanded(
                     child: _FunLoadingView(
                       title: 'AI 分析照片中',
                       subtitle: '✦ 免費 · 產生 8 款貼圖概念，約 5~10 秒',
@@ -1339,10 +1340,11 @@ class _FunLoadingView extends StatefulWidget {
 }
 
 class _FunLoadingViewState extends State<_FunLoadingView>
-    with TickerProviderStateMixin {
-  late final AnimationController _chaseCtrl;
-  late final AnimationController _bounceCtrl;
-  late final AnimationController _cloudCtrl;
+    with SingleTickerProviderStateMixin {
+  // 跳動圓點用的 controller（單一，影片自帶動畫不需要額外 ticker）
+  late final AnimationController _dotsCtrl;
+  late final VideoPlayerController _videoCtrl;
+  bool _videoError = false;
   int _msgIndex = 0;
   Timer? _msgTimer;
 
@@ -1357,10 +1359,10 @@ class _FunLoadingViewState extends State<_FunLoadingView>
 
   // AI 繪製貼圖圖片階段（付費）
   static const _imageMessages = [
-    '🐾 貓咪洗臉中，AI 同步繪圖…',
-    '💧 仔細清潔每個細節…',
+    '🎨 AI 正在描繪你的專屬貼圖…',
     '✨ 魔法特效施工中…',
-    '🫧 洗白白了！快好了…',
+    '🖌️ 仔細調整每個細節…',
+    '🌟 貼圖即將完成…',
     '💨 快完成了，再等一下！',
   ];
 
@@ -1370,32 +1372,35 @@ class _FunLoadingViewState extends State<_FunLoadingView>
   @override
   void initState() {
     super.initState();
-    _chaseCtrl = AnimationController(
+    _dotsCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3800),
-    )..repeat();
-    _bounceCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 420),
+      duration: const Duration(milliseconds: 380),
     )..repeat(reverse: true);
-    _cloudCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 9000),
-    )..repeat();
+
+    _videoCtrl = VideoPlayerController.asset('assets/loading_animation.mp4')
+      ..initialize().then((_) {
+        if (mounted) {
+          _videoCtrl
+            ..setLooping(true)
+            ..setVolume(0)
+            ..play();
+          setState(() {});
+        }
+      }).catchError((_) {
+        if (mounted) setState(() => _videoError = true);
+      });
+
     _msgTimer = Timer.periodic(const Duration(milliseconds: 2800), (_) {
       if (mounted) {
         setState(() => _msgIndex = (_msgIndex + 1) % _messages.length);
       }
     });
-    // Reset index so widget re-use picks up the right message set immediately
-    _msgIndex = 0;
   }
 
   @override
   void dispose() {
-    _chaseCtrl.dispose();
-    _bounceCtrl.dispose();
-    _cloudCtrl.dispose();
+    _dotsCtrl.dispose();
+    _videoCtrl.dispose();
     _msgTimer?.cancel();
     super.dispose();
   }
@@ -1436,20 +1441,23 @@ class _FunLoadingViewState extends State<_FunLoadingView>
               ),
             ),
 
-          // ── 大場景動畫區（佔 70%）───────────────────────────────────
+          // ── 影片動畫區（佔 70%）──────────────────────────────────────
           Expanded(
             flex: 7,
-            child: widget.isImageGen
-                ? _GroomStage(
-                    groomCtrl: _chaseCtrl,
-                    bounceCtrl: _bounceCtrl,
-                    driftCtrl: _cloudCtrl,
-                  )
-                : _ChaseStage(
-                    chaseCtrl: _chaseCtrl,
-                    bounceCtrl: _bounceCtrl,
-                    cloudCtrl: _cloudCtrl,
-                  ),
+            child: _videoError
+                ? const SizedBox.shrink()
+                : _videoCtrl.value.isInitialized
+                    ? SizedBox.expand(
+                        child: FittedBox(
+                          fit: BoxFit.cover,
+                          child: SizedBox(
+                            width: _videoCtrl.value.size.width,
+                            height: _videoCtrl.value.size.height,
+                            child: VideoPlayer(_videoCtrl),
+                          ),
+                        ),
+                      )
+                    : const Center(child: CircularProgressIndicator()),
           ),
 
           // ── 訊息區（佔 30%）──────────────────────────────────────────
@@ -1488,7 +1496,7 @@ class _FunLoadingViewState extends State<_FunLoadingView>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _BounceDots(controller: _chaseCtrl),
+                  _BounceDots(controller: _dotsCtrl),
                 ],
               ),
             ),
@@ -1534,429 +1542,6 @@ class _BounceDots extends AnimatedWidget {
     );
   }
 }
-
-/// 全螢幕追逐場景：🐭 前跑、🐱 後追、雲朵飄移、草地、星芒尾跡
-class _ChaseStage extends StatelessWidget {
-  final AnimationController chaseCtrl;
-  final AnimationController bounceCtrl;
-  final AnimationController cloudCtrl;
-
-  const _ChaseStage({
-    required this.chaseCtrl,
-    required this.bounceCtrl,
-    required this.cloudCtrl,
-  });
-
-  static const _catFontSize = 90.0;
-  static const _mouseFontSize = 78.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (ctx, constraints) {
-      final w = constraints.maxWidth;
-      final h = constraints.maxHeight;
-      final groundY = h * 0.62; // 地板在 62% 高度
-      final travelW = w - _catFontSize - 24;
-
-      return Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // ── 雲朵（緩慢飄移）──────────────────────────────────────────
-          AnimatedBuilder(
-            animation: cloudCtrl,
-            builder: (_, __) {
-              final t = cloudCtrl.value;
-              return Stack(
-                children: [
-                  Positioned(
-                    left: (w * (0.05 + t * 0.6)) % (w + 80) - 40,
-                    top: h * 0.06,
-                    child: const Text('☁️',
-                        style: TextStyle(fontSize: 52)),
-                  ),
-                  Positioned(
-                    left: (w * (0.55 + t * 0.45)) % (w + 70) - 35,
-                    top: h * 0.17,
-                    child: const Text('⛅',
-                        style: TextStyle(fontSize: 40)),
-                  ),
-                  Positioned(
-                    left: (w * (0.25 + t * 0.35)) % (w + 60) - 30,
-                    top: h * 0.03,
-                    child: const Text('☁️',
-                        style: TextStyle(fontSize: 34)),
-                  ),
-                ],
-              );
-            },
-          ),
-
-          // ── 地板線（草地色）──────────────────────────────────────────
-          Positioned(
-            top: groundY,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: 4,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.transparent,
-                    Color(0xFF6DBE6D),
-                    Color(0xFF6DBE6D),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // ── 草叢裝飾 ─────────────────────────────────────────────────
-          Positioned(
-            top: groundY - 10,
-            left: w * 0.08,
-            child: const Text('🌿', style: TextStyle(fontSize: 20)),
-          ),
-          Positioned(
-            top: groundY - 9,
-            left: w * 0.42,
-            child: const Text('🌱', style: TextStyle(fontSize: 17)),
-          ),
-          Positioned(
-            top: groundY - 8,
-            right: w * 0.12,
-            child: const Text('🌿', style: TextStyle(fontSize: 16)),
-          ),
-
-          // ── 角色動畫 ─────────────────────────────────────────────────
-          AnimatedBuilder(
-            animation: Listenable.merge([chaseCtrl, bounceCtrl]),
-            builder: (_, __) {
-              final t = chaseCtrl.value;
-              final b = bounceCtrl.value;
-
-              final mouseProgress = (t + 0.18).clamp(0.0, 1.0);
-              final catProgress = t;
-
-              final catX = travelW * catProgress;
-              final mouseX =
-                  (travelW * mouseProgress + 100).clamp(0.0, w - _mouseFontSize);
-
-              // sin 曲線彈跳（自然跑步感）
-              final catBounce = -16.0 * sin(b * pi);
-              final mouseBounce = -20.0 * sin((b + 0.22) * pi);
-
-              final sparkOpacity =
-                  (sin(t * pi * 7) * 0.5 + 0.5).clamp(0.0, 1.0);
-
-              // 角色腳底對齊地板
-              final charBaseY = groundY - _catFontSize + 6;
-
-              return Stack(
-                children: [
-                  // ── 速度線（貓身後）
-                  Positioned(
-                    left: catX - 36,
-                    top: charBaseY + catBounce + 36,
-                    child: Opacity(
-                      opacity: 0.45,
-                      child: Text(
-                        '— — —',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey.shade400,
-                          letterSpacing: -3,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // ── 星芒尾跡（老鼠身後）
-                  Positioned(
-                    left: mouseX - 26,
-                    top: charBaseY + mouseBounce + 8,
-                    child: Opacity(
-                      opacity: sparkOpacity * 0.9,
-                      child: const Text('✨',
-                          style: TextStyle(fontSize: 26)),
-                    ),
-                  ),
-                  Positioned(
-                    left: mouseX - 52,
-                    top: charBaseY + mouseBounce + 22,
-                    child: Opacity(
-                      opacity: (1 - sparkOpacity) * 0.7,
-                      child: const Text('⭐',
-                          style: TextStyle(fontSize: 18)),
-                    ),
-                  ),
-                  Positioned(
-                    left: mouseX - 72,
-                    top: charBaseY + mouseBounce + 12,
-                    child: Opacity(
-                      opacity: sparkOpacity * 0.5,
-                      child: const Text('💫',
-                          style: TextStyle(fontSize: 14)),
-                    ),
-                  ),
-
-                  // ── 🐭 老鼠（水平翻轉，面朝逃跑方向）
-                  Positioned(
-                    left: mouseX,
-                    top: charBaseY + mouseBounce,
-                    child: Transform(
-                      alignment: Alignment.center,
-                      transform: Matrix4.identity()..scale(-1.0, 1.0),
-                      child: const Text('🐭',
-                          style: TextStyle(fontSize: _mouseFontSize)),
-                    ),
-                  ),
-
-                  // ── 🐱 貓
-                  Positioned(
-                    left: catX,
-                    top: charBaseY + catBounce,
-                    child: const Text('🐱',
-                        style: TextStyle(fontSize: _catFontSize)),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-      );
-    });
-  }
-}
-
-// ─── 貓咪畫師動畫（圖片生成階段）────────────────────────────────────────────────
-
-/// 貓咪坐在畫架前揮動畫筆，筆刷左右掃過畫布，顏料星芒飛濺。
-/// 使用與 [_ChaseStage] 相同的三個 controller 以共用 [_FunLoadingView] 初始化邏輯。
-class _GroomStage extends StatelessWidget {
-  final AnimationController groomCtrl;  // 3800 ms loop → 爪子軌跡 + 閃光
-  final AnimationController bounceCtrl; // 420 ms loop  → 水花跳動（保留但未用）
-  final AnimationController driftCtrl;  // 9000 ms loop → 背景泡泡漂移
-
-  const _GroomStage({
-    required this.groomCtrl,
-    required this.bounceCtrl,
-    required this.driftCtrl,
-  });
-
-  static const _catSize = 100.0;
-  static const _pawSize = 36.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (ctx, box) {
-      final w = box.maxWidth;
-      final h = box.maxHeight;
-      final groundY = h * 0.62;
-      final catBaseY = groundY - _catSize + 8;
-
-      // 貓咪置中，臉部中心（約 emoji 頂部 28%）
-      final catCenterX = w * 0.5 - _catSize / 2;
-      final faceCenterX = catCenterX + _catSize * 0.48;
-      final faceCenterY = catBaseY + _catSize * 0.28;
-
-      return Stack(clipBehavior: Clip.none, children: [
-        // ── 漂浮泡泡（背景）─────────────────────────────────────────────
-        AnimatedBuilder(
-          animation: driftCtrl,
-          builder: (_, __) {
-            final t = driftCtrl.value;
-            final b2 = (t + 0.35) % 1.0;
-            final b3 = (t + 0.68) % 1.0;
-            return Stack(children: [
-              Positioned(
-                left: w * 0.18 + 12 * sin(t * 2 * pi),
-                top: h * 0.58 - t * h * 0.70,
-                child: Opacity(
-                  opacity: sin(t * pi).clamp(0.0, 0.70),
-                  child: const Text('🫧', style: TextStyle(fontSize: 22)),
-                ),
-              ),
-              Positioned(
-                left: w * 0.72 + 10 * cos(b2 * 2 * pi),
-                top: h * 0.58 - b2 * h * 0.70,
-                child: Opacity(
-                  opacity: sin(b2 * pi).clamp(0.0, 0.60),
-                  child: const Text('🫧', style: TextStyle(fontSize: 16)),
-                ),
-              ),
-              Positioned(
-                left: w * 0.44 + 8 * sin(b3 * 2 * pi),
-                top: h * 0.58 - b3 * h * 0.70,
-                child: Opacity(
-                  opacity: sin(b3 * pi).clamp(0.0, 0.55),
-                  child: const Text('💧', style: TextStyle(fontSize: 13)),
-                ),
-              ),
-            ]);
-          },
-        ),
-
-        // ── 地板 ────────────────────────────────────────────────────────
-        Positioned(
-          top: groundY,
-          left: 0,
-          right: 0,
-          child: Container(
-            height: 4,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [
-                Colors.transparent,
-                Color(0xFF6DBE6D),
-                Color(0xFF6DBE6D),
-                Colors.transparent,
-              ]),
-            ),
-          ),
-        ),
-
-        // ── 地板裝飾 ─────────────────────────────────────────────────────
-        Positioned(
-          top: groundY - 9,
-          left: w * 0.05,
-          child: const Text('🌿', style: TextStyle(fontSize: 18)),
-        ),
-        Positioned(
-          top: groundY - 8,
-          right: w * 0.08,
-          child: const Text('🌱', style: TextStyle(fontSize: 16)),
-        ),
-
-        // ── 主動畫 ───────────────────────────────────────────────────────
-        AnimatedBuilder(
-          animation: groomCtrl,
-          builder: (_, __) {
-            final t = groomCtrl.value;
-
-            // ── 三段動畫：舔爪 → 橢圓洗臉 → 落爪＋閃光 ──────────────
-            const lickEnd = 0.18; // 0.0~0.18：爪子舉起到嘴邊
-            const rubEnd  = 0.78; // 0.18~0.78：橢圓軌跡洗臉（一圈）
-            // 0.78~1.00：爪子落下＋閃光＋愛心
-
-            const rubRx = 20.0; // 橢圓 X 半徑（跨越臉部寬度）
-            const rubRy = 11.0; // 橢圓 Y 半徑（眉心到臉頰幅度）
-
-            late double pawX, pawY, pawAngle;
-            double tongueOpacity = 0;
-            double dropOpacity   = 0;
-            double sparkOpacity  = 0;
-            double heartRise     = 0;
-
-            if (t < lickEnd) {
-              // Phase 1：爪子從腹部緩緩舉起到嘴邊
-              final p = Curves.easeInOut.transform(t / lickEnd);
-              pawX     = faceCenterX - _pawSize * 0.5 + 4 * (1 - p);
-              pawY     = catBaseY + _catSize * 0.68 - _catSize * 0.44 * p;
-              pawAngle = -0.4 * p;
-              tongueOpacity = (p > 0.55 ? (p - 0.55) / 0.45 : 0.0).clamp(0.0, 1.0);
-            } else if (t < rubEnd) {
-              // Phase 2：橢圓洗臉軌跡（從額頭出發順時針繞一圈）
-              final p     = (t - lickEnd) / (rubEnd - lickEnd); // 0→1
-              final angle = p * 2 * pi - pi * 0.5; // 從頂部（額頭）開始
-              pawX     = faceCenterX + rubRx * cos(angle) - _pawSize * 0.5;
-              pawY     = faceCenterY + rubRy * sin(angle) - _pawSize * 0.5;
-              pawAngle = angle * 0.22;
-              dropOpacity = sin(p * pi).clamp(0.0, 1.0);
-            } else {
-              // Phase 3：爪子落回 + 閃光 + 愛心上浮
-              final p  = Curves.easeOut.transform((t - rubEnd) / (1.0 - rubEnd));
-              pawX     = faceCenterX - _pawSize * 0.5;
-              pawY     = catBaseY + _catSize * 0.24 + _catSize * 0.44 * p;
-              pawAngle = 0;
-              sparkOpacity = (1 - p * 2.2).clamp(0.0, 1.0);
-              heartRise    = p;
-            }
-
-            return Stack(children: [
-              // 🐱 貓咪（置中）
-              Positioned(
-                left: catCenterX,
-                top: catBaseY,
-                child: const Text('🐱',
-                    style: TextStyle(fontSize: _catSize)),
-              ),
-
-              // 👅 舌頭提示（舔爪階段末）
-              if (tongueOpacity > 0.05)
-                Positioned(
-                  left: faceCenterX - 6,
-                  top: faceCenterY + 14,
-                  child: Opacity(
-                    opacity: tongueOpacity,
-                    child: const Text('👅',
-                        style: TextStyle(fontSize: 13)),
-                  ),
-                ),
-
-              // 🐾 貓爪（動畫主角）
-              Positioned(
-                left: pawX,
-                top: pawY,
-                child: Transform.rotate(
-                  angle: pawAngle,
-                  child: const Text('🐾',
-                      style: TextStyle(fontSize: _pawSize)),
-                ),
-              ),
-
-              // 💦 水花（洗臉階段）
-              if (dropOpacity > 0.15)
-                Positioned(
-                  left: pawX + 28,
-                  top: pawY - 8,
-                  child: Opacity(
-                    opacity: (dropOpacity * 0.85).clamp(0.0, 1.0),
-                    child: const Text('💦',
-                        style: TextStyle(fontSize: 14)),
-                  ),
-                ),
-              if (dropOpacity > 0.35)
-                Positioned(
-                  left: pawX - 10,
-                  top: pawY - 14,
-                  child: Opacity(
-                    opacity: (dropOpacity * 0.65).clamp(0.0, 1.0),
-                    child: const Text('💧',
-                        style: TextStyle(fontSize: 12)),
-                  ),
-                ),
-
-              // ✨ 洗好了閃光
-              if (sparkOpacity > 0.05)
-                Positioned(
-                  left: faceCenterX - 14,
-                  top: faceCenterY - 28,
-                  child: Opacity(
-                    opacity: sparkOpacity,
-                    child: const Text('✨',
-                        style: TextStyle(fontSize: 28)),
-                  ),
-                ),
-
-              // 💕 愛心上浮
-              if (heartRise > 0 && heartRise < 0.72)
-                Positioned(
-                  left: faceCenterX + 20,
-                  top: faceCenterY - 8 - heartRise * 38,
-                  child: Opacity(
-                    opacity: ((0.72 - heartRise) / 0.72).clamp(0.0, 1.0),
-                    child: const Text('💕',
-                        style: TextStyle(fontSize: 18)),
-                  ),
-                ),
-            ]);
-          },
-        ),
-      ]);
-    });
-  }
-}
-
 // ─── 錯誤畫面 ─────────────────────────────────────────────────────────────────
 
 class _ErrorView extends StatelessWidget {
