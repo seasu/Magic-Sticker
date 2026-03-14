@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.1.75+196 |
+| 目前版本 | v3.1.77+198 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -207,6 +207,8 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.1.77 | 2026-03-14 | **feat(loading)**：以影片取代 Flutter 手刻 loading 動畫 — (1) 新增 `video_player: ^2.9.2` 依賴；(2) `_FunLoadingViewState` 改用 `VideoPlayerController.asset('assets/loading_animation.mp4')`，靜音迴圈播放，`FittedBox.cover` 填滿 70% 動畫區；(3) 刪除 `_ChaseStage`、`_GroomStage`（共 -423 行）；(4) 更新 `_imageMessages` 移除「貓洗臉」文案；(5) 保留相同的旋轉提示文字 + `_BounceDots` 進度指示器；錯誤 fallback：影片初始化失敗時靜默降級（`_videoError = true`）不 crash。 |
+| v3.1.76 | 2026-03-14 | **chore(assets)**：新增 loading 動畫影片素材（`assets/loading_animation.mp4`，從原始長檔名重命名），供後續取代現有 Flutter 動畫 loading 使用。 |
 | v3.1.75 | 2026-03-14 | **fix(canvas)**：Auto-fit 改進 — (1) `_findContentBounds` 新增近黑色像素排除（R/G/B < 40），消除黑色外框干擾 bounding box；加入 fallback pass（排除黑色後無彩色像素時改用 alpha-only）；回傳值補上 `imageHeight`；(2) `_autoFitGeneratedImage` 新增置中 offset 計算，將彩色內容中心對齊畫布中心（Transform.scale 公式補償）；新增 `_canvasSize == Size.zero` 防呆，`initState` 呼叫時延至下一幀再執行；(3) `StickerGenerationService` 加入 `kDebugMode` Prompt 印出（格式化 debugPrint），方便測試調整 Prompt 內容。 |
 | v3.1.67 | 2026-03-14 | **feat(history)**：新增「生成紀錄」功能 — (1) `StickerArchiveService`：點數圖片生成後立即以 fire-and-forget 方式將 AI PNG 存入 `app_documents/sticker_archives/`，元資料存於 `SharedPreferences`，上限 200 筆自動淘汰最舊；(2) `StickerHistoryScreen`：2 欄 Grid，支援下載至相簿（`gal`）、長按刪除；(3) HomeScreen AppBar 新增 `history_rounded` 入口按鈕；(4) 新增 `/sticker-history` 路由；零新依賴。 |
 | v3.1.66 | 2026-03-14 | **fix(billing)**：`creditHistoryProvider` 在查詢前呼叫 `user.getIdToken()` 強制刷新 JWT（修正 `userChanges()` emit 與 Firestore token 傳播的 race condition）；`permission-denied` 改為 graceful 降級回傳 `[]` 並記錄 info log，不再寫入 Crashlytics，消除誤報警告。 |
