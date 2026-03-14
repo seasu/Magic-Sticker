@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show Offset;
 
@@ -12,6 +13,7 @@ import '../../../core/services/gemini_service.dart';
 import '../../../core/services/sticker_generation_service.dart';
 import '../../../core/utils/image_processor.dart';
 import '../../billing/providers/credit_provider.dart';
+import '../../sticker_history/services/sticker_archive_service.dart';
 import '../models/editor_state.dart';
 
 /// 以 imagePath 為 key 的 provider
@@ -221,6 +223,28 @@ class _EditorFamilyNotifier
       updated[index] = result.bytes ?? Uint8List(0);
       if (result.bytes == null) errors[index] = 'API 未回傳圖片';
       state = state.copyWith(generatedImages: updated, imageErrors: errors);
+
+      // 自動存檔：點數已扣、圖片已產出，立即寫入本地以防使用者誤觸離開
+      if (result.bytes != null) {
+        unawaited(
+          StickerArchiveService.instance
+              .archive(
+                pngBytes: result.bytes!,
+                stickerText: state.stickerTexts[index],
+                styleIndex: styleIdx,
+                shape: state.stickerShape,
+              )
+              .catchError((Object e, StackTrace s) {
+                FirebaseService.recordError(
+                  e,
+                  s,
+                  reason: 'sticker_archive_failed_index$index',
+                );
+                return null;
+              }),
+        );
+      }
+
       return result.bytes != null ? 'ok' : 'error';
     } on FirebaseFunctionsException catch (e, stack) {
       if (e.code == 'resource-exhausted' &&

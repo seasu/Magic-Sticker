@@ -18,17 +18,36 @@ final creditProvider = NotifierProvider<CreditNotifier, int>(
 
 /// 點數異動紀錄（按時間降序，最多 50 筆）
 final creditHistoryProvider = FutureProvider.autoDispose<List<CreditHistoryEntry>>((ref) async {
-  final uid = ref.watch(currentUserProvider)?.uid;
-  if (uid == null) return [];
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return [];
+
+  // Force a token refresh so Firestore receives a valid JWT.
+  // userChanges() can emit before the token propagates to Firestore,
+  // which causes transient permission-denied errors on first load or
+  // after linkWithCredential (anonymous → real account upgrade).
+  await user.getIdToken();
+
   try {
     final snap = await FirebaseFirestore.instance
         .collection('users')
-        .doc(uid)
+        .doc(user.uid)
         .collection('creditHistory')
         .orderBy('createdAt', descending: true)
         .limit(50)
         .get();
     return snap.docs.map(CreditHistoryEntry.fromDoc).toList();
+  } on FirebaseException catch (e, stack) {
+    if (e.code == 'permission-denied') {
+      // Transient auth state (e.g. mid-transition after linkWithCredential).
+      // Return empty rather than crashing the UI; token refresh above should
+      // prevent this in steady state.
+      FirebaseService.log(
+        'creditHistoryProvider: permission-denied for uid=${user.uid} — returning []',
+      );
+      return [];
+    }
+    await FirebaseService.recordError(e, stack, reason: 'credit_history_load_failed');
+    rethrow;
   } catch (e, stack) {
     await FirebaseService.recordError(e, stack, reason: 'credit_history_load_failed');
     rethrow;

@@ -155,6 +155,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
             const Spacer(),
+            // 生成紀錄入口
+            IconButton(
+              icon: const Icon(Icons.history_rounded, color: AppColors.textSecondary),
+              tooltip: '生成紀錄',
+              onPressed: () => context.push('/sticker-history'),
+            ),
             // 點數徽章
             const CreditBadge(),
           ],
