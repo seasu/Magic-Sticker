@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/models/sticker_style.dart';
@@ -176,19 +177,8 @@ class _StickerCard extends StatelessWidget {
     onDeleted();
   }
 
-  void _openPreview(BuildContext context) {
-    final file = File(record.filePath);
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _StickerPreviewSheet(
-        record: record,
-        file: file,
-        onSave: () => _saveToGallery(context),
-        onDelete: () => _confirmDelete(context),
-      ),
-    );
+  void _openReplay(BuildContext context) {
+    context.push('/sticker-replay', extra: record);
   }
 
   @override
@@ -197,7 +187,7 @@ class _StickerCard extends StatelessWidget {
     final file = File(record.filePath);
 
     return GestureDetector(
-      onTap: () => _openPreview(context),
+      onTap: () => _openReplay(context),
       onLongPress: () => _confirmDelete(context),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(isCircle ? 200 : 16),
@@ -278,148 +268,6 @@ class _StickerCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _StickerPreviewSheet extends StatelessWidget {
-  final StickerRecord record;
-  final File file;
-  final VoidCallback onSave;
-  final VoidCallback onDelete;
-
-  const _StickerPreviewSheet({
-    required this.record,
-    required this.file,
-    required this.onSave,
-    required this.onDelete,
-  });
-
-  String _styleName(int index) {
-    if (index < 0 || index >= StickerStyle.values.length) return '';
-    return StickerStyle.values[index].label;
-  }
-
-  String _formatDate(DateTime dt) {
-    final mm = dt.month.toString().padLeft(2, '0');
-    final dd = dt.day.toString().padLeft(2, '0');
-    final hh = dt.hour.toString().padLeft(2, '0');
-    final min = dt.minute.toString().padLeft(2, '0');
-    return '$mm/$dd $hh:$min';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // drag handle
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.divider,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // 貼圖大圖
-          ClipRRect(
-            borderRadius: BorderRadius.circular(
-              record.shapeStr == 'circle' ? 200 : 20,
-            ),
-            child: file.existsSync()
-                ? Image.file(
-                    file,
-                    width: 260,
-                    height: 260,
-                    fit: BoxFit.cover,
-                  )
-                : Container(
-                    width: 260,
-                    height: 260,
-                    color: AppColors.background,
-                    child: const Icon(
-                      Icons.broken_image_outlined,
-                      color: AppColors.divider,
-                      size: 48,
-                    ),
-                  ),
-          ),
-          const SizedBox(height: 16),
-
-          // 標語
-          Text(
-            record.stickerText,
-            style: GoogleFonts.notoSansTc(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${_styleName(record.styleIndex)} · ${_formatDate(record.createdAt)}',
-            style: GoogleFonts.notoSansTc(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // 儲存按鈕
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.download_rounded),
-              label: Text(
-                '儲存至相簿',
-                style: GoogleFonts.notoSansTc(fontWeight: FontWeight.w700),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.like,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              onPressed: () {
-                Navigator.pop(context);
-                onSave();
-              },
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // 刪除按鈕
-          SizedBox(
-            width: double.infinity,
-            child: TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                onDelete();
-              },
-              child: Text(
-                '刪除此紀錄',
-                style: GoogleFonts.notoSansTc(
-                  color: AppColors.nope,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
