@@ -140,7 +140,7 @@ class CreditNotifier extends Notifier<int> {
     }
   }
 
-  Future<void> _loadCredits(String uid, {int _retryCount = 0}) async {
+  Future<void> _loadCredits(String uid, {int retryCount = 0}) async {
     // Force token refresh before the Firestore read.
     // userChanges() can fire while the new ID token is still propagating
     // to the Firestore SDK (e.g., right after linkWithCredential or
@@ -161,14 +161,14 @@ class CreditNotifier extends Notifier<int> {
       if (e.code.contains('permission-denied')) {
         // Transient auth state (e.g., mid-transition after signInWithCredential or
         // App Check token propagation delay). Retry once after a short delay.
-        if (_retryCount == 0) {
+        if (retryCount == 0) {
           FirebaseService.log(
             'CreditProvider: permission-denied for uid=$uid — transient, retrying in 3s',
           );
           await Future<void>.delayed(const Duration(seconds: 3));
           // Abort retry if user has changed in the meantime.
           if (ref.read(currentUserProvider)?.uid == uid) {
-            await _loadCredits(uid, _retryCount: 1);
+            await _loadCredits(uid, retryCount: 1);
           }
         } else {
           // Second attempt also denied — log and give up gracefully.
