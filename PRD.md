@@ -213,6 +213,8 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.1.85 | 2026-03-15 | **fix(rules)**：移除 `firestore.rules` 中 `users/{uid}` 與 `creditHistory` 的 `request.app != null` 條件 — 因客戶端尚未整合 App Check SDK，`request.app` 恆為 null，導致點數讀取（`getCredits`）、點數增加（`addCredits`）、點數歷史讀取（`creditHistoryProvider`）全部 `permission-denied`；安全性改由 Cloud Functions 層的 `enforceAppCheck: true` + `if (!request.app)` 雙重保護。 |
+| v3.1.84 | 2026-03-14 | **feat(security)**：新增 Firebase App Check 保護 Cloud Functions — `generateStickerSpecs` 與 `generateStickerImage` 加入 `enforceAppCheck: true`，並在 handler 內補上 `if (!request.app)` 手動檢查；`firestore.rules` 加入 `request.app != null` 條件。 |
 | v3.1.77 | 2026-03-14 | **feat(loading)**：以影片取代 Flutter 手刻 loading 動畫 — (1) 新增 `video_player: ^2.9.2` 依賴；(2) `_FunLoadingViewState` 改用 `VideoPlayerController.asset('assets/loading_animation.mp4')`，靜音迴圈播放，`FittedBox.cover` 填滿 70% 動畫區；(3) 刪除 `_ChaseStage`、`_GroomStage`（共 -423 行）；(4) 更新 `_imageMessages` 移除「貓洗臉」文案；(5) 保留相同的旋轉提示文字 + `_BounceDots` 進度指示器；錯誤 fallback：影片初始化失敗時靜默降級（`_videoError = true`）不 crash。 |
 | v3.1.83 | 2026-03-14 | **fix(ui)**：修正首頁 "Magic Sticker" 標題字母 descender 被 ShaderMask 裁切問題 — `height` 從 1.1 調整為 1.2，給予足夠行高空間。 |
 | v3.1.82 | 2026-03-14 | **chore(assets)**：替換 loading 動畫為 `loading_animation-square.mp4`，`VideoPlayerController` 對應更新。 |
