@@ -175,13 +175,39 @@ jobs:
           URL="https://${REGION}-${PROJECT}.cloudfunctions.net/getConfig"
 
           echo "🔍 Calling getConfig: $URL"
-          RESP=$(curl -sf -X POST "$URL" \
-            -H "Content-Type: application/json" \
-            -d '{"data":{}}' \
-            --max-time 30) || {
-            echo "❌ getConfig unreachable or returned error"
-            exit 1
-          }
+
+          # Cloud Run IAM propagation after deploy can take 15-30s.
+          # Retry up to 5 times with increasing backoff before giving up.
+          MAX_RETRY=5
+          WAIT=15
+          RESP=""
+          HTTP_STATUS=""
+
+          for i in $(seq 1 $MAX_RETRY); do
+            # Use -w to capture HTTP status separately; -s for silent body output
+            RAW=$(curl -s -o /tmp/cf_resp.json -w "%{http_code}" \
+              -X POST "$URL" \
+              -H "Content-Type: application/json" \
+              -d '{"data":{}}' \
+              --max-time 30) || RAW="000"
+            HTTP_STATUS="$RAW"
+            RESP=$(cat /tmp/cf_resp.json 2>/dev/null || echo "")
+
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✅ HTTP 200 on attempt $i"
+              break
+            fi
+
+            echo "⏳ Attempt $i/$MAX_RETRY — HTTP $HTTP_STATUS, body: $RESP"
+            if [ "$i" -lt "$MAX_RETRY" ]; then
+              echo "   Waiting ${WAIT}s for IAM propagation..."
+              sleep $WAIT
+              WAIT=$((WAIT + 10))
+            else
+              echo "❌ getConfig unreachable after $MAX_RETRY attempts (last HTTP $HTTP_STATUS)"
+              exit 1
+            fi
+          done
 
           echo "📦 Response: $RESP"
 
