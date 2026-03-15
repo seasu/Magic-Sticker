@@ -151,7 +151,7 @@ class _EmotionSelectionScreenState extends State<EmotionSelectionScreen>
                 ),
                 SizedBox(height: 1),
                 Text(
-                  '選好後，AI 會為每個情緒設計一款貼圖',
+                  '每種情緒各生成一張，可選 4–12 種',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.black45,

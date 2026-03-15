@@ -203,9 +203,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
-          // 副標語
+          // 三步驟說明橫列
           AnimatedBuilder(
             animation: _entryCtrl,
             builder: (_, child) {
@@ -215,16 +215,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ).value;
               return Opacity(opacity: t, child: child);
             },
-            child: Text(
-              '上傳照片 · 選擇風格 · AI 生成 · 即刻下載',
-              style: GoogleFonts.notoSansTc(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-                letterSpacing: 0.3,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            child: const _ThreeStepRow(),
           ),
 
           const SizedBox(height: 40),
@@ -255,6 +246,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 36),
         child: Column(
           children: [
+            // 步驟 1 提示
+            Text(
+              '步驟 1／3　選一張照片，開始製作專屬貼圖',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.notoSansTc(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 14),
             PickImageButton(
               icon: Icons.photo_library_rounded,
               label: '從相簿選取',
@@ -300,6 +302,90 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── 三步驟說明橫列 ────────────────────────────────────────────────────────────
+
+class _ThreeStepRow extends StatelessWidget {
+  const _ThreeStepRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _StepChip(number: '①', emoji: '📷', label: '選照片'),
+        _StepArrow(),
+        _StepChip(number: '②', emoji: '🎨', label: '選風格'),
+        _StepArrow(),
+        _StepChip(number: '③', emoji: '😄', label: '選情緒'),
+      ],
+    );
+  }
+}
+
+class _StepChip extends StatelessWidget {
+  final String number;
+  final String emoji;
+  final String label;
+
+  const _StepChip({
+    required this.number,
+    required this.emoji,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            number,
+            style: GoogleFonts.notoSansTc(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Text(emoji, style: const TextStyle(fontSize: 18)),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.notoSansTc(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepArrow extends StatelessWidget {
+  const _StepArrow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Text(
+        '›',
+        style: TextStyle(
+          fontSize: 20,
+          color: AppColors.textSecondary.withValues(alpha: 0.5),
         ),
       ),
     );

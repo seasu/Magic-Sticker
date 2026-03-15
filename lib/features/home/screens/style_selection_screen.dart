@@ -121,7 +121,7 @@ class _StyleSelectionScreenState extends State<StyleSelectionScreen>
                 ),
                 SizedBox(height: 1),
                 Text(
-                  '選擇風格與形狀，AI 將依此生成貼圖',
+                  '先選外框形狀，再選最喜歡的視覺風格',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.black45,
@@ -229,7 +229,7 @@ class _StyleSelectionScreenState extends State<StyleSelectionScreen>
               Text(
                 _selectedStyleIndex != null
                     ? _descs[_selectedStyleIndex!]
-                    : '請點選上方風格',
+                    : '點一下卡片即可選取',
                 style: const TextStyle(
                   fontSize: 11,
                   color: Colors.black38,
@@ -263,7 +263,7 @@ class _StyleSelectionScreenState extends State<StyleSelectionScreen>
                         : null,
                   ),
                   child: Text(
-                    '選好了，下一步 →',
+                    '確認風格，選情緒 →',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,
