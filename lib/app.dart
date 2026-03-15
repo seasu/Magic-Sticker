@@ -8,9 +8,17 @@ import 'features/dev_log/screens/log_viewer_screen.dart';
 import 'features/editor/screens/editor_screen.dart';
 import 'features/editor/screens/emotion_selection_screen.dart';
 import 'features/home/screens/home_screen.dart';
+import 'features/home/screens/style_selection_screen.dart';
 import 'features/sticker_history/models/sticker_record.dart';
 import 'features/sticker_history/screens/sticker_history_screen.dart';
 import 'features/sticker_history/screens/sticker_replay_screen.dart';
+
+/// 跳轉至 /style-select 時攜帶的參數（步驟 2：選擇風格）
+class StyleSelectArgs {
+  final String imagePath;
+
+  const StyleSelectArgs({required this.imagePath});
+}
 
 /// 跳轉至 /emotion-select 時攜帶的參數（步驟 3：選擇情緒）
 class EmotionSelectArgs {
@@ -46,6 +54,13 @@ final _router = GoRouter(
     GoRoute(
       path: '/',
       builder: (_, __) => const HomeScreen(),
+    ),
+    GoRoute(
+      path: '/style-select',
+      builder: (_, state) {
+        final args = state.extra as StyleSelectArgs;
+        return StyleSelectionScreen(imagePath: args.imagePath);
+      },
     ),
     GoRoute(
       path: '/emotion-select',

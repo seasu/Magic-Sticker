@@ -225,8 +225,16 @@ class AuthService {
       try {
         final anonCredits = (await getCredits(currentUser.uid)) ?? 0;
         await currentUser.linkWithCredential(credential);
+        // Force token refresh: linkWithCredential fires userChanges() but
+        // the updated token may not yet be in the Firestore SDK's cache.
+        await _auth.currentUser?.getIdToken(true);
         // 升級成功：同一 UID，給登入獎勵（若已升級過不重複給）
-        await _promoteUser(currentUser.uid, previousCredits: anonCredits);
+        try {
+          await _promoteUser(currentUser.uid, previousCredits: anonCredits);
+        } catch (e, stack) {
+          await FirebaseService.recordError(e, stack,
+              reason: 'post_link_promote_failed');
+        }
         FirebaseService.log(
           'AuthService: anonymous upgraded uid=${currentUser.uid}',
         );
@@ -238,17 +246,27 @@ class AuthService {
         }
         // 現有帳號 → 切換過去並合併點數
         final anonCredits = (await getCredits(currentUser.uid)) ?? 0;
-        await _auth.signInWithCredential(
-            e.credential ?? credential,
-        );
+        await _auth.signInWithCredential(e.credential ?? credential);
+
+        // Force token refresh so subsequent Firestore calls get a valid JWT.
+        // signInWithCredential fires userChanges() immediately but the new
+        // ID token may not yet be in the Firestore SDK's cache.
+        await _auth.currentUser?.getIdToken(true);
+
         final newUid = _auth.currentUser!.uid;
-        await _ensureUserDoc(newUid, isGuest: false);
-        // 把訪客剩餘點數搬過去
-        if (anonCredits > 0) {
-          await addCredits(newUid, anonCredits);
-          FirebaseService.log(
-            'AuthService: merged $anonCredits credits to uid=$newUid',
-          );
+        // Wrap Firestore operations: auth is done even if these fail.
+        try {
+          await _ensureUserDoc(newUid, isGuest: false);
+          if (anonCredits > 0) {
+            await addCredits(newUid, anonCredits);
+            FirebaseService.log(
+              'AuthService: merged $anonCredits credits to uid=$newUid',
+            );
+          }
+        } catch (firestoreErr, stack) {
+          await FirebaseService.recordError(firestoreErr, stack,
+              reason: 'post_signin_firestore_failed');
+          // Auth succeeded; Firestore doc will be created on next load.
         }
         FirebaseService.log('AuthService: switched to existing uid=$newUid');
         return AuthResult.success;
@@ -257,7 +275,14 @@ class AuthService {
 
     // 非訪客：直接登入
     final result = await _auth.signInWithCredential(credential);
-    await _ensureUserDoc(result.user!.uid, isGuest: false);
+    // Force token refresh before Firestore operations.
+    await _auth.currentUser?.getIdToken(true);
+    try {
+      await _ensureUserDoc(result.user!.uid, isGuest: false);
+    } catch (e, stack) {
+      await FirebaseService.recordError(e, stack,
+          reason: 'post_signin_ensure_doc_failed');
+    }
     return AuthResult.success;
   }
 

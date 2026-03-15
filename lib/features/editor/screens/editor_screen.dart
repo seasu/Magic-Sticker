@@ -352,7 +352,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                '✨ $n 款貼圖概念生成完畢！點擊「生成 · 1點」來製作第一張',
+                '✨ $n 款概念就緒！右滑生成（耗 1 點），左滑跳過',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
@@ -394,7 +394,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   Expanded(
                     child: _FunLoadingView(
                       title: 'AI 分析照片中',
-                      subtitle: '✦ 免費 · 產生 8 款貼圖概念，約 5~10 秒',
+                      subtitle:
+                          '✦ 免費分析 · 產生 ${widget.categoryIds?.length ?? 8} 款貼圖概念，約 5~10 秒',
                     ),
                   )
                 else if (state.errorMessage != null)
@@ -484,9 +485,9 @@ class _TopBar extends StatelessWidget {
           ),
           const Spacer(),
           const Text(
-            '選擇貼圖',
+            '右滑生成・左滑跳過',
             style: TextStyle(
-              fontSize: 17,
+              fontSize: 15,
               fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
