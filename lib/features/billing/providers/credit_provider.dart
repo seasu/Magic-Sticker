@@ -141,12 +141,33 @@ class CreditNotifier extends Notifier<int> {
   }
 
   Future<void> _loadCredits(String uid) async {
+    // Force token refresh before the Firestore read.
+    // userChanges() can fire while the new ID token is still propagating
+    // to the Firestore SDK (e.g., right after linkWithCredential or
+    // signInWithCredential), causing transient permission-denied errors.
+    try {
+      await FirebaseAuth.instance.currentUser?.getIdToken(true);
+    } catch (_) {
+      // Token refresh failure is non-fatal; proceed with existing token.
+    }
+
     try {
       final credits = await AuthService.getCredits(uid);
       if (credits != null && ref.read(currentUserProvider)?.uid == uid) {
         state = credits;
         FirebaseService.log('CreditProvider: loaded $credits credits for uid=$uid');
       }
+    } on FirebaseException catch (e) {
+      if (e.code.contains('permission-denied')) {
+        // Transient auth state (e.g., mid-transition after signInWithCredential).
+        // The next userChanges() event will trigger a fresh load.
+        FirebaseService.log(
+          'CreditProvider: permission-denied for uid=$uid — transient, ignoring',
+        );
+        return;
+      }
+      await FirebaseService.recordError(e, StackTrace.current,
+          reason: 'credit_load_failed');
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack, reason: 'credit_load_failed');
     }
