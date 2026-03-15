@@ -93,10 +93,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
     if (result == null || !context.mounted) return;
 
-    // 立即跳 editor，AI Spec 生成馬上開始（免費）
+    // 跳到情緒選擇畫面（步驟 3），讓使用者決定想要哪些情緒
     context.push(
-      '/editor',
-      extra: EditorArgs(
+      '/emotion-select',
+      extra: EmotionSelectArgs(
         imagePath: picked.path,
         styleIndex: result.styleIndex,
         stickerShape: result.shape,

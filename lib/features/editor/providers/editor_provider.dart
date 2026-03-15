@@ -37,14 +37,19 @@ class _EditorFamilyNotifier
   ///
   /// [defaultStyleIndex] 對應 [StickerStyle.values]，預設 0（Q版卡通）
   /// [stickerShape] 貼圖形狀，預設圓形
+  /// [initialCategoryIds] 由 EmotionSelectionScreen 傳入；null 則沿用 state 預設
   Future<void> initialize({
     int defaultStyleIndex = 0,
     StickerShape stickerShape = StickerShape.circle,
+    List<String>? initialCategoryIds,
   }) async {
     state = state.copyWith(
       status: EditorStatus.generatingTexts,
       styleIndices: List.filled(8, defaultStyleIndex),
       stickerShape: stickerShape,
+      selectedCategoryIds: initialCategoryIds != null
+          ? List<String>.from(initialCategoryIds)
+          : null,
     );
 
     try {

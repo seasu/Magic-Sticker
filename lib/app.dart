@@ -6,21 +6,37 @@ import 'core/theme/app_theme.dart';
 import 'features/billing/screens/credit_history_screen.dart';
 import 'features/dev_log/screens/log_viewer_screen.dart';
 import 'features/editor/screens/editor_screen.dart';
+import 'features/editor/screens/emotion_selection_screen.dart';
 import 'features/home/screens/home_screen.dart';
 import 'features/sticker_history/models/sticker_record.dart';
 import 'features/sticker_history/screens/sticker_history_screen.dart';
 import 'features/sticker_history/screens/sticker_replay_screen.dart';
+
+/// 跳轉至 /emotion-select 時攜帶的參數（步驟 3：選擇情緒）
+class EmotionSelectArgs {
+  final String imagePath;
+  final int styleIndex;
+  final StickerShape stickerShape;
+
+  const EmotionSelectArgs({
+    required this.imagePath,
+    required this.styleIndex,
+    this.stickerShape = StickerShape.circle,
+  });
+}
 
 /// 跳轉至 /editor 時攜帶的參數
 class EditorArgs {
   final String imagePath;
   final int styleIndex;
   final StickerShape stickerShape;
+  final List<String>? categoryIds; // 由 EmotionSelectionScreen 傳入
 
   const EditorArgs({
     required this.imagePath,
     required this.styleIndex,
     this.stickerShape = StickerShape.circle,
+    this.categoryIds,
   });
 }
 
@@ -32,6 +48,17 @@ final _router = GoRouter(
       builder: (_, __) => const HomeScreen(),
     ),
     GoRoute(
+      path: '/emotion-select',
+      builder: (_, state) {
+        final args = state.extra as EmotionSelectArgs;
+        return EmotionSelectionScreen(
+          imagePath: args.imagePath,
+          styleIndex: args.styleIndex,
+          stickerShape: args.stickerShape,
+        );
+      },
+    ),
+    GoRoute(
       path: '/editor',
       builder: (_, state) {
         final args = state.extra as EditorArgs;
@@ -39,6 +66,7 @@ final _router = GoRouter(
           imagePath: args.imagePath,
           styleIndex: args.styleIndex,
           stickerShape: args.stickerShape,
+          categoryIds: args.categoryIds,
         );
       },
     ),

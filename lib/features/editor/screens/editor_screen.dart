@@ -23,7 +23,6 @@ import '../models/editor_state.dart';
 import '../models/sticker_config.dart';
 import '../providers/editor_provider.dart';
 import '../../../core/models/emotion_category.dart';
-import '../widgets/emotion_picker_sheet.dart';
 import '../widgets/sticker_canvas.dart';
 import '../widgets/sticker_edit_sheet.dart';
 import '../widgets/sticker_swipe_card.dart';
@@ -37,12 +36,14 @@ class EditorScreen extends ConsumerStatefulWidget {
   final String imagePath;
   final int styleIndex;
   final StickerShape stickerShape;
+  final List<String>? categoryIds; // 由 EmotionSelectionScreen 傳入
 
   const EditorScreen({
     super.key,
     required this.imagePath,
     this.styleIndex = 0,
     this.stickerShape = StickerShape.circle,
+    this.categoryIds,
   });
 
   @override
@@ -65,6 +66,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       ref.read(editorStateProvider(widget.imagePath).notifier).initialize(
             defaultStyleIndex: widget.styleIndex,
             stickerShape: widget.stickerShape,
+            initialCategoryIds: widget.categoryIds,
           );
     });
   }
@@ -284,30 +286,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     ref.read(editorStateProvider(widget.imagePath).notifier).regenerateTexts();
   }
 
-  void _openEmotionPicker() {
-    final state = ref.read(editorStateProvider(widget.imagePath));
-    final notifier = ref.read(editorStateProvider(widget.imagePath).notifier);
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => EmotionPickerSheet(
-        selectedIds: state.selectedCategoryIds,
-        onConfirm: (ids) {
-          Navigator.pop(context);
-          setState(() {
-            _currentIndex = 0;
-            _keptCount = 0;
-          });
-          notifier.updateSelectedCategories(ids);
-        },
-      ),
-    );
-  }
-
   /// 使用者點擊「生成」按鈕，消耗 1 點產生圖片
   Future<void> _generateImage(int index) async {
     final credits = ref.read(creditProvider);
@@ -430,6 +408,22 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     ),
                   )
                 else if (isReady) ...[
+                  // ── 情緒標頭（顯示在卡片上方） ─────────────────────
+                  if (_currentIndex < state.selectedCategoryIds.length)
+                    _EmotionHeader(
+                      categoryId: (state.categoryIds.isNotEmpty &&
+                              _currentIndex < state.categoryIds.length &&
+                              state.categoryIds[_currentIndex].isNotEmpty)
+                          ? state.categoryIds[_currentIndex]
+                          : state.selectedCategoryIds[_currentIndex],
+                      tagline: (_currentIndex < state.stickerTexts.length)
+                          ? state.stickerTexts[_currentIndex]
+                          : '',
+                      index: _currentIndex,
+                      total: totalCount,
+                      onRefresh: (isReady && !isDone) ? _regenerate : null,
+                    ),
+
                   // ── 卡片層疊 ──────────────────────────────────────────
                   Expanded(
                     child: _CardStack(
@@ -444,25 +438,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                       stickerShape: state.stickerShape,
                     ),
                   ),
-
-                  // ── 情感列（整合情感 picker + 重新生成）────────────
-                  if (_currentIndex < state.selectedCategoryIds.length) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: _EmotionBar(
-                        categoryId: (state.categoryIds.isNotEmpty &&
-                                _currentIndex < state.categoryIds.length &&
-                                state.categoryIds[_currentIndex].isNotEmpty)
-                            ? state.categoryIds[_currentIndex]
-                            : state.selectedCategoryIds[_currentIndex],
-                        index: _currentIndex,
-                        total: totalCount,
-                        onEmotionPicker:
-                            (isReady && !isDone) ? _openEmotionPicker : null,
-                        onRefresh: (isReady && !isDone) ? _regenerate : null,
-                      ),
-                    ),
-                  ],
 
                   // ── 底部按鈕 ──────────────────────────────────────────
                   Padding(
@@ -524,20 +499,20 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-// ─── 情感列（整合情感 picker 入口 + 重新生成）────────────────────────────────
+// ─── 情緒標頭（顯示在卡片上方，大 emoji + 名稱 + 本張 AI 標語）─────────────
 
-class _EmotionBar extends StatelessWidget {
+class _EmotionHeader extends StatelessWidget {
   final String categoryId;
+  final String tagline;   // AI 生成的本張標語（例如「哈哈哈！」）
   final int index;
   final int total;
-  final VoidCallback? onEmotionPicker;
   final VoidCallback? onRefresh;
 
-  const _EmotionBar({
+  const _EmotionHeader({
     required this.categoryId,
+    required this.tagline,
     required this.index,
     required this.total,
-    this.onEmotionPicker,
     this.onRefresh,
   });
 
@@ -545,60 +520,59 @@ class _EmotionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final cat = findCategory(categoryId);
     if (cat == null) return const SizedBox.shrink();
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 左側：可點擊的情感 pill（整合原 TopBar 😊 按鈕）
-          GestureDetector(
-            onTap: onEmotionPicker,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.07),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(cat.emoji,
-                      style: const TextStyle(fontSize: 20)),
-                  const SizedBox(width: 6),
-                  Text(
-                    cat.label,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black.withValues(alpha: 0.72),
-                    ),
+          // 大 emoji
+          Text(cat.emoji, style: const TextStyle(fontSize: 36)),
+          const SizedBox(width: 12),
+          // 情緒名稱 + AI 標語
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  cat.label,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.black87,
+                    height: 1.1,
                   ),
-                  const SizedBox(width: 3),
-                  const Icon(Icons.arrow_drop_down_rounded,
-                      size: 18, color: Colors.black38),
-                ],
-              ),
+                ),
+                if (tagline.isNotEmpty)
+                  Text(
+                    tagline,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black45,
+                      height: 1.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
             ),
           ),
-          const Spacer(),
           // 頁次
           Text(
             '${index + 1} / $total',
             style: const TextStyle(fontSize: 13, color: Colors.black38),
           ),
-          // 重新生成文字連結（整合原 TopBar ↺ 按鈕）
+          // 重新生成（文字連結）
           if (onRefresh != null) ...[
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             GestureDetector(
               onTap: onRefresh,
-              child: Text(
-                '重新生成',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.black38,
-                  decoration: TextDecoration.underline,
-                  decorationColor: Colors.black26,
-                ),
+              child: const Icon(
+                Icons.refresh_rounded,
+                size: 20,
+                color: Colors.black38,
               ),
             ),
           ],
