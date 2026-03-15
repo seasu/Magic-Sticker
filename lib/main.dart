@@ -36,8 +36,18 @@ Future<void> main() async {
       appleProvider:
           kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
     );
+    // 預先取得 App Check token，讓第一次 Cloud Function 呼叫不需等待 token 初始化。
+    final appCheckToken = await FirebaseAppCheck.instance.getToken(true);
+    // Debug 模式下把 token 同時印到 Crashlytics log，方便直接複製貼到
+    // Firebase Console > App Check > 你的 App > Debug tokens。
+    if (kDebugMode && appCheckToken != null) {
+      LogService.instance.info(
+        '★ App Check debug token (register at Firebase Console > App Check):\n$appCheckToken',
+        tag: 'AppCheck',
+      );
+    }
   } catch (e) {
-    LogService.instance.warning('App Check activate failed: $e', tag: 'AppCheck');
+    LogService.instance.warning('App Check activate/getToken failed: $e', tag: 'AppCheck');
   }
 
   // 全域錯誤攔截（放在 try 外面確保一定執行）
