@@ -29,6 +29,7 @@ ios/Flutter/flutter_export_environment.sh
 .DS_Store
 
 # Secrets
+android/app/src/debug/res/values/strings.xml
 .env
 functions/.env
 functions/.env.*
