@@ -23,7 +23,6 @@ import '../models/editor_state.dart';
 import '../models/sticker_config.dart';
 import '../providers/editor_provider.dart';
 import '../../../core/models/emotion_category.dart';
-import '../widgets/emotion_picker_sheet.dart';
 import '../widgets/sticker_canvas.dart';
 import '../widgets/sticker_edit_sheet.dart';
 import '../widgets/sticker_swipe_card.dart';
@@ -285,30 +284,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _keptCount = 0;
     });
     ref.read(editorStateProvider(widget.imagePath).notifier).regenerateTexts();
-  }
-
-  void _openEmotionPicker() {
-    final state = ref.read(editorStateProvider(widget.imagePath));
-    final notifier = ref.read(editorStateProvider(widget.imagePath).notifier);
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => EmotionPickerSheet(
-        selectedIds: state.selectedCategoryIds,
-        onConfirm: (ids) {
-          Navigator.pop(context);
-          setState(() {
-            _currentIndex = 0;
-            _keptCount = 0;
-          });
-          notifier.updateSelectedCategories(ids);
-        },
-      ),
-    );
   }
 
   /// 使用者點擊「生成」按鈕，消耗 1 點產生圖片
