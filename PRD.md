@@ -213,6 +213,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.2.1 | 2026-03-15 | **fix(nav)**：將步驟 2「選擇風格」從 modal bottom sheet 改為全螢幕路由 `StyleSelectionScreen` — (1) 新增 `lib/features/home/screens/style_selection_screen.dart`：與 `EmotionSelectionScreen` 相同的標頭樣式（返回鍵 + 步驟 2／3 badge + 底部 CTA bar），風格卡片改為「點選選取 + 勾選角標」互動（取代舊的「點即跳轉」）；(2) 新增 `StyleSelectArgs` 與 `/style-select` 路由；(3) `home_screen.dart` 改為 `context.push('/style-select')`，移除 `showModalBottomSheet` 及相關 class；(4) Back 按鈕導向修正：步驟 3 返回步驟 2、步驟 2 返回首頁，符合預期導覽行為。 |
 | v3.2.0 | 2026-03-15 | **feat(ux)**：新增「情緒選擇」步驟，重構使用者動線為三步驟（選圖 → 選風格 → 選情緒 → 製作）— (1) 新增 `EmotionSelectionScreen`：全螢幕 4×4 情緒格子，顯示 emoji + 中文名稱，預設選 8 種，最多 12 種，底部顯示「開始製作 N 款」CTA；(2) 新增 `/emotion-select` 路由與 `EmotionSelectArgs`；(3) `EditorArgs` 新增 `categoryIds` 欄位；(4) `editor_provider.initialize()` 新增 `initialCategoryIds` 參數，在進入 Editor 前即套用使用者選擇；(5) `EditorScreen` 將情緒標頭移至卡片上方（大 emoji 36px + 情緒名稱 20px + AI 標語），取代原有小 pill；(6) 更新 `README.md` 反映新流程與架構。 |
 | v3.1.85 | 2026-03-15 | **fix(rules)**：移除 `firestore.rules` 中 `users/{uid}` 與 `creditHistory` 的 `request.app != null` 條件 — 因客戶端尚未整合 App Check SDK，`request.app` 恆為 null，導致點數讀取（`getCredits`）、點數增加（`addCredits`）、點數歷史讀取（`creditHistoryProvider`）全部 `permission-denied`；安全性改由 Cloud Functions 層的 `enforceAppCheck: true` + `if (!request.app)` 雙重保護。 |
 | v3.1.84 | 2026-03-14 | **feat(security)**：新增 Firebase App Check 保護 Cloud Functions — `generateStickerSpecs` 與 `generateStickerImage` 加入 `enforceAppCheck: true`，並在 handler 內補上 `if (!request.app)` 手動檢查；`firestore.rules` 加入 `request.app != null` 條件。 |
