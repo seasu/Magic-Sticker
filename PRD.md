@@ -213,6 +213,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.2.0 | 2026-03-15 | **feat(ux)**：新增「情緒選擇」步驟，重構使用者動線為三步驟（選圖 → 選風格 → 選情緒 → 製作）— (1) 新增 `EmotionSelectionScreen`：全螢幕 4×4 情緒格子，顯示 emoji + 中文名稱，預設選 8 種，最多 12 種，底部顯示「開始製作 N 款」CTA；(2) 新增 `/emotion-select` 路由與 `EmotionSelectArgs`；(3) `EditorArgs` 新增 `categoryIds` 欄位；(4) `editor_provider.initialize()` 新增 `initialCategoryIds` 參數，在進入 Editor 前即套用使用者選擇；(5) `EditorScreen` 將情緒標頭移至卡片上方（大 emoji 36px + 情緒名稱 20px + AI 標語），取代原有小 pill；(6) 更新 `README.md` 反映新流程與架構。 |
 | v3.1.85 | 2026-03-15 | **fix(rules)**：移除 `firestore.rules` 中 `users/{uid}` 與 `creditHistory` 的 `request.app != null` 條件 — 因客戶端尚未整合 App Check SDK，`request.app` 恆為 null，導致點數讀取（`getCredits`）、點數增加（`addCredits`）、點數歷史讀取（`creditHistoryProvider`）全部 `permission-denied`；安全性改由 Cloud Functions 層的 `enforceAppCheck: true` + `if (!request.app)` 雙重保護。 |
 | v3.1.84 | 2026-03-14 | **feat(security)**：新增 Firebase App Check 保護 Cloud Functions — `generateStickerSpecs` 與 `generateStickerImage` 加入 `enforceAppCheck: true`，並在 handler 內補上 `if (!request.app)` 手動檢查；`firestore.rules` 加入 `request.app != null` 條件。 |
 | v3.1.77 | 2026-03-14 | **feat(loading)**：以影片取代 Flutter 手刻 loading 動畫 — (1) 新增 `video_player: ^2.9.2` 依賴；(2) `_FunLoadingViewState` 改用 `VideoPlayerController.asset('assets/loading_animation.mp4')`，靜音迴圈播放，`FittedBox.cover` 填滿 70% 動畫區；(3) 刪除 `_ChaseStage`、`_GroomStage`（共 -423 行）；(4) 更新 `_imageMessages` 移除「貓洗臉」文案；(5) 保留相同的旋轉提示文字 + `_BounceDots` 進度指示器；錯誤 fallback：影片初始化失敗時靜默降級（`_videoError = true`）不 crash。 |
