@@ -32,7 +32,10 @@ class _StyleSelectionScreenState extends State<StyleSelectionScreen>
     '復古像素點陣',   // pixel
     '手繪素描質感',   // sketch
     '夢幻水彩風格',   // watercolor
-    '高精細寫實人像', // photo
+    '韓系扁平插畫',   // webtoon
+    '日系動漫賽璐璐', // celshade
+    '3D 皮克斯風格',  // pixar3d
+    '毛絨玩偶質感',   // plush
   ];
 
   @override
