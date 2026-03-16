@@ -12,7 +12,7 @@ import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:video_player/video_player.dart';
+import '../../../shared/widgets/cat_loading_animation.dart';
 
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/services/firebase_service.dart';
@@ -1316,10 +1316,7 @@ class _FunLoadingView extends StatefulWidget {
 
 class _FunLoadingViewState extends State<_FunLoadingView>
     with SingleTickerProviderStateMixin {
-  // 跳動圓點用的 controller（單一，影片自帶動畫不需要額外 ticker）
   late final AnimationController _dotsCtrl;
-  late final VideoPlayerController _videoCtrl;
-  bool _videoError = false;
   int _msgIndex = 0;
   Timer? _msgTimer;
 
@@ -1352,19 +1349,6 @@ class _FunLoadingViewState extends State<_FunLoadingView>
       duration: const Duration(milliseconds: 380),
     )..repeat(reverse: true);
 
-    _videoCtrl = VideoPlayerController.asset('assets/loading_animation-square.mp4')
-      ..initialize().then((_) {
-        if (mounted) {
-          _videoCtrl
-            ..setLooping(true)
-            ..setVolume(0)
-            ..play();
-          setState(() {});
-        }
-      }).catchError((_) {
-        if (mounted) setState(() => _videoError = true);
-      });
-
     _msgTimer = Timer.periodic(const Duration(milliseconds: 2800), (_) {
       if (mounted) {
         setState(() => _msgIndex = (_msgIndex + 1) % _messages.length);
@@ -1375,7 +1359,6 @@ class _FunLoadingViewState extends State<_FunLoadingView>
   @override
   void dispose() {
     _dotsCtrl.dispose();
-    _videoCtrl.dispose();
     _msgTimer?.cancel();
     super.dispose();
   }
@@ -1416,23 +1399,12 @@ class _FunLoadingViewState extends State<_FunLoadingView>
               ),
             ),
 
-          // ── 影片動畫區（佔 70%）──────────────────────────────────────
-          Expanded(
+          // ── 向量貓咪動畫區（佔 70%）─────────────────────────────────
+          const Expanded(
             flex: 7,
-            child: _videoError
-                ? const SizedBox.shrink()
-                : _videoCtrl.value.isInitialized
-                    ? SizedBox.expand(
-                        child: FittedBox(
-                          fit: BoxFit.cover,
-                          child: SizedBox(
-                            width: _videoCtrl.value.size.width,
-                            height: _videoCtrl.value.size.height,
-                            child: VideoPlayer(_videoCtrl),
-                          ),
-                        ),
-                      )
-                    : const Center(child: CircularProgressIndicator()),
+            child: Center(
+              child: CatLoadingAnimation(size: 240),
+            ),
           ),
 
           // ── 訊息區（佔 30%）──────────────────────────────────────────
