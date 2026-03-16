@@ -1314,44 +1314,13 @@ class _FunLoadingView extends StatefulWidget {
   State<_FunLoadingView> createState() => _FunLoadingViewState();
 }
 
-class _FunLoadingViewState extends State<_FunLoadingView>
-    with SingleTickerProviderStateMixin {
-  // 跳動圓點用的 controller（單一，影片自帶動畫不需要額外 ticker）
-  late final AnimationController _dotsCtrl;
+class _FunLoadingViewState extends State<_FunLoadingView> {
   late final VideoPlayerController _videoCtrl;
   bool _videoError = false;
-  int _msgIndex = 0;
-  Timer? _msgTimer;
-
-  // 分析照片、生成文字概念階段（免費）
-  static const _specMessages = [
-    '🔍 分析你的照片表情與場景…',
-    '🐭 老鼠：「我就是在追劇啦！」',
-    '✨ 施展魔法中，稍等一下下',
-    '💡 構思 8 款貼圖方向中…',
-    '💨 快好了，再等一下！',
-  ];
-
-  // AI 繪製貼圖圖片階段（付費）
-  static const _imageMessages = [
-    '🎨 AI 正在描繪你的專屬貼圖…',
-    '✨ 魔法特效施工中…',
-    '🖌️ 仔細調整每個細節…',
-    '🌟 貼圖即將完成…',
-    '💨 快完成了，再等一下！',
-  ];
-
-  List<String> get _messages =>
-      widget.isImageGen ? _imageMessages : _specMessages;
 
   @override
   void initState() {
     super.initState();
-    _dotsCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 380),
-    )..repeat(reverse: true);
-
     _videoCtrl = VideoPlayerController.asset('assets/loading_animation-square.mp4')
       ..initialize().then((_) {
         if (mounted) {
@@ -1364,19 +1333,11 @@ class _FunLoadingViewState extends State<_FunLoadingView>
       }).catchError((_) {
         if (mounted) setState(() => _videoError = true);
       });
-
-    _msgTimer = Timer.periodic(const Duration(milliseconds: 2800), (_) {
-      if (mounted) {
-        setState(() => _msgIndex = (_msgIndex + 1) % _messages.length);
-      }
-    });
   }
 
   @override
   void dispose() {
-    _dotsCtrl.dispose();
     _videoCtrl.dispose();
-    _msgTimer?.cancel();
     super.dispose();
   }
 
@@ -1416,9 +1377,8 @@ class _FunLoadingViewState extends State<_FunLoadingView>
               ),
             ),
 
-          // ── 影片動畫區（佔 70%）──────────────────────────────────────
+          // ── 影片動畫區 ────────────────────────────────────────────────
           Expanded(
-            flex: 7,
             child: _videoError
                 ? const SizedBox.shrink()
                 : _videoCtrl.value.isInitialized
@@ -1433,48 +1393,6 @@ class _FunLoadingViewState extends State<_FunLoadingView>
                         ),
                       )
                     : const Center(child: CircularProgressIndicator()),
-          ),
-
-          // ── 訊息區（佔 30%）──────────────────────────────────────────
-          Expanded(
-            flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(32, 8, 32, 24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 500),
-                    transitionBuilder: (child, anim) => FadeTransition(
-                      opacity: anim,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 0.4),
-                          end: Offset.zero,
-                        ).animate(CurvedAnimation(
-                          parent: anim,
-                          curve: Curves.easeOut,
-                        )),
-                        child: child,
-                      ),
-                    ),
-                    child: Text(
-                      _messages[_msgIndex],
-                      key: ValueKey(_msgIndex),
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.notoSansTc(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black87,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _BounceDots(controller: _dotsCtrl),
-                ],
-              ),
-            ),
           ),
         ],
       ),
