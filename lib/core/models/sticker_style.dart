@@ -7,7 +7,10 @@ enum StickerStyle {
   pixel('像素風', '🕹️'),
   sketch('素描', '✏️'),
   watercolor('水彩', '🎨'),
-  photo('寫實風', '📸');
+  webtoon('韓系插畫風', '🖼️'),
+  celshade('動漫賽璐璐風', '✨'),
+  pixar3d('3D 皮克斯風', '🎬'),
+  plush('毛絨玩偶風', '🧸');
 
   const StickerStyle(this.label, this.emoji);
 
@@ -41,12 +44,26 @@ enum StickerStyle {
               '  * 柔和圓潤的臉部、邊緣暈染的溫柔色調\n'
               '  * 透明疊色、隱約可見的紙張紋理\n'
               '  * 夢幻可愛的水彩質感',
-        StickerStyle.photo =>
-          '根據照片人物繪製寫實肖像\n'
-              '  * 忠實還原外型，自然膚色與清晰五官\n'
-              '  * 乾淨、光線充足的肖像構圖\n'
-              '  * 平滑邊緣、色彩飽和、專業大頭照品質\n'
-              '  * 人物從背景中提取——優先透明背景',
+        StickerStyle.webtoon =>
+          '根據照片人物繪製韓式 Webtoon 扁平插畫\n'
+              '  * 乾淨圓滑的黑色輪廓線、均勻平塗色彩\n'
+              '  * 明亮柔和的大眼睛、Q 版可愛比例\n'
+              '  * 接近 LINE Friends / NAVER Webtoon 的插畫風格',
+        StickerStyle.celshade =>
+          '根據照片人物繪製日系動漫賽璐璐厚塗插畫\n'
+              '  * 清晰的厚黑邊輪廓線、硬邊陰影分層（2–3 階，無漸層邊緣）\n'
+              '  * 飽和鮮豔色彩、強烈光澤反光點\n'
+              '  * 日本動漫賽璐璐賽璐璐作畫風格',
+        StickerStyle.pixar3d =>
+          '根據照片人物繪製 Pixar / Disney 3D 渲染風格角色\n'
+              '  * 精緻的 subsurface scattering 膚色、圓潤卡通比例\n'
+              '  * 柔和的環境光遮蔽（AO）、明亮的鏡面高光點\n'
+              '  * Pixar 動畫電影的 3D 渲染質感',
+        StickerStyle.plush =>
+          '根據照片人物繪製毛絨布偶玩具風格角色\n'
+              '  * 模擬短絨毛質感（細小筆觸表現毛流）\n'
+              '  * 圓胖可愛比例、柔和邊緣輪廓\n'
+              '  * 豐富的深淺毛色層次，像真實手工布偶',
       };
 
   /// 插入 prompt 末尾的風格指令句
@@ -63,7 +80,16 @@ enum StickerStyle {
           '鉛筆素描／手繪風格——單色或深褐色調、可見的鉛筆筆觸與交叉線條陰影、粗糙且富有表現力的線條品質。',
         StickerStyle.watercolor =>
           '柔和水彩風格——邊緣暈染的溫柔色塊、透明疊色、隱約紙張紋理。可愛夢幻的水彩質感。',
-        StickerStyle.photo =>
-          '寫實風格——自然色彩、清晰五官、專業肖像打光。高保真度；忠實呈現真人外貌。',
+        StickerStyle.webtoon =>
+          '韓系 Webtoon 插畫風格——乾淨流暢線條、均勻平塗、明亮眼睛。'
+              'LINE Friends / NAVER Webtoon 畫質水準。',
+        StickerStyle.celshade =>
+          '日系動漫賽璐璐風格——粗黑輪廓線、硬邊分層陰影（無漸層邊緣）、飽和鮮豔色彩、明顯的高光反光點。',
+        StickerStyle.pixar3d =>
+          'Pixar 3D 動畫風格——圓潤立體卡通造型、精緻打光（主光源＋補光）、subsurface 膚色、鏡面高光。'
+              '3D 渲染質感。',
+        StickerStyle.plush =>
+          '毛絨玩偶風格——模擬短絨毛材質、圓胖可愛比例、柔和邊緣輪廓、豐富毛色深淺層次。'
+              '像是真實手工布偶。',
       };
 }

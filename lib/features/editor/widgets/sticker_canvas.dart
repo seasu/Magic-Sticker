@@ -557,6 +557,13 @@ class _StickerCanvasState extends State<StickerCanvas> {
                 width: size,
                 height: size,
                 fit: BoxFit.cover,
+                // 終極 fallback：新風格尚無專屬預覽圖時，以 chibi 暫代
+                errorBuilder: (_, __, ___) => Image.asset(
+                  'assets/images/preview_chibi.png',
+                  width: size,
+                  height: size,
+                  fit: BoxFit.cover,
+                ),
               ),
             );
         return Stack(
@@ -578,6 +585,31 @@ class _StickerCanvasState extends State<StickerCanvas> {
                   ),
                 ),
               ),
+            // 示意圖標籤：提示使用者此為 AI 生成前的預覽，非最終成品
+            Positioned(
+              top: size * 0.04,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '示意圖',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: size * 0.07,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         );
       },
