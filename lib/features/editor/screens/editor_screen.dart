@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' show min, pi, sin;
+import 'dart:math' show min;
 import 'dart:ui' as ui;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -1400,41 +1400,6 @@ class _FunLoadingViewState extends State<_FunLoadingView> {
   }
 }
 
-/// 三顆跳動圓點進度指示器
-class _BounceDots extends AnimatedWidget {
-  const _BounceDots({required AnimationController controller})
-      : super(listenable: controller);
-
-  @override
-  Widget build(BuildContext context) {
-    final t = (listenable as AnimationController).value;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(3, (i) {
-        final phase = ((t * 3) - i).clamp(0.0, 1.0);
-        final s = 0.5 + 0.5 * sin(phase * pi).clamp(0.0, 1.0);
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 5),
-          child: Transform.scale(
-            scale: s,
-            child: Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color.lerp(
-                  Colors.black.withValues(alpha: 0.2),
-                  Colors.black87,
-                  s,
-                ),
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-}
 // ─── 錯誤畫面 ─────────────────────────────────────────────────────────────────
 
 class _ErrorView extends StatelessWidget {
