@@ -557,6 +557,13 @@ class _StickerCanvasState extends State<StickerCanvas> {
                 width: size,
                 height: size,
                 fit: BoxFit.cover,
+                // 終極 fallback：新風格尚無專屬預覽圖時，以 chibi 暫代
+                errorBuilder: (_, __, ___) => Image.asset(
+                  'assets/images/preview_chibi.png',
+                  width: size,
+                  height: size,
+                  fit: BoxFit.cover,
+                ),
               ),
             );
         return Stack(
