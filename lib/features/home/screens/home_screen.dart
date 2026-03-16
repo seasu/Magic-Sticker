@@ -176,15 +176,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               children: [
                 ShaderMask(
                   shaderCallback: (b) => AppColors.gradient.createShader(b),
-                  child: Text(
-                    'Magic Sticker',
-                    style: GoogleFonts.notoSansTc(
-                      fontSize: 38,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      height: 1.2,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      'Magic Sticker',
+                      style: GoogleFonts.notoSansTc(
+                        fontSize: 38,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        height: 1.2,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                 ),
                 Text(
