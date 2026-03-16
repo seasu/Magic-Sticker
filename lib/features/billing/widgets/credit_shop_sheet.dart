@@ -159,14 +159,6 @@ class _CreditShopSheetState extends ConsumerState<CreditShopSheet> {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const Spacer(),
-                Text(
-                  '一次買斷・永久有效',
-                  style: GoogleFonts.notoSansTc(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
               ],
             ),
           ),
