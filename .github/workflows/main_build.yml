@@ -272,6 +272,17 @@ jobs:
           EOF
           echo "✅ App Check debug token written"
 
+      - name: Restore fixed debug keystore
+        env:
+          DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$DEBUG_KEYSTORE_B64" ]; then
+            echo "❌ ERROR: DEBUG_KEYSTORE_BASE64 secret is not set"
+            exit 1
+          fi
+          printf '%s' "$DEBUG_KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
+          echo "✅ Fixed debug keystore restored"
+
       - name: Build debug APK
         run: flutter build apk --debug
 

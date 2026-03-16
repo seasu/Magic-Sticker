@@ -1,5 +1,3 @@
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -269,19 +267,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               onTap: () => _pickImage(context, ImageSource.camera),
               outlined: true,
             ),
-            if (kDebugMode) ...[
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: () => FirebaseCrashlytics.instance.crash(),
-                icon: const Icon(Icons.bug_report_outlined, size: 18),
-                label: const Text('[DEBUG] 測試 Crashlytics'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(44),
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
-                ),
-              ),
-            ],
             if (_version.isNotEmpty) ...[
               const SizedBox(height: 12),
               GestureDetector(
