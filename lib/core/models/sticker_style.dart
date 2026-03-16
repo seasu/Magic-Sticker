@@ -24,13 +24,13 @@ enum StickerStyle {
         StickerStyle.popArt =>
           '根據照片人物繪製普普藝術人物肖像\n'
               '  * 大膽簡化的臉部特徵、鮮豔高對比色彩\n'
-              '  * 粗黑色描邊、平塗色塊、Ben-Day 網點陰影\n'
+              '  * 平塗色塊、Ben-Day 網點陰影、無黑色描邊\n'
               '  * Andy Warhol / Roy Lichtenstein 美術風格',
         StickerStyle.pixel =>
           '根據照片人物繪製像素藝術角色\n'
-              '  * 可見的粗像素（≥4 px 格）、限制色盤（≤16 色）\n'
-              '  * 簡單大眼睛、方塊圓潤形狀\n'
-              '  * 無反鋸齒；任天堂 / SNES 遊戲像素風',
+              '  * 整張圖以 32×32 格子構成再放大，每格至少 4px，強制可見方塊感\n'
+              '  * 限制色盤（≤16 色）、無任何反鋸齒或漸層\n'
+              '  * 所有邊緣皆為直角硬邊；任天堂 / SNES 遊戲像素風',
         StickerStyle.sketch =>
           '根據照片人物繪製鉛筆素描肖像\n'
               '  * 手繪線條捕捉照片人物神韻\n'
@@ -53,10 +53,11 @@ enum StickerStyle {
   String get promptSuffix => switch (this) {
         StickerStyle.chibi => 'LINE Friends / Chiikawa 畫質水準。',
         StickerStyle.popArt =>
-          '普普藝術風格——粗黑色描邊、鮮豔平塗色彩、Ben-Day 網點陰影、無漸層。'
+          '普普藝術風格——鮮豔平塗色彩、Ben-Day 網點陰影、無漸層、無黑色描邊。'
               'Andy Warhol / Roy Lichtenstein 美術風格。',
         StickerStyle.pixel =>
-          '復古 8-bit 像素風格——可見的大像素（≥4 px 格）、限制色盤（≤16 色）、無反鋸齒。'
+          '復古 8-bit 像素風格——整張圖如同在 32×32 畫布上繪製再放大 8 倍，'
+              '每個像素必須明顯呈現方塊感、限制色盤（≤16 色）、絕對無反鋸齒或漸層、所有邊緣皆為直角方塊。'
               '任天堂 / SNES 像素風。',
         StickerStyle.sketch =>
           '鉛筆素描／手繪風格——單色或深褐色調、可見的鉛筆筆觸與交叉線條陰影、粗糙且富有表現力的線條品質。',

@@ -56,25 +56,26 @@ STYLES = {
         "characterDesc": (
             "Pop Art portrait inspired by the person in the photo\n"
             "  * Bold simplified face features, vivid high-contrast colors\n"
-            "  * Thick black outlines, flat colored areas, Ben-Day dot shading\n"
+            "  * Flat colored areas, Ben-Day dot shading, NO black outlines\n"
             "  * Andy Warhol / Roy Lichtenstein aesthetic"
         ),
         "promptSuffix": (
-            "Pop Art style — bold black outlines, vivid flat colors, Ben-Day dot "
-            "shading, no gradients. Andy Warhol / Roy Lichtenstein aesthetic."
+            "Pop Art style — vivid flat colors, Ben-Day dot shading, no gradients, "
+            "NO black outlines or borders. Andy Warhol / Roy Lichtenstein aesthetic."
         ),
     },
     "pixel": {
         "characterDesc": (
-            "Pixel art sprite of the person's face\n"
-            "  * Chunky pixels visible (≥4 px grid), limited palette (≤16 colors)\n"
-            "  * Simple large eyes, blocky rounded shapes\n"
-            "  * No anti-aliasing; Nintendo / SNES game sprite aesthetic"
+            "Pixel art sprite rendered on a 32×32 grid upscaled 8×\n"
+            "  * Every pixel visibly chunky (each block ≥4 px), limited palette (≤16 colors)\n"
+            "  * Hard right-angle edges, no anti-aliasing, no gradients; blocky shapes only\n"
+            "  * Nintendo / SNES game sprite aesthetic"
         ),
         "promptSuffix": (
-            "Retro 8-bit pixel art style — large visible pixels (≥4 px grid), "
-            "limited palette (≤16 colors), no anti-aliasing. "
-            "Nintendo / SNES sprite aesthetic."
+            "Retro 8-bit pixel art style — render as if drawn on a 32×32 canvas then scaled up 8×. "
+            "Every pixel must be visibly large and blocky. "
+            "Limited palette (≤16 colors), absolutely no anti-aliasing or gradients, "
+            "all edges hard right-angles. Nintendo / SNES sprite aesthetic."
         ),
     },
     "sketch": {
@@ -146,24 +147,27 @@ MAX_RETRIES = 2
 
 
 def build_prompt(style_key: str, emotion_key: str) -> str:
-    """使用與 App _buildSinglePrompt（圓形模式）完全相同的格式。"""
+    """使用與 App _buildSinglePrompt（圓形模式）完全相同的格式。
+    圓形裁切由 Flutter ClipOval 處理，AI 只需產出滿版正方形色塊。
+    """
     style = STYLES[style_key]
     emotion = EMOTIONS[emotion_key]
     return (
         "You are a professional LINE sticker illustrator. "
-        "Draw ONE single circular sticker based on the person's face in the reference photo.\n\n"
+        "Draw ONE square sticker based on the person's face in the reference photo.\n\n"
         "DESIGN REQUIREMENTS:\n"
-        "- A single large filled perfect circle, centered, occupying ~95% of the square canvas (nearly edge-to-edge)\n"
-        "- The circle must be geometrically perfect (equal width and height)\n"
-        f"- Circle background color: {emotion['bgColor']}\n"
+        f"- Fill the entire square canvas with the background color: {emotion['bgColor']} "
+        "(no transparency anywhere, no white corners)\n"
+        "- NO transparent pixels; the entire canvas must be fully opaque\n"
         f"- Character expression / pose: {emotion['emotion']}\n"
         f"- {style['characterDesc']}\n"
+        "- Place the character in the upper-center of the canvas "
+        "(top 65% of height, horizontally centered)\n"
+        "- Leave ~10% margin on the left and right sides\n"
         "- DO NOT draw any text or letters inside the image\n"
-        "- 3–5 small sparkles / stars scattered inside the circle\n"
-        "- NO white outline, NO white border around the circle\n"
-        "- The area outside the circle must be completely transparent (alpha = 0), no fill at all\n\n"
-        "OUTPUT: A single square PNG (equal width and height) with a transparent background "
-        "outside the circle, containing exactly this ONE circular sticker.\n"
+        "- 2–4 small sparkles / stars clustered around the character (avoid corners)\n"
+        "- NO white outline, NO white border\n\n"
+        "OUTPUT: A single fully opaque square PNG with solid background color.\n"
         f"STYLE: {style['promptSuffix']}\n"
     )
 

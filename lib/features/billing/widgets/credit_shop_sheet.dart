@@ -159,14 +159,6 @@ class _CreditShopSheetState extends ConsumerState<CreditShopSheet> {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const Spacer(),
-                Text(
-                  '一次買斷・永久有效',
-                  style: GoogleFonts.notoSansTc(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
               ],
             ),
           ),
@@ -253,7 +245,7 @@ class _PackCard extends StatelessWidget {
         child: Stack(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              padding: EdgeInsets.fromLTRB(16, isPopular ? 30 : 14, 16, 14),
               child: Row(
                 children: [
                   // ── 左側：包名 + 描述 + 每點價 ──────────────────
