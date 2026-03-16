@@ -5,6 +5,7 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../constants/build_config.dart';
 import '../models/sticker_shape.dart';
 import '../models/sticker_spec.dart';
 import '../models/sticker_style.dart';
@@ -205,7 +206,29 @@ class StickerGenerationService {
   String _buildSinglePrompt(
       StickerSpec spec, StickerStyle style, StickerShape shape) {
     if (shape == StickerShape.circle) {
-      return '''
+      if (kStickerBgTransparent) {
+        return '''
+你是一位專業的 LINE 貼圖插畫師。請根據參考照片，繪製一張正方形透明背景貼圖。
+
+【畫布規格】
+- 整個正方形畫布背景完全透明（alpha = 0，禁止任何不透明背景色塊）
+- 禁止出現任何白色邊框、描邊或白色填色
+
+【角色設計】
+- 根據參考照片，繪製可愛 Q 版卡通人物
+- 表情 / 動作：${spec.emotion}
+- ${style.characterDesc}
+- 將角色置於畫布中央偏上（約佔畫布高度的上方 65%，水平置中）
+- 角色左右兩側保留約 10% 邊距
+- 禁止出現任何文字、英文字母或數字
+
+【裝飾】在角色周圍點綴 2–4 個小閃光或星星（集中在畫布中央區域）
+
+【輸出】單一正方形 PNG，背景完全透明（RGBA，四個角落 alpha = 0）。
+風格：${style.promptSuffix}
+''';
+      } else {
+        return '''
 你是一位專業的 LINE 貼圖插畫師。請根據參考照片，繪製一張正方形貼圖。
 
 【畫布規格】
@@ -227,8 +250,25 @@ class StickerGenerationService {
 【輸出】單一正方形 PNG，背景完全不透明。
 風格：${style.promptSuffix}
 ''';
+      }
     } else {
-      return '''
+      if (kStickerBgTransparent) {
+        return '''
+你是一位專業的 LINE 貼圖插畫師。請根據參考照片，繪製一張方形透明背景貼圖。
+
+【設計規格】
+- 整個正方形畫布背景完全透明（alpha = 0，禁止任何不透明背景色塊）
+- 角色表情 / 動作：${spec.emotion}
+- ${style.characterDesc}
+- 畫面內禁止出現任何文字或英文字母
+- 角色周圍點綴 3–5 個小閃光或星星
+- 禁止出現任何白色邊框或白色描邊
+
+【輸出】單一正方形 PNG，背景完全透明（RGBA，alpha = 0）。
+風格：${style.promptSuffix}
+''';
+      } else {
+        return '''
 你是一位專業的 LINE 貼圖插畫師。請根據參考照片，繪製一張方形貼圖。
 
 【設計規格】
@@ -242,6 +282,7 @@ class StickerGenerationService {
 【輸出】單一正方形 PNG，無白色背景。
 風格：${style.promptSuffix}
 ''';
+      }
     }
   }
 
