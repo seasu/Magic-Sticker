@@ -79,5 +79,8 @@ Future<void> main() async {
   // 但 ID token 1 小時過期。不刷新的話第一次 Cloud Function 呼叫就會 UNAUTHENTICATED。
   await AuthService.ensureValidToken();
 
+  final uid = AuthService.currentUser?.uid ?? 'unknown';
+  LogService.instance.info('🚀 App launched — uid=$uid', tag: 'App');
+
   runApp(const ProviderScope(child: MagicStickerApp()));
 }
