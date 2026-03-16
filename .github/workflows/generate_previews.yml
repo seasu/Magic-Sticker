@@ -1,6 +1,6 @@
 name: Generate Style×Emotion Preview Images
 
-# 產生 6 種風格 × 16 種情感 = 96 張示意圖（preview_{style}_{emotion}.png）
+# 產生 9 種風格 × 16 種情感 = 144 張示意圖（preview_{style}_{emotion}.png）
 # 可手動觸發，也支援只產生部分組合以節省 API 用量。
 
 on:
@@ -38,7 +38,7 @@ jobs:
           EMOTIONS="${{ github.event.inputs.emotions }}"
           # 若未指定則用全量
           if [ -z "$STYLES" ]; then
-            STYLES="chibi popArt pixel sketch watercolor photo"
+            STYLES="chibi popArt pixel sketch watercolor webtoon celshade pixar3d plush"
           fi
           if [ -z "$EMOTIONS" ]; then
             EMOTIONS="greeting praise surprise awkward angry happy thinking farewell shy cool tired cry love excited scared mischief"
@@ -103,7 +103,7 @@ jobs:
           git checkout -b "$BRANCH"
           git commit -m "feat: add AI-generated style×emotion preview images (v${NEW_VER})"
           git push origin "$BRANCH"
-          PR_BODY=$(printf '由 **Generate Style×Emotion Preview Images** workflow 自動產生。\n\n包含 6 種風格 × 16 種情感 = 96 張示意圖（preview_{style}_{emotion}.png）。\n\nPrompt 格式與 App 實際產圖一致，示意圖呈現效果忠實反映正式貼圖風格。')
+          PR_BODY=$(printf '由 **Generate Style×Emotion Preview Images** workflow 自動產生。\n\n包含 9 種風格 × 16 種情感 = 144 張示意圖（preview_{style}_{emotion}.png）。\n\nPrompt 格式與 App 實際產圖（透明背景模式）一致，示意圖呈現效果忠實反映正式貼圖風格。')
           gh pr create \
             --base main \
             --head "$BRANCH" \

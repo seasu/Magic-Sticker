@@ -3,12 +3,12 @@
 generate_style_previews_ci.py
 ─────────────────────────────
 CI/CD 專用：使用 Gemini image generation 將貓咪圖片轉換為
-6 種風格 × 16 種情感 = 96 張示意圖。
+9 種風格 × 16 種情感 = 144 張示意圖。
 
 命名格式：preview_{style}_{emotionId}.png
-例如：preview_chibi_greeting.png、preview_pixel_angry.png
+例如：preview_chibi_greeting.png、preview_webtoon_happy.png
 
-Prompt 格式與 App 實際產圖（_buildSinglePrompt）完全一致，
+Prompt 格式與 App 實際產圖（_buildSinglePrompt，透明背景模式）完全一致，
 確保示意圖呈現效果與正式貼圖相符。
 
 若 assets/images/cat_source.png 不存在，腳本會先用 Gemini 文字生成它。
@@ -18,7 +18,7 @@ Prompt 格式與 App 實際產圖（_buildSinglePrompt）完全一致，
   python3 scripts/generate_style_previews_ci.py
 
 可選環境變數：
-  PREVIEW_STYLES="chibi pixel"      # 只產生指定風格（空格分隔）
+  PREVIEW_STYLES="chibi webtoon"    # 只產生指定風格（空格分隔）
   PREVIEW_EMOTIONS="greeting happy" # 只產生指定情感（空格分隔）
 """
 
@@ -104,18 +104,55 @@ STYLES = {
             "Cute and dreamy watercolor quality."
         ),
     },
-    "photo": {
+    "webtoon": {
         "characterDesc": (
-            "Photo-realistic portrait of the person\n"
-            "  * Faithful likeness with natural skin tones and sharp features\n"
-            "  * Clean, well-lit portrait composition\n"
-            "  * Smooth edges, vibrant colours, professional headshot quality\n"
-            "  * Subject extracted from background — transparent BG preferred"
+            "Korean webtoon flat illustration of the person\n"
+            "  * Clean smooth black outlines, uniform flat colors\n"
+            "  * Bright gentle large eyes, cute Q-version proportions\n"
+            "  * LINE Friends / NAVER Webtoon illustration style"
         ),
         "promptSuffix": (
-            "Photo-realistic style — natural colours, sharp facial features, "
-            "professional portrait lighting. "
-            "High fidelity; maintain the authentic appearance of the person."
+            "Korean Webtoon illustration style — clean fluid lines, uniform flat colors, "
+            "bright expressive eyes. LINE Friends / NAVER Webtoon quality."
+        ),
+    },
+    "celshade": {
+        "characterDesc": (
+            "Japanese anime cel-shaded illustration of the person\n"
+            "  * Clear thick black outlines, hard-edge shadow layers (2–3 tones, no gradient edges)\n"
+            "  * Saturated vivid colors, strong specular highlight spots\n"
+            "  * Japanese anime cel-animation art style"
+        ),
+        "promptSuffix": (
+            "Japanese anime cel-shaded style — thick black outlines, "
+            "hard-edge shadow layers (no gradient edges), "
+            "saturated vivid colors, prominent specular highlight spots."
+        ),
+    },
+    "pixar3d": {
+        "characterDesc": (
+            "Pixar / Disney 3D rendered character based on the person\n"
+            "  * Refined subsurface scattering skin tones, chubby cartoon proportions\n"
+            "  * Soft ambient occlusion shading, bright specular highlight points\n"
+            "  * Pixar animated film 3D rendering quality"
+        ),
+        "promptSuffix": (
+            "Pixar 3D animation style — chubby cartoon 3D character, "
+            "refined lighting (key + fill lights), subsurface skin tones, "
+            "specular highlights. 3D render quality."
+        ),
+    },
+    "plush": {
+        "characterDesc": (
+            "Plush stuffed toy style character based on the person\n"
+            "  * Simulated short fluffy texture (fine brush strokes for fur flow)\n"
+            "  * Chubby cute proportions, soft rounded edges\n"
+            "  * Rich light and dark fur color layers, like a real handmade plush toy"
+        ),
+        "promptSuffix": (
+            "Plush stuffed toy style — simulated short fluffy fur material, "
+            "chubby cute proportions, soft rounded outlines, "
+            "rich fur color depth. Like a real handmade stuffed animal."
         ),
     },
 }
@@ -147,27 +184,27 @@ MAX_RETRIES = 2
 
 
 def build_prompt(style_key: str, emotion_key: str) -> str:
-    """使用與 App _buildSinglePrompt（圓形模式）完全相同的格式。
-    圓形裁切由 Flutter ClipOval 處理，AI 只需產出滿版正方形色塊。
+    """使用與 App _buildSinglePrompt（透明背景模式，kStickerBgTransparent=true）完全相同的格式。
+    背景透明，圓形裁切由 Flutter ClipOval 處理。
     """
     style = STYLES[style_key]
     emotion = EMOTIONS[emotion_key]
     return (
         "You are a professional LINE sticker illustrator. "
-        "Draw ONE square sticker based on the person's face in the reference photo.\n\n"
-        "DESIGN REQUIREMENTS:\n"
-        f"- Fill the entire square canvas with the background color: {emotion['bgColor']} "
-        "(no transparency anywhere, no white corners)\n"
-        "- NO transparent pixels; the entire canvas must be fully opaque\n"
+        "Draw ONE square sticker with a fully transparent background "
+        "based on the person's face in the reference photo.\n\n"
+        "CANVAS REQUIREMENTS:\n"
+        "- The entire square canvas background must be fully transparent (alpha = 0)\n"
+        "- NO opaque background fill, NO white corners, NO white borders or outlines\n\n"
+        "CHARACTER DESIGN:\n"
         f"- Character expression / pose: {emotion['emotion']}\n"
         f"- {style['characterDesc']}\n"
         "- Place the character in the upper-center of the canvas "
         "(top 65% of height, horizontally centered)\n"
         "- Leave ~10% margin on the left and right sides\n"
         "- DO NOT draw any text or letters inside the image\n"
-        "- 2–4 small sparkles / stars clustered around the character (avoid corners)\n"
-        "- NO white outline, NO white border\n\n"
-        "OUTPUT: A single fully opaque square PNG with solid background color.\n"
+        "- 2–4 small sparkles / stars clustered around the character\n\n"
+        "OUTPUT: A single square PNG with fully transparent background (RGBA, alpha = 0).\n"
         f"STYLE: {style['promptSuffix']}\n"
     )
 
