@@ -247,11 +247,16 @@ class StickerGenerationService {
     }
   }
 
-  /// Cloud Run IAM 攔截的特徵：錯誤碼 unauthenticated + 訊息為全大寫 'UNAUTHENTICATED'。
+  /// 基礎設施層拒絕的特徵：錯誤碼 unauthenticated，且訊息不含 function 層自訂文字。
   ///
-  /// resolveUid 拒絕時訊息是 "No Authorization header..." 或 "Token verification failed..."。
+  /// - Cloud Run IAM 攔截（invoker 未設為 public）：訊息為全大寫 'UNAUTHENTICATED'
+  /// - App Check 強制驗證（enforceAppCheck: true，token 無效/遺失）：訊息為 'Unauthenticated'
+  ///
+  /// resolveUid 拒絕時訊息是 "No Authorization header..." 或 "Token verification failed..."，
+  /// 不符合此判斷，會進入正常重試流程。
   static bool _isIamBlock(FirebaseFunctionsException e) =>
-      e.code == 'unauthenticated' && e.message == 'UNAUTHENTICATED';
+      e.code == 'unauthenticated' &&
+      (e.message == 'UNAUTHENTICATED' || e.message == 'Unauthenticated');
 
   static Duration? _parseRetryDelay(String message) {
     final m = RegExp(r'retry after (\d+(?:\.\d+)?)s', caseSensitive: false)
