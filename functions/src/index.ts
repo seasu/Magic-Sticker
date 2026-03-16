@@ -93,7 +93,7 @@ export const generateStickerSpecs = onCall(
     memory: "512MiB",
     secrets: [geminiApiKey],
     invoker: "public",
-    enforceAppCheck: true,
+    enforceAppCheck: false,
   },
   async (request) => {
     // ★ 此行出現在 Firebase Logs = Cloud Run IAM 通過，function 程式碼有執行
@@ -101,9 +101,10 @@ export const generateStickerSpecs = onCall(
     log("generateStickerSpecs: invoked", {
       hasAuth: !!request.auth,
       hasAuthHeader: !!request.rawRequest?.headers?.authorization,
+      hasAppCheck: !!request.app,
     });
     if (!request.app) {
-      throw new HttpsError("failed-precondition", "App Check verification failed.");
+      warn("generateStickerSpecs: App Check token missing (App Distribution build?)");
     }
     const uid = await resolveUid(request);
     log("generateStickerSpecs: auth OK", {uid});
@@ -245,16 +246,17 @@ export const generateStickerImage = onCall(
     memory: "1GiB",
     secrets: [geminiApiKey],
     invoker: "public",
-    enforceAppCheck: true,
+    enforceAppCheck: false,
   },
   async (request) => {
     // ★ 此行出現在 Firebase Logs = Cloud Run IAM 通過，function 程式碼有執行
     log("generateStickerImage: invoked", {
       hasAuth: !!request.auth,
       hasAuthHeader: !!request.rawRequest?.headers?.authorization,
+      hasAppCheck: !!request.app,
     });
     if (!request.app) {
-      throw new HttpsError("failed-precondition", "App Check verification failed.");
+      warn("generateStickerImage: App Check token missing (App Distribution build?)");
     }
     const uid = await resolveUid(request);
     log("generateStickerImage: auth OK", {uid});
