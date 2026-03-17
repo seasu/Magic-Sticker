@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.2.31+238 |
+| 目前版本 | v3.2.34+241 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -213,6 +213,9 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.2.34 | 2026-03-17 | **fix(functions)**：移除 `generationConfig` 中非法的 `responseImageMimeType` 欄位 — Gemini REST API v1beta 的 `GenerationConfig` 不存在此欄位，導致所有圖片生成請求回傳 HTTP 400 `INVALID_ARGUMENT`；移除後使用 API 預設圖片格式，Cloud Function 原有 `inlineData.mimeType.startsWith("image/")` 解析邏輯不受影響。 |
+| v3.2.33 | 2026-03-17 | **fix(ui)**：Google 登入後頭像即時顯示 — 將 `_LoggedInBadge` 從 `StatelessWidget` 改為 `ConsumerWidget`，改由 `ref.watch(currentUserProvider)` 取得使用者資料（原本直接讀 `FirebaseAuth.instance.currentUser`）；`_UserAccountSheet` 同步改用 Riverpod provider；移除 `credit_badge.dart` 中多餘的 `firebase_auth` 直接 import。確保 `userChanges()` 觸發時頭像圖片立即刷新。 |
+| v3.2.32 | 2026-03-17 | **feat(prompt/ui)**：(1) 風格選擇縮圖改用各風格的 greeting（打招呼）情緒示意圖（`preview_[style]_greeting.png`）；(2) 圖片生成 Prompt 四個 variants（圓形透明、圓形不透明、方形透明、方形不透明）均新增防裁切指令：頭頂與身體下緣保留至少 5% 邊距、左右保留 10% 邊距，並明確禁止任何部位（頭頂、耳朵、手臂、腳等）被畫布邊緣截斷。 |
 | v3.2.4 | 2026-03-15 | **fix(ci)**：修正 CI smoke test 因 Cloud Run IAM 傳播延遲（10–30s）導致 `getConfig` 返回 403 而失敗 — 將 `curl -sf` 改為帶 HTTP status code 捕獲的寫法，加入最多 5 次重試（初始等待 15s，每次遞增 10s），每次嘗試輸出 HTTP status 與 body 方便 debug；最終仍失敗才 `exit 1`。 |
 | v3.2.3 | 2026-03-15 | **fix(auth)**：修正 Google Login 出現 `permission-denied` 錯誤 — 根本原因：`signInWithCredential` / `linkWithCredential` 完成後 Firebase Auth 立即 fire `userChanges()`，但新 ID token 尚未傳遞至 Firestore SDK，導致後續的 Firestore read/write 被拒絕；`_ensureUserDoc` / `_promoteUser` 也無 try-catch，exception 一路冒泡至 `PlatformDispatcher`。修正：(1) `CreditNotifier._loadCredits` 在讀 Firestore 前強制 `getIdToken(true)`，並對 `permission-denied` 靜默處理；(2) `_signInWithCredential` 各路徑在 Firestore 操作前加 `getIdToken(true)`，並以 try-catch 包裹 `_ensureUserDoc` / `_promoteUser`，確保 Auth 成功就回傳 success，不讓 Firestore 錯誤中斷登入流程。 |
 | v3.2.2 | 2026-03-15 | **feat(copy)**：全面整理三步驟引導文字 — (1) HomeScreen：tagline 換為三步驟橫列（① 📷 選照片 › ② 🎨 選風格 › ③ 😄 選情緒），按鈕區上方加「步驟 1／3」說明；(2) StyleSelectionScreen：副標改為「先選外框形狀，再選最喜歡的視覺風格」，未選提示改為「點一下卡片即可選取」，CTA 改為「確認風格，選情緒 →」；(3) EmotionSelectionScreen：副標改為「每種情緒各生成一張，可選 4–12 種」；(4) EditorScreen：TopBar 改為「右滑生成・左滑跳過」，loading 副標動態顯示實際情緒數量（不再 hardcode 8），SnackBar 改為「✨ N 款概念就緒！右滑生成（耗 1 點），左滑跳過」。 |

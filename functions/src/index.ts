@@ -321,7 +321,6 @@ export const generateStickerImage = onCall(
       ],
       generationConfig: {
         responseModalities: ["IMAGE", "TEXT"],
-        responseImageMimeType: "image/png",
       },
     };
 
