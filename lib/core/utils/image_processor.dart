@@ -37,87 +37,81 @@ class ImageProcessor {
 
   /// Chroma Key 去背：將純黑色背景替換為透明，回傳 PNG bytes。
   ///
-  /// 演算法（Flood Fill from corners）：
-  /// 1. 從圖片四角出發，BFS 擴散所有連通的「近黑色」像素
-  /// 2. 近黑色門檻：R < 50 && G < 50 && B < 50
+  /// 演算法（Flood Fill from edges）：
+  /// 1. 從圖片四邊所有像素出發，BFS 擴散所有連通的「近黑色」像素（背景）
+  /// 2. 近黑色門檻：max(R, G, B) < kBlackThreshold（85），處理 JPEG 壓縮 artifact
   /// 3. 被標記的背景像素 alpha → 0（透明）
   /// 4. 未被標記的像素（角色 + 白色描邊）維持原色
   ///
-  /// 設計上依賴 prompt 要求的白色描邊，white border 會擋住 flood fill
-  /// 從邊界進入角色內部，即使角色有黑色線條也不會誤刪。
+  /// 依賴 prompt 要求的白色描邊：白色描邊擋住 flood fill，
+  /// 即使角色有黑色部分也不會被誤刪。
   ///
   /// 可傳入 `compute()` 作為 isolate 頂層函數使用。
   static Uint8List? chromaKeyRemoveBlackIsolate(Uint8List bytes) {
-    final image = img.decodeImage(bytes);
-    if (image == null) return null;
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return null;
 
+    // 確保 RGBA uint8 格式，使 pixel 值在 0–255 範圍內
+    final image = decoded.convert(numChannels: 4);
     final w = image.width;
     final h = image.height;
 
-    // 轉為可修改的 RGBA Image
-    final result = img.Image(width: w, height: h, numChannels: 4);
-    for (int y = 0; y < h; y++) {
-      for (int x = 0; x < w; x++) {
-        final p = image.getPixel(x, y);
-        result.setPixelRgba(x, y, p.r.toInt(), p.g.toInt(), p.b.toInt(), 255);
-      }
-    }
+    // 門檻：85，可承受 JPEG 壓縮 artifact（純黑 #000 在 JPEG 解壓後最多 ~60）
+    const kBlackThreshold = 85;
 
-    // BFS flood fill：從四角出發，標記所有連通的近黑色背景像素
-    const _kBlackThreshold = 50;
-    final visited = List.filled(w * h, false);
+    // visited[idx] = 0 未訪問, 1 = 背景(black), 2 = 非背景
+    final visited = Uint8List(w * h);
     final queue = Queue<int>();
 
-    void enqueue(int x, int y) {
+    bool isBlackPixel(int x, int y) {
+      final p = image.getPixel(x, y);
+      // 取三通道最大值，任一通道 >= 門檻即非黑（處理色偏 artifact）
+      final maxCh = p.r > p.g ? (p.r > p.b ? p.r : p.b) : (p.g > p.b ? p.g : p.b);
+      return maxCh < kBlackThreshold;
+    }
+
+    void tryEnqueue(int x, int y) {
+      if (x < 0 || x >= w || y < 0 || y >= h) return;
       final idx = y * w + x;
-      if (visited[idx]) return;
-      final p = result.getPixel(x, y);
-      if (p.r < _kBlackThreshold && p.g < _kBlackThreshold && p.b < _kBlackThreshold) {
-        visited[idx] = true;
+      if (visited[idx] != 0) return; // 已處理
+      if (isBlackPixel(x, y)) {
+        visited[idx] = 1; // 標記為背景
         queue.add(idx);
+      } else {
+        visited[idx] = 2; // 標記為非背景（阻止重複訪問）
       }
     }
 
-    // 四角出發點
-    enqueue(0, 0);
-    enqueue(w - 1, 0);
-    enqueue(0, h - 1);
-    enqueue(w - 1, h - 1);
-
-    // 四邊邊緣出發點（確保完整覆蓋邊界黑色）
+    // 從所有邊界像素出發
     for (int x = 0; x < w; x++) {
-      enqueue(x, 0);
-      enqueue(x, h - 1);
+      tryEnqueue(x, 0);
+      tryEnqueue(x, h - 1);
     }
-    for (int y = 0; y < h; y++) {
-      enqueue(0, y);
-      enqueue(w - 1, y);
+    for (int y = 1; y < h - 1; y++) {
+      tryEnqueue(0, y);
+      tryEnqueue(w - 1, y);
     }
 
     // 4-連通 BFS
-    const dx = [1, -1, 0, 0];
-    const dy = [0, 0, 1, -1];
     while (queue.isNotEmpty) {
       final idx = queue.removeFirst();
-      final px = idx % w;
-      final py = idx ~/ w;
-      for (int d = 0; d < 4; d++) {
-        final nx = px + dx[d];
-        final ny = py + dy[d];
-        if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
-        enqueue(nx, ny);
-      }
+      final x = idx % w;
+      final y = idx ~/ w;
+      tryEnqueue(x + 1, y);
+      tryEnqueue(x - 1, y);
+      tryEnqueue(x, y + 1);
+      tryEnqueue(x, y - 1);
     }
 
-    // 將標記的背景像素設為透明
+    // 將標記為背景的像素設為透明
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w; x++) {
-        if (visited[y * w + x]) {
-          result.setPixelRgba(x, y, 0, 0, 0, 0);
+        if (visited[y * w + x] == 1) {
+          image.setPixelRgba(x, y, 0, 0, 0, 0);
         }
       }
     }
 
-    return Uint8List.fromList(img.encodePng(result));
+    return Uint8List.fromList(img.encodePng(image));
   }
 }
