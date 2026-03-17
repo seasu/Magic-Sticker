@@ -1,0 +1,72 @@
+name: 🎨 Generate Style Thumbnails (9 張)
+
+# 手動觸發，專門產生風格選擇畫面的 9 張縮圖
+# 使用 seasu-source.jpg 作為來源，greeting 情緒，加強構圖一致性
+
+on:
+  workflow_dispatch:
+    inputs:
+      styles:
+        description: '要重新產生的風格（空白 = 全部 9 種）例：chibi pixel webtoon'
+        required: false
+        default: ''
+      commit_message:
+        description: 'Commit 說明（留空使用預設）'
+        required: false
+        default: ''
+
+jobs:
+  generate:
+    name: Generate 9 Style Thumbnails
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install google-genai pillow
+
+      - name: Verify source image
+        run: |
+          if [ ! -f assets/images/seasu-source.jpg ]; then
+            echo "❌ assets/images/seasu-source.jpg not found"
+            exit 1
+          fi
+          echo "✅ Source image: $(du -h assets/images/seasu-source.jpg | cut -f1)"
+
+      - name: Generate thumbnails
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_IMAGE_MODEL: gemini-2.5-flash-preview-05-20
+        run: python3 scripts/generate_style_thumbnails.py
+
+      - name: Show generated files
+        run: |
+          echo "📁 Generated thumbnails:"
+          ls -lh assets/images/preview_*_greeting.png 2>/dev/null || echo "No greeting thumbnails found"
+
+      - name: Commit and push
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/images/preview_*_greeting.png
+          if git diff --staged --quiet; then
+            echo "⚠️ No changes to commit"
+          else
+            MSG="${{ github.event.inputs.commit_message }}"
+            if [ -z "$MSG" ]; then
+              MSG="feat(assets): 更新 9 張風格縮圖（seasu-source × greeting）"
+            fi
+            git commit -m "$MSG"
+            git push
+          fi
