@@ -35,16 +35,15 @@ class ImageProcessor {
     return Uint8List.fromList(img.encodeJpg(processed, quality: 90));
   }
 
-  /// Chroma Key 去背：將純黑色背景替換為透明，回傳 PNG bytes。
+  /// Chroma Key 去背（綠幕模式）：將純綠 #00FF00 背景替換為透明，回傳 PNG bytes。
   ///
   /// 演算法（Flood Fill from edges）：
-  /// 1. 從圖片四邊所有像素出發，BFS 擴散所有連通的「近黑色」像素（背景）
-  /// 2. 近黑色門檻：max(R, G, B) < kBlackThreshold（85），處理 JPEG 壓縮 artifact
+  /// 1. 從圖片四邊所有像素出發，BFS 擴散所有連通的「近綠色」像素（背景）
+  /// 2. 綠幕判斷：G > 160 且 G > R * 1.5 且 G > B * 1.5（人物幾乎不可能出現此色）
   /// 3. 被標記的背景像素 alpha → 0（透明）
-  /// 4. 未被標記的像素（角色 + 白色描邊）維持原色
+  /// 4. Edge cleanup：再擴展 3 輪，去除綠幕 JPEG artifact 殘留
   ///
-  /// 依賴 prompt 要求的白色描邊：白色描邊擋住 flood fill，
-  /// 即使角色有黑色部分也不會被誤刪。
+  /// 相較於黑幕，綠幕的優勢：角色的深色頭髮、深藍服裝不會被誤刪。
   ///
   /// 可傳入 `compute()` 作為 isolate 頂層函數使用。
   static Uint8List? chromaKeyRemoveBlackIsolate(Uint8List bytes) {
@@ -56,29 +55,27 @@ class ImageProcessor {
     final w = image.width;
     final h = image.height;
 
-    // 門檻：85，可承受 JPEG 壓縮 artifact（純黑 #000 在 JPEG 解壓後最多 ~60）
-    const kBlackThreshold = 85;
-
-    // visited[idx] = 0 未訪問, 1 = 背景(black), 2 = 非背景
+    // visited[idx] = 0 未訪問, 1 = 背景(green), 2 = 非背景
     final visited = Uint8List(w * h);
     final queue = Queue<int>();
 
-    bool isBlackPixel(int x, int y) {
+    // 綠幕偵測：G 通道主導且遠大於 R、B
+    // JPEG 壓縮後純綠 #00FF00 → G ≈ 240, R/B 各約 0–30，門檻設 160 / 1.5x 很保守
+    bool isGreenPixel(int x, int y) {
       final p = image.getPixel(x, y);
-      // 取三通道最大值，任一通道 >= 門檻即非黑（處理色偏 artifact）
-      final maxCh = p.r > p.g ? (p.r > p.b ? p.r : p.b) : (p.g > p.b ? p.g : p.b);
-      return maxCh < kBlackThreshold;
+      final g = p.g;
+      return g > 160 && g > p.r * 1.5 && g > p.b * 1.5;
     }
 
     void tryEnqueue(int x, int y) {
       if (x < 0 || x >= w || y < 0 || y >= h) return;
       final idx = y * w + x;
-      if (visited[idx] != 0) return; // 已處理
-      if (isBlackPixel(x, y)) {
-        visited[idx] = 1; // 標記為背景
+      if (visited[idx] != 0) return;
+      if (isGreenPixel(x, y)) {
+        visited[idx] = 1;
         queue.add(idx);
       } else {
-        visited[idx] = 2; // 標記為非背景（阻止重複訪問）
+        visited[idx] = 2;
       }
     }
 
@@ -103,17 +100,15 @@ class ImageProcessor {
       tryEnqueue(x, y - 1);
     }
 
-    // Edge cleanup：多輪擴展透明區域，去除邊緣黑色 artifact 並修剪白色描邊
-    // 每輪把「鄰近透明像素的黑色 or 白色描邊像素」設為透明
-    const kEdgePasses = 4;
+    // Edge cleanup：擴展透明區域 3 輪，去除 JPEG 壓縮留下的綠色 artifact
+    const kEdgePasses = 3;
     for (int pass = 0; pass < kEdgePasses; pass++) {
       final candidates = <int>[];
       for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
           final idx = y * w + x;
-          if (visited[idx] == 1) continue; // 已透明
+          if (visited[idx] == 1) continue;
 
-          // 是否有相鄰透明像素（4-連通）
           final hasTransparentNeighbor =
               (x > 0     && visited[y * w + (x - 1)] == 1) ||
               (x < w - 1 && visited[y * w + (x + 1)] == 1) ||
@@ -121,12 +116,9 @@ class ImageProcessor {
               (y < h - 1 && visited[(y + 1) * w + x] == 1);
           if (!hasTransparentNeighbor) continue;
 
+          // 殘留綠色 artifact（綠色成分明顯高於紅藍）
           final p = image.getPixel(x, y);
-          final maxCh = p.r > p.g ? (p.r > p.b ? p.r : p.b) : (p.g > p.b ? p.g : p.b);
-          final minCh = p.r < p.g ? (p.r < p.b ? p.r : p.b) : (p.g < p.b ? p.g : p.b);
-          // 黑色 artifact：max < 85
-          // 白色描邊：min > 210（三通道均高，避免誤刪肌膚色）
-          if (maxCh < kBlackThreshold || minCh > 210) {
+          if (p.g > 100 && p.g > p.r * 1.2 && p.g > p.b * 1.2) {
             candidates.add(idx);
           }
         }
