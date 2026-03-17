@@ -55,18 +55,45 @@ jobs:
           echo "📁 Generated thumbnails:"
           ls -lh assets/images/preview_*_greeting.png 2>/dev/null || echo "No greeting thumbnails found"
 
-      - name: Commit and push
+      - name: Create PR with generated thumbnails
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add assets/images/preview_*_greeting.png
-          if git diff --staged --quiet; then
+          if git diff --cached --quiet; then
             echo "⚠️ No changes to commit"
-          else
-            MSG="${{ github.event.inputs.commit_message }}"
-            if [ -z "$MSG" ]; then
-              MSG="feat(assets): 更新 9 張風格縮圖（seasu-source × greeting）"
-            fi
-            git commit -m "$MSG"
-            git push
+            exit 0
           fi
+
+          # 遞增版號（patch +1, build +1）以通過 Version Guard
+          CURRENT=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          MAJOR_MINOR=$(echo "$CURRENT" | sed 's/\([0-9]*\.[0-9]*\.\)\([0-9]*\)+\([0-9]*\)/\1/')
+          PATCH=$(echo "$CURRENT" | sed 's/[0-9]*\.[0-9]*\.\([0-9]*\)+.*/\1/')
+          BUILD=$(echo "$CURRENT" | sed 's/.*+//')
+          NEW_PATCH=$((PATCH + 1))
+          NEW_BUILD=$((BUILD + 1))
+          NEW_VER="${MAJOR_MINOR}${NEW_PATCH}+${NEW_BUILD}"
+          sed -i "s/^version: .*/version: ${NEW_VER}/" pubspec.yaml
+          sed -i "s/| 目前版本 | v[^ ]* |/| 目前版本 | v${NEW_VER} |/" PRD.md
+          git add pubspec.yaml PRD.md
+          echo "📦 Version bumped: $CURRENT → $NEW_VER"
+
+          BRANCH="auto/style-thumbnails-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          MSG="${{ github.event.inputs.commit_message }}"
+          if [ -z "$MSG" ]; then
+            MSG="feat(assets): 更新 9 張風格縮圖（seasu-source × greeting）(v${NEW_VER})"
+          fi
+          git commit -m "$MSG"
+          git push origin "$BRANCH"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "feat(assets): 更新 9 張風格縮圖" \
+            --body "由 **Generate Style Thumbnails** workflow 自動產生。
+
+9 種風格 × greeting 情緒縮圖，使用 seasu-source.jpg 作為來源。
+Prompt 與 App 實際產圖完全一致（中文 Chroma Key 模式）。"
+          echo "✅ PR created from branch $BRANCH"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
