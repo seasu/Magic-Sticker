@@ -12,7 +12,6 @@ import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:video_player/video_player.dart';
 
 import '../../../core/constants/build_config.dart';
 import '../../../core/models/sticker_shape.dart';
@@ -1306,7 +1305,7 @@ class _CompletionViewState extends State<_CompletionView>
 // 全螢幕趣味 Loading：貓追老鼠大場景（追劇雙關）
 // ═══════════════════════════════════════════════════════════════════════════════
 
-class _FunLoadingView extends StatefulWidget {
+class _FunLoadingView extends StatelessWidget {
   const _FunLoadingView({this.title, this.subtitle, this.isImageGen = false});
 
   /// 大標題，顯示在動畫上方，清楚說明目前在做什麼
@@ -1315,54 +1314,27 @@ class _FunLoadingView extends StatefulWidget {
   /// 輔助說明（時間預估、是否免費等）
   final String? subtitle;
 
-  /// true = 圖片生成模式（使用不同的訊息組）
+  /// true = 圖片生成模式（使用不同的 GIF）
   final bool isImageGen;
 
   @override
-  State<_FunLoadingView> createState() => _FunLoadingViewState();
-}
-
-class _FunLoadingViewState extends State<_FunLoadingView> {
-  late final VideoPlayerController _videoCtrl;
-  bool _videoError = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _videoCtrl = VideoPlayerController.asset('assets/loading_animation-square.mp4')
-      ..initialize().then((_) {
-        if (mounted) {
-          _videoCtrl
-            ..setLooping(true)
-            ..setVolume(0)
-            ..play();
-          setState(() {});
-        }
-      }).catchError((_) {
-        if (mounted) setState(() => _videoError = true);
-      });
-  }
-
-  @override
-  void dispose() {
-    _videoCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final gifAsset = isImageGen
+        ? 'assets/cat-drawing-loading.gif'
+        : 'assets/cat-research-loading.gif';
+
     return ColoredBox(
       color: Colors.white,
       child: Column(
         children: [
           // ── 狀態標題（告知使用者目前在做什麼）───────────────────────
-          if (widget.title != null)
+          if (title != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
               child: Column(
                 children: [
                   Text(
-                    widget.title!,
+                    title!,
                     textAlign: TextAlign.center,
                     style: GoogleFonts.notoSansTc(
                       fontSize: 20,
@@ -1370,10 +1342,10 @@ class _FunLoadingViewState extends State<_FunLoadingView> {
                       color: Colors.black87,
                     ),
                   ),
-                  if (widget.subtitle != null) ...[
+                  if (subtitle != null) ...[
                     const SizedBox(height: 4),
                     Text(
-                      widget.subtitle!,
+                      subtitle!,
                       textAlign: TextAlign.center,
                       style: GoogleFonts.notoSansTc(
                         fontSize: 13,
@@ -1385,22 +1357,15 @@ class _FunLoadingViewState extends State<_FunLoadingView> {
               ),
             ),
 
-          // ── 影片動畫區 ────────────────────────────────────────────────
+          // ── GIF 動畫區 ─────────────────────────────────────────────
           Expanded(
-            child: _videoError
-                ? const SizedBox.shrink()
-                : _videoCtrl.value.isInitialized
-                    ? SizedBox.expand(
-                        child: FittedBox(
-                          fit: BoxFit.cover,
-                          child: SizedBox(
-                            width: _videoCtrl.value.size.width,
-                            height: _videoCtrl.value.size.height,
-                            child: VideoPlayer(_videoCtrl),
-                          ),
-                        ),
-                      )
-                    : const Center(child: CircularProgressIndicator()),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Image.asset(
+                gifAsset,
+                fit: BoxFit.contain,
+              ),
+            ),
           ),
         ],
       ),
