@@ -475,9 +475,6 @@ class _StickerCanvasState extends State<StickerCanvas> {
           return Stack(
             fit: StackFit.expand,
             children: [
-              // 白色底，防止 AI 圖片透明區域（圓形外）在 app 預覽或匯出時顯示棋盤格
-              const ColoredBox(color: Colors.white),
-
               imageContent,
 
               // ── 人物層（ML Kit 去背，疊在 AI 背景上，同步 transform）──
