@@ -215,7 +215,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                       width: side,
                       height: side,
                       child: CustomPaint(
-                        backgroundPainter: const _CheckerboardPainter(),
+                        painter: const _CheckerboardPainter(),
                         foregroundPainter: _BoundaryPainter(stickerShape: widget.stickerShape),
                         child: Builder(builder: (ctx) {
                           final canvas = StickerCanvas(
