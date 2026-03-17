@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.2.43+250 |
+| 目前版本 | v3.2.44+251 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -213,6 +213,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.2.44 | 2026-03-17 | **fix(ui)**：編輯 Sheet 與歷史貼圖（sticker_replay_screen）畫布加入棋盤格透明示意背景；歷史編輯畫面同步補上虛線邊界圓，兩處 painters 均在 RepaintBoundary 外層，不影響 export 輸出。 |
 | v3.2.43 | 2026-03-17 | **fix(prompt+algo)**：Chroma Key 背景從綠幕（#00FF00）改為白幕（#FFFFFF）— Prompt 要求純白平塗背景；`image_processor.dart` 白色像素偵測改為 R/G/B > 220，edge cleanup 由 3 輪降為 2 輪避免誤刪角色淺色邊緣；去背失敗時殘留白邊比綠邊更自然不影響貼圖使用。 |
 | v3.2.42 | 2026-03-17 | **fix(prompt)**：強化 Chroma Key 去背 Prompt — 明確告知 Gemini 背景為純技術遮罩色，禁止光暈、漸層、反光、筆觸、紋理、陰影投射等所有藝術加工，確保背景像素穩定維持精確 #00FF00，提升 chroma key 去背成功率。 |
 | v3.2.41 | 2026-03-17 | **fix(ui)**：貼圖預覽卡片左右加 24px 邊距，避免圖片貼邊視覺不適。 |

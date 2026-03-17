@@ -215,6 +215,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                       width: side,
                       height: side,
                       child: CustomPaint(
+                        backgroundPainter: const _CheckerboardPainter(),
                         foregroundPainter: _BoundaryPainter(stickerShape: widget.stickerShape),
                         child: Builder(builder: (ctx) {
                           final canvas = StickerCanvas(
@@ -706,4 +707,33 @@ class _BoundaryPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _BoundaryPainter old) =>
       old.stickerShape != stickerShape;
+}
+
+// ─── Checkerboard 透明底色示意（不進入 export）────────────────────────────────
+
+class _CheckerboardPainter extends CustomPainter {
+  const _CheckerboardPainter();
+
+  static const double _tileSize = 14.0;
+  static const Color _light = Color(0xFFE8E8E8);
+  static const Color _dark  = Color(0xFFC8C8C8);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final lightPaint = Paint()..color = _light;
+    final darkPaint  = Paint()..color = _dark;
+    final cols = (size.width  / _tileSize).ceil() + 1;
+    final rows = (size.height / _tileSize).ceil() + 1;
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < cols; c++) {
+        canvas.drawRect(
+          Rect.fromLTWH(c * _tileSize, r * _tileSize, _tileSize, _tileSize),
+          (r + c).isEven ? lightPaint : darkPaint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
