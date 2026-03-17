@@ -103,6 +103,40 @@ class ImageProcessor {
       tryEnqueue(x, y - 1);
     }
 
+    // Edge cleanup：多輪擴展透明區域，去除邊緣黑色 artifact 並修剪白色描邊
+    // 每輪把「鄰近透明像素的黑色 or 白色描邊像素」設為透明
+    const kEdgePasses = 4;
+    for (int pass = 0; pass < kEdgePasses; pass++) {
+      final candidates = <int>[];
+      for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+          final idx = y * w + x;
+          if (visited[idx] == 1) continue; // 已透明
+
+          // 是否有相鄰透明像素（4-連通）
+          final hasTransparentNeighbor =
+              (x > 0     && visited[y * w + (x - 1)] == 1) ||
+              (x < w - 1 && visited[y * w + (x + 1)] == 1) ||
+              (y > 0     && visited[(y - 1) * w + x] == 1) ||
+              (y < h - 1 && visited[(y + 1) * w + x] == 1);
+          if (!hasTransparentNeighbor) continue;
+
+          final p = image.getPixel(x, y);
+          final maxCh = p.r > p.g ? (p.r > p.b ? p.r : p.b) : (p.g > p.b ? p.g : p.b);
+          final minCh = p.r < p.g ? (p.r < p.b ? p.r : p.b) : (p.g < p.b ? p.g : p.b);
+          // 黑色 artifact：max < 85
+          // 白色描邊：min > 210（三通道均高，避免誤刪肌膚色）
+          if (maxCh < kBlackThreshold || minCh > 210) {
+            candidates.add(idx);
+          }
+        }
+      }
+      if (candidates.isEmpty) break;
+      for (final idx in candidates) {
+        visited[idx] = 1;
+      }
+    }
+
     // 將標記為背景的像素設為透明
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w; x++) {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
+import '../../../core/constants/build_config.dart';
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/models/sticker_style.dart';
 import '../models/sticker_config.dart';
@@ -475,6 +476,10 @@ class _StickerCanvasState extends State<StickerCanvas> {
           return Stack(
             fit: StackFit.expand,
             children: [
+              // ── 透明底色示意（Checkerboard）──────────────────────────────
+              if (kStickerBgChromaKey)
+                const CustomPaint(painter: _CheckerboardPainter()),
+
               imageContent,
 
               // ── 人物層（ML Kit 去背，疊在 AI 背景上，同步 transform）──
@@ -916,4 +921,33 @@ class _OutlinedStickerText extends StatelessWidget {
       children: [outlineText, fillText],
     );
   }
+}
+
+// ─── Checkerboard 透明底色示意 ────────────────────────────────────────────────
+
+class _CheckerboardPainter extends CustomPainter {
+  const _CheckerboardPainter();
+
+  static const double _tileSize = 14.0;
+  static const Color _light = Color(0xFFE0E0E0);
+  static const Color _dark  = Color(0xFFC0C0C0);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final lightPaint = Paint()..color = _light;
+    final darkPaint  = Paint()..color = _dark;
+    final cols = (size.width  / _tileSize).ceil() + 1;
+    final rows = (size.height / _tileSize).ceil() + 1;
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < cols; c++) {
+        canvas.drawRect(
+          Rect.fromLTWH(c * _tileSize, r * _tileSize, _tileSize, _tileSize),
+          (r + c).isEven ? lightPaint : darkPaint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
