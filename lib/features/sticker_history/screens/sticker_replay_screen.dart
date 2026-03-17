@@ -135,10 +135,6 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
         exportCanvas.clipPath(
           Path()..addOval(Rect.fromLTWH(0, 0, size, size)),
         );
-        exportCanvas.drawOval(
-          Rect.fromLTWH(0, 0, size, size),
-          Paint()..color = const Color(0xFFFFFFFF),
-        );
         exportCanvas.drawImage(rectImage, Offset(-left, -top), Paint());
         exportImage =
             await recorder.endRecording().toImage(size.toInt(), size.toInt());
