@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.2.40+247 |
+| 目前版本 | v3.2.41+248 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -213,6 +213,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.2.41 | 2026-03-17 | **fix(ui)**：貼圖預覽卡片左右加 24px 邊距，避免圖片貼邊視覺不適。 |
 | v3.2.34 | 2026-03-17 | **fix(functions)**：移除 `generationConfig` 中非法的 `responseImageMimeType` 欄位 — Gemini REST API v1beta 的 `GenerationConfig` 不存在此欄位，導致所有圖片生成請求回傳 HTTP 400 `INVALID_ARGUMENT`；移除後使用 API 預設圖片格式，Cloud Function 原有 `inlineData.mimeType.startsWith("image/")` 解析邏輯不受影響。 |
 | v3.2.33 | 2026-03-17 | **fix(ui)**：Google 登入後頭像即時顯示 — 將 `_LoggedInBadge` 從 `StatelessWidget` 改為 `ConsumerWidget`，改由 `ref.watch(currentUserProvider)` 取得使用者資料（原本直接讀 `FirebaseAuth.instance.currentUser`）；`_UserAccountSheet` 同步改用 Riverpod provider；移除 `credit_badge.dart` 中多餘的 `firebase_auth` 直接 import。確保 `userChanges()` 觸發時頭像圖片立即刷新。 |
 | v3.2.32 | 2026-03-17 | **feat(prompt/ui)**：(1) 風格選擇縮圖改用各風格的 greeting（打招呼）情緒示意圖（`preview_[style]_greeting.png`）；(2) 圖片生成 Prompt 四個 variants（圓形透明、圓形不透明、方形透明、方形不透明）均新增防裁切指令：頭頂與身體下緣保留至少 5% 邊距、左右保留 10% 邊距，並明確禁止任何部位（頭頂、耳朵、手臂、腳等）被畫布邊緣截斷。 |
