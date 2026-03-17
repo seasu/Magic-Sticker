@@ -423,16 +423,19 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
                   // ── 卡片層疊 ──────────────────────────────────────────
                   Expanded(
-                    child: _CardStack(
-                      state: state,
-                      currentIndex: _currentIndex,
-                      repaintKeys: _repaintKeys,
-                      cardController: _cardController,
-                      onAccepted: _accept,
-                      onRejected: _reject,
-                      onEdit: _openEditSheet,
-                      onRetry: () => _generateImage(_currentIndex),
-                      stickerShape: state.stickerShape,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: _CardStack(
+                        state: state,
+                        currentIndex: _currentIndex,
+                        repaintKeys: _repaintKeys,
+                        cardController: _cardController,
+                        onAccepted: _accept,
+                        onRejected: _reject,
+                        onEdit: _openEditSheet,
+                        onRetry: () => _generateImage(_currentIndex),
+                        stickerShape: state.stickerShape,
+                      ),
                     ),
                   ),
 

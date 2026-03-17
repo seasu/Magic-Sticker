@@ -35,15 +35,16 @@ class ImageProcessor {
     return Uint8List.fromList(img.encodeJpg(processed, quality: 90));
   }
 
-  /// Chroma Key 去背（綠幕模式）：將純綠 #00FF00 背景替換為透明，回傳 PNG bytes。
+  /// Chroma Key 去背（白幕模式）：將純白 #FFFFFF 背景替換為透明，回傳 PNG bytes。
   ///
   /// 演算法（Flood Fill from edges）：
-  /// 1. 從圖片四邊所有像素出發，BFS 擴散所有連通的「近綠色」像素（背景）
-  /// 2. 綠幕判斷：G > 160 且 G > R * 1.5 且 G > B * 1.5（人物幾乎不可能出現此色）
+  /// 1. 從圖片四邊所有像素出發，BFS 擴散所有連通的「近白色」像素（背景）
+  /// 2. 白幕判斷：R > 220 且 G > 220 且 B > 220（處理 JPEG 壓縮色差）
   /// 3. 被標記的背景像素 alpha → 0（透明）
-  /// 4. Edge cleanup：再擴展 3 輪，去除綠幕 JPEG artifact 殘留
+  /// 4. Edge cleanup：再擴展 2 輪，去除白幕 JPEG artifact 殘留
   ///
-  /// 相較於黑幕，綠幕的優勢：角色的深色頭髮、深藍服裝不會被誤刪。
+  /// 白幕優勢：去背失敗時殘留白邊遠比綠邊自然，不影響貼圖實際使用。
+  /// 注意：flood fill 從邊緣出發，角色內部的白色高光、眼白等不會被誤刪。
   ///
   /// 可傳入 `compute()` 作為 isolate 頂層函數使用。
   static Uint8List? chromaKeyRemoveBlackIsolate(Uint8List bytes) {
@@ -55,23 +56,22 @@ class ImageProcessor {
     final w = image.width;
     final h = image.height;
 
-    // visited[idx] = 0 未訪問, 1 = 背景(green), 2 = 非背景
+    // visited[idx] = 0 未訪問, 1 = 背景(white), 2 = 非背景
     final visited = Uint8List(w * h);
     final queue = Queue<int>();
 
-    // 綠幕偵測：G 通道主導且遠大於 R、B
-    // JPEG 壓縮後純綠 #00FF00 → G ≈ 240, R/B 各約 0–30，門檻設 160 / 1.5x 很保守
-    bool isGreenPixel(int x, int y) {
+    // 白幕偵測：R、G、B 均高（近白色）
+    // JPEG 壓縮後純白 #FFFFFF → R/G/B ≈ 245–255，門檻設 220 容許壓縮色差
+    bool isWhitePixel(int x, int y) {
       final p = image.getPixel(x, y);
-      final g = p.g;
-      return g > 160 && g > p.r * 1.5 && g > p.b * 1.5;
+      return p.r > 220 && p.g > 220 && p.b > 220;
     }
 
     void tryEnqueue(int x, int y) {
       if (x < 0 || x >= w || y < 0 || y >= h) return;
       final idx = y * w + x;
       if (visited[idx] != 0) return;
-      if (isGreenPixel(x, y)) {
+      if (isWhitePixel(x, y)) {
         visited[idx] = 1;
         queue.add(idx);
       } else {
@@ -100,8 +100,9 @@ class ImageProcessor {
       tryEnqueue(x, y - 1);
     }
 
-    // Edge cleanup：擴展透明區域 3 輪，去除 JPEG 壓縮留下的綠色 artifact
-    const kEdgePasses = 3;
+    // Edge cleanup：擴展透明區域 2 輪，去除 JPEG 壓縮留下的白色 artifact
+    // 白幕比綠幕更保守（2 輪而非 3 輪），避免誤刪角色邊緣的淺色元素
+    const kEdgePasses = 2;
     for (int pass = 0; pass < kEdgePasses; pass++) {
       final candidates = <int>[];
       for (int y = 0; y < h; y++) {
@@ -116,9 +117,9 @@ class ImageProcessor {
               (y < h - 1 && visited[(y + 1) * w + x] == 1);
           if (!hasTransparentNeighbor) continue;
 
-          // 殘留綠色 artifact（綠色成分明顯高於紅藍）
+          // 殘留白色 artifact（R/G/B 均偏高）
           final p = image.getPixel(x, y);
-          if (p.g > 100 && p.g > p.r * 1.2 && p.g > p.b * 1.2) {
+          if (p.r > 200 && p.g > 200 && p.b > 200) {
             candidates.add(idx);
           }
         }
