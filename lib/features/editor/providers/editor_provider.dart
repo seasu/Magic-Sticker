@@ -6,6 +6,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/build_config.dart';
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/models/sticker_spec.dart';
 import '../../../core/services/firebase_service.dart';
@@ -225,7 +226,31 @@ class _EditorFamilyNotifier
 
       final updated = List<Uint8List?>.from(state.generatedImages);
       final errors = List<String?>.from(state.imageErrors);
-      updated[index] = result.bytes ?? Uint8List(0);
+
+      // Chroma key 去背：將純黑背景替換為透明（在 isolate 中執行，不阻塞 UI）
+      Uint8List? finalBytes = result.bytes;
+      if (finalBytes != null && kStickerBgChromaKey) {
+        FirebaseService.log(
+          'editor_provider: applying chroma key to index=$index',
+        );
+        final transparent = await compute(
+          ImageProcessor.chromaKeyRemoveBlackIsolate,
+          finalBytes,
+        );
+        if (transparent != null) {
+          finalBytes = transparent;
+          FirebaseService.log(
+            'editor_provider: chroma key done index=$index '
+            '(${transparent.lengthInBytes} bytes)',
+          );
+        } else {
+          FirebaseService.log(
+            'editor_provider: chroma key returned null, using original index=$index',
+          );
+        }
+      }
+
+      updated[index] = finalBytes ?? Uint8List(0);
       if (result.bytes == null) errors[index] = 'API 未回傳圖片';
       state = state.copyWith(generatedImages: updated, imageErrors: errors);
 
