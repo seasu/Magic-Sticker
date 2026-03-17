@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -84,7 +83,7 @@ class _GuestBadge extends StatelessWidget {
 
 // ── 登入後徽章 ────────────────────────────────────────────────────────────────
 
-class _LoggedInBadge extends StatelessWidget {
+class _LoggedInBadge extends ConsumerWidget {
   final int credits;
   final bool isLow;
   final VoidCallback onTap;
@@ -96,8 +95,8 @@ class _LoggedInBadge extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
     final photoUrl = user?.photoURL;
     final displayName = user?.displayName ?? user?.email?.split('@').first;
 
@@ -223,7 +222,7 @@ class _UserAccountSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = ref.watch(currentUserProvider);
     final photoUrl = user?.photoURL;
     final displayName = user?.displayName;
     final email = user?.email ?? '';
