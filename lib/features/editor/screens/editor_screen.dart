@@ -721,7 +721,7 @@ class _StickerCard extends StatelessWidget {
       textXAlign: textXAlign,
       textYAlign: textYAlign,
       textAngle: textAngle,
-      onTap: onTap,
+      interactive: false,
       stickerShape: stickerShape,
       styleIndex: styleIndex,
       categoryId: categoryId,
