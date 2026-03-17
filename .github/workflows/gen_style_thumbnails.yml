@@ -14,6 +14,10 @@ on:
         description: 'Commit 說明（留空使用預設）'
         required: false
         default: ''
+      model:
+        description: 'Gemini 圖片模型（留空使用預設 gemini-2.5-flash-image）'
+        required: false
+        default: 'gemini-2.5-flash-image'
 
 jobs:
   generate:
@@ -47,7 +51,7 @@ jobs:
       - name: Generate thumbnails
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_IMAGE_MODEL: gemini-2.5-flash-preview-05-20
+          GEMINI_IMAGE_MODEL: ${{ inputs.model || 'gemini-2.5-flash-image' }}
         run: python3 scripts/generate_style_thumbnails.py
 
       - name: Show generated files

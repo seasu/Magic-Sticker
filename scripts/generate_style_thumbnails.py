@@ -27,7 +27,7 @@ PROJECT_DIR = SCRIPT_DIR.parent
 ASSETS_DIR  = PROJECT_DIR / "assets" / "images"
 SOURCE_IMAGE = ASSETS_DIR / "seasu-source.jpg"
 
-DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-preview-05-20"
+DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
 MAX_RETRIES = 2
 
 # ── 風格定義（與 StickerStyle enum 同步，使用正體中文）────────────────────────
