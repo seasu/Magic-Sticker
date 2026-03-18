@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/models/sticker_shape.dart';
-import '../../../core/models/sticker_style.dart';
 import '../models/sticker_config.dart';
 import '../models/sticker_font.dart';
 import 'sticker_canvas.dart';
@@ -11,11 +10,11 @@ import 'sticker_canvas_frame.dart';
 export 'sticker_canvas.dart' show StickerEditTarget;
 
 /// 目前開啟的編輯面板類型
-enum _PanelMode { none, image, text, style }
+enum _PanelMode { none, image, text, color }
 
 /// 點圖後彈出的編輯 Bottom Sheet
 ///
-/// 三個模式按鈕（調整圖片 / 調整文字 / 產圖風格），
+/// 三個模式按鈕（調整圖片 / 調整文字 / 配色），
 /// 按下後下方只顯示對應的設定項目。
 class StickerEditSheet extends StatefulWidget {
   final int stickerIndex;
@@ -91,14 +90,13 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
   late final TextEditingController _textCtrl;
   late int _schemeIndex;
   late int _fontIndex;
-  late int _styleIndex;
   late double _textXAlign;
   late double _textYAlign;
   late double _textAngle;
   late double _textSizeScale;
 
-  /// 目前開啟的面板
-  _PanelMode _panelMode = _PanelMode.none;
+  /// 目前開啟的面板（預設進入即為圖片編輯模式）
+  _PanelMode _panelMode = _PanelMode.image;
 
   /// Canvas 編輯模式由面板衍生
   StickerEditTarget get _editTarget => switch (_panelMode) {
@@ -113,7 +111,6 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
     _textCtrl = TextEditingController(text: widget.initialText);
     _schemeIndex = widget.initialSchemeIndex;
     _fontIndex = widget.initialFontIndex;
-    _styleIndex = widget.initialStyleIndex;
     _textXAlign = widget.initialTextXAlign;
     _textYAlign = widget.initialTextYAlign;
     _textAngle = widget.initialTextAngle;
@@ -123,40 +120,6 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
   void _togglePanel(_PanelMode mode) {
     HapticFeedback.selectionClick();
     setState(() => _panelMode = _panelMode == mode ? _PanelMode.none : mode);
-  }
-
-  /// 使用者點選新風格 → 確認對話框 → 關閉 sheet → 背景重新生成
-  Future<void> _onStyleTap(int newIdx) async {
-    if (newIdx == _styleIndex) return;
-    HapticFeedback.mediumImpact();
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('切換產圖風格'),
-        content: Text(
-          '將切換為「${StickerStyle.values[newIdx].emoji} '
-          '${StickerStyle.values[newIdx].label}」風格並重新生成本張貼圖，確定嗎？',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('確定重新生成'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    // 立即關閉 sheet，讓 editor 的 loading overlay 接手顯示
-    Navigator.of(context).pop();
-    // fire-and-forget：provider 會把 generatedImages[i] 設為 null 觸發 loading
-    widget.onStyleChanged(newIdx);
   }
 
   @override
@@ -282,11 +245,11 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _ModeButton(
-                    icon: Icons.auto_awesome_rounded,
-                    label: '產圖風格',
-                    isActive: _panelMode == _PanelMode.style,
-                    activeColor: const Color(0xFF9C27B0),
-                    onTap: () => _togglePanel(_PanelMode.style),
+                    icon: Icons.palette_outlined,
+                    label: '配色',
+                    isActive: _panelMode == _PanelMode.color,
+                    activeColor: const Color(0xFFE91E63),
+                    onTap: () => _togglePanel(_PanelMode.color),
                   ),
                 ),
               ],
@@ -341,9 +304,9 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
   Widget _buildPanel() {
     return switch (_panelMode) {
       _PanelMode.none => _buildNonePanel(),
-      _PanelMode.image => _buildImagePanel(),
+      _PanelMode.image => const SizedBox.shrink(),
       _PanelMode.text => _buildTextPanel(),
-      _PanelMode.style => _buildStylePanel(),
+      _PanelMode.color => _buildColorPanel(),
     };
   }
 
@@ -367,8 +330,8 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
     );
   }
 
-  /// 調整圖片 → 配色選擇
-  Widget _buildImagePanel() {
+  /// 配色 → 色盤選擇
+  Widget _buildColorPanel() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       child: Column(
@@ -486,74 +449,6 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                             ? Colors.white
                             : Colors.black87,
                       )),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 產圖風格 → 風格 chips
-  Widget _buildStylePanel() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SectionLabel('產圖風格'),
-          const SizedBox(height: 4),
-          Text(
-            '切換後將確認並重新生成本張貼圖',
-            style:
-                TextStyle(fontSize: 11, color: Colors.grey.shade400),
-          ),
-          const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: List.generate(StickerStyle.values.length, (i) {
-                final style = StickerStyle.values[i];
-                final isSelected = i == _styleIndex;
-                return GestureDetector(
-                  onTap: () => _onStyleTap(i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 13, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? Colors.black87
-                          : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isSelected
-                            ? Colors.black87
-                            : Colors.grey.shade300,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(style.emoji,
-                            style: const TextStyle(fontSize: 14)),
-                        const SizedBox(width: 5),
-                        Text(
-                          style.label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected
-                                ? Colors.white
-                                : Colors.black87,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 );

@@ -83,8 +83,14 @@
 | **字型選擇** | 5 種繁中字體（黑體、圓體、書法、可愛、手寫） |
 | **字體大小** | 滑桿 40%–200%，基礎字體 36px |
 | **文字位置** | 上↔下滑桿（Align -1.0 ~ 1.0），即時預覽 |
-| **配色方案** | 8 組預設色系（橘、藍、黃、粉、紅、綠、紫、水藍） |
-| **產圖風格** | Q版卡通 / 普普風 / 像素風 / 素描（變更後重新生成） |
+| **配色方案** | 8 組預設色系（橘、藍、黃、粉、紅、綠、紫、水藍）；獨立「配色」Tab 選色 |
+
+底部三 Tab 說明：
+- **調整圖片**：進入即預設啟動，Canvas 可單指拖動位移、雙指縮放旋轉
+- **調整文字**：文字輸入 + 字型選擇
+- **配色**：8 色盤選擇（原「產圖風格」Tab 位置）
+
+> 產圖風格在風格選擇頁決定，進入編輯器後不再提供切換，避免中途重新生成破壞編輯流程。
 
 編輯預覽框外圍顯示**虛線邊界框**，清楚標示 LINE 貼圖輸出邊界。
 
@@ -214,6 +220,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.5.1 | 2026-03-18 | **refactor(editor)**：移除編輯器底部「產圖風格」Tab（風格已於前頁選定，中途切換需重新生成，流程斷裂）；「配色」升格為獨立第三 Tab（取代原「產圖風格」位置）；進入編輯器預設啟動「調整圖片」模式，省去多餘點擊。 |
 | v3.5.0 | 2026-03-18 | **feat(emotions)**：情緒類別從 16 擴充至 24 種（新增 sleepy/beg/worried/hungry/celebrate/no/encourage/pain，全部 defaultOn: false）；清理 `_buildFallback()` 死碼，終極 fallback 改為品牌色底 + 風格 emoji 的 `_StyleEmojiPlaceholder`（不再錯誤顯示 chibi）；`generate_style_thumbnails.py` 補入 3 個新風格定義（yuruDoodle/showaManga/claymation）；CI `generate_previews.yml` ALL_EMOTIONS 同步更新為 24 種。 |
 | v3.4.2 | 2026-03-18 | **refactor(canvas)**：`_buildFallback()` 改為直接重用 greeting 縮圖作佔位圖，不再依賴 12×16 組合圖；`generate_previews.yml` 停用 push 自動觸發（保留 workflow_dispatch 供日後復原），節省 Gemini API 費用。 |
 | v3.4.1 | 2026-03-18 | **ci(workflows)**：`gen_style_thumbnails.yml` 的 styles 參數改為下拉選單（12 種風格 + 全部），並修正 `PREVIEW_STYLES` 環境變數未傳入腳本的 bug；`generate_previews.yml` styles/emotions 描述列出所有可用值，`ALL_STYLES` 補入 3 個新風格，PR body 數量更新為 12×16=192。 |
