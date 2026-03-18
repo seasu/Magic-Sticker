@@ -1,15 +1,11 @@
 name: Generate Style×Emotion Preview Images
 
-# 產生 12 種風格 × 16 種情感 = 192 張示意圖（preview_{style}_{emotion}.png）
-# 可手動觸發，也支援只產生部分組合以節省 API 用量。
-# 當 sticker_style.dart 有異動時自動偵測缺少圖片的風格並補齊。
+# ⚠️  此 workflow 已停用（2026-03-18）
+# App 的佔位圖改為直接重用 gen_style_thumbnails.yml 產出的 greeting 縮圖，
+# 不再需要產生 12×16 的組合圖，可大幅節省 Gemini API 費用。
+# 如需復原，請將 sticker_canvas.dart 的 _buildFallback() 改回 style×emotion 路徑。
 
 on:
-  push:
-    branches-ignore:
-      - main
-    paths:
-      - 'lib/core/models/sticker_style.dart'
   workflow_dispatch:
     inputs:
       force_regenerate:

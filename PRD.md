@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.4.1+269 |
+| 目前版本 | v3.4.2+270 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -214,6 +214,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.4.2 | 2026-03-18 | **refactor(canvas)**：`_buildFallback()` 改為直接重用 greeting 縮圖作佔位圖，不再依賴 12×16 組合圖；`generate_previews.yml` 停用 push 自動觸發（保留 workflow_dispatch 供日後復原），節省 Gemini API 費用。 |
 | v3.4.1 | 2026-03-18 | **ci(workflows)**：`gen_style_thumbnails.yml` 的 styles 參數改為下拉選單（12 種風格 + 全部），並修正 `PREVIEW_STYLES` 環境變數未傳入腳本的 bug；`generate_previews.yml` styles/emotions 描述列出所有可用值，`ALL_STYLES` 補入 3 個新風格，PR body 數量更新為 12×16=192。 |
 | v3.4.0 | 2026-03-18 | **feat(styles)**：新增 3 種貼圖風格（ゆるい塗鴉、昭和漫畫、黏土捏塑），風格總數從 9 增至 12（3×4 滿版）；預覽圖以 emoji 佔位；「重新來過」右上角按鈕改為確認對話框（提示不存檔 / 記錄不顯示）後導回首頁，讓使用者可重選照片與風格。 |
 | v3.3.2 | 2026-03-18 | **ux(emotion)**：情緒選擇最低門檻從 4 種降為 1 種（`_kMin = 1`），只要勾選至少 1 個情緒即可確認進入下一步；副標題說明文字同步更新為「可選 1–12 種」。 |

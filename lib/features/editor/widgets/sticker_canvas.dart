@@ -535,11 +535,9 @@ class _StickerCanvasState extends State<StickerCanvas> {
   Widget _buildFallback() {
     final style = StickerStyle.values[
         widget.styleIndex.clamp(0, StickerStyle.values.length - 1)];
-    // 優先嘗試 style×emotion 示意圖，找不到則退回純風格示意圖
-    final assetWithEmotion = widget.categoryId.isNotEmpty
-        ? 'assets/images/preview_${style.name}_${widget.categoryId}.png'
-        : null;
-    final assetFallback = 'assets/images/preview_${style.name}.png';
+    // 直接重用風格縮圖（greeting）作為佔位圖；style×emotion 組合圖已不再產生
+    final assetWithEmotion = null;
+    final assetFallback = 'assets/images/preview_${style.name}_greeting.png';
 
     return LayoutBuilder(
       builder: (context, constraints) {
