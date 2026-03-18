@@ -14,6 +14,7 @@ import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../editor/models/sticker_config.dart';
 import '../../editor/widgets/sticker_canvas.dart';
+import '../../editor/widgets/sticker_canvas_frame.dart';
 import '../../editor/widgets/sticker_edit_sheet.dart';
 import '../models/sticker_record.dart';
 
@@ -243,49 +244,34 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
                     aspectRatio: 1,
                     child: _imageBytes == null
                         ? const Center(child: CircularProgressIndicator())
-                        : Stack(
-                            children: [
-                              // 棋盤格透明示意（不進入 RepaintBoundary，不會被 export）
-                              Positioned.fill(
-                                child: CustomPaint(painter: const _CheckerboardPainter()),
+                        : StickerCanvasFrame(
+                            stickerShape: _stickerShape,
+                            showBoundary: true,
+                            child: RepaintBoundary(
+                              key: _repaintKey,
+                              child: StickerCanvas(
+                                generatedImage: _imageBytes,
+                                text: _text,
+                                config: kStickerConfigs[
+                                    _schemeIndex.clamp(0, kStickerConfigs.length - 1)],
+                                stickerShape: _stickerShape,
+                                initialScale: _scale,
+                                initialOffset: _offset,
+                                initialImageAngle: _imageAngle,
+                                fontIndex: _fontIndex,
+                                fontSizeScale: _fontSizeScale,
+                                textXAlign: _textXAlign,
+                                textYAlign: _textYAlign,
+                                textAngle: _textAngle,
+                                styleIndex: _styleIndex,
+                                onTap: _openEditSheet,
+                                onTransformChanged: (s, o, a) => setState(() {
+                                  _scale = s;
+                                  _offset = o;
+                                  _imageAngle = a;
+                                }),
                               ),
-                              // 貼圖畫布（export 區域）
-                              RepaintBoundary(
-                                key: _repaintKey,
-                                child: StickerCanvas(
-                                  generatedImage: _imageBytes,
-                                  text: _text,
-                                  config: kStickerConfigs[
-                                      _schemeIndex.clamp(0, kStickerConfigs.length - 1)],
-                                  stickerShape: _stickerShape,
-                                  initialScale: _scale,
-                                  initialOffset: _offset,
-                                  initialImageAngle: _imageAngle,
-                                  fontIndex: _fontIndex,
-                                  fontSizeScale: _fontSizeScale,
-                                  textXAlign: _textXAlign,
-                                  textYAlign: _textYAlign,
-                                  textAngle: _textAngle,
-                                  styleIndex: _styleIndex,
-                                  onTap: _openEditSheet,
-                                  onTransformChanged: (s, o, a) => setState(() {
-                                    _scale = s;
-                                    _offset = o;
-                                    _imageAngle = a;
-                                  }),
-                                ),
-                              ),
-                              // 邊界虛線圓（不進入 RepaintBoundary，僅作視覺示意）
-                              Positioned.fill(
-                                child: IgnorePointer(
-                                  child: CustomPaint(
-                                    foregroundPainter: _BoundaryPainter(
-                                      stickerShape: _stickerShape,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                   ),
                 ),
@@ -341,72 +327,4 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
       ),
     );
   }
-}
-
-// ─── Checkerboard 透明底色示意（不進入 RepaintBoundary）─────────────────────
-
-class _CheckerboardPainter extends CustomPainter {
-  const _CheckerboardPainter();
-
-  static const double _tileSize = 14.0;
-  static const Color _light = Color(0xFFE8E8E8);
-  static const Color _dark  = Color(0xFFC8C8C8);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final lightPaint = Paint()..color = _light;
-    final darkPaint  = Paint()..color = _dark;
-    final cols = (size.width  / _tileSize).ceil() + 1;
-    final rows = (size.height / _tileSize).ceil() + 1;
-    for (int r = 0; r < rows; r++) {
-      for (int c = 0; c < cols; c++) {
-        canvas.drawRect(
-          Rect.fromLTWH(c * _tileSize, r * _tileSize, _tileSize, _tileSize),
-          (r + c).isEven ? lightPaint : darkPaint,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-// ─── 邊界虛線框（不進入 RepaintBoundary）────────────────────────────────────
-
-class _BoundaryPainter extends CustomPainter {
-  final StickerShape stickerShape;
-  const _BoundaryPainter({required this.stickerShape});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFBBBBBB)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    const dashLen = 5.0;
-    const gapLen = 4.0;
-
-    final path = stickerShape == StickerShape.circle
-        ? (Path()..addOval(Rect.fromLTWH(0, 0, size.width, size.height)))
-        : (Path()
-          ..addRRect(RRect.fromRectAndRadius(
-            Rect.fromLTWH(0, 0, size.width, size.height),
-            const Radius.circular(16),
-          )));
-
-    for (final metric in path.computeMetrics()) {
-      double dist = 0;
-      while (dist < metric.length) {
-        final end = (dist + dashLen).clamp(0.0, metric.length);
-        canvas.drawPath(metric.extractPath(dist, end), paint);
-        dist += dashLen + gapLen;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _BoundaryPainter old) =>
-      old.stickerShape != stickerShape;
 }
