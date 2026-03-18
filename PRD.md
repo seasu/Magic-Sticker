@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.3.2+267 |
+| 目前版本 | v3.4.0+268 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -214,6 +214,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.4.0 | 2026-03-18 | **feat(styles)**：新增 3 種貼圖風格（ゆるい塗鴉、昭和漫畫、黏土捏塑），風格總數從 9 增至 12（3×4 滿版）；預覽圖以 emoji 佔位；「重新來過」右上角按鈕改為確認對話框（提示不存檔 / 記錄不顯示）後導回首頁，讓使用者可重選照片與風格。 |
 | v3.3.2 | 2026-03-18 | **ux(emotion)**：情緒選擇最低門檻從 4 種降為 1 種（`_kMin = 1`），只要勾選至少 1 個情緒即可確認進入下一步；副標題說明文字同步更新為「可選 1–12 種」。 |
 | v3.3.1 | 2026-03-18 | **ui(loading)**：`CatLoadingWidget` 改為粉紅品牌色系並修正滿版問題 — 貓咪主色改為品牌珊瑚粉 `#FD297B`、亮部改為淡粉紅 `#FFB3C6`、背景改為極淡玫瑰白 `#FFF0F3`；根 widget 改用 `SizedBox.expand` 確保在 Stack overlay 中完整填滿螢幕。 |
 | v3.2.51 | 2026-03-18 | **fix(assets)**：更新 `normalize_previews.py` 加入去背功能（`_apply_bg_removal`），在正規化構圖後對已知純色背景做精確 alpha 遮罩（threshold=28, feather=22），輸出 RGBA 透明 PNG；對全部 160 張 preview 圖執行正規化＋去背，取代彩色背景版本，新圖生成後亦自動套用。 |

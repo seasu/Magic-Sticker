@@ -36,6 +36,9 @@ class _StyleSelectionScreenState extends State<StyleSelectionScreen>
     '日系動漫賽璐璐', // celshade
     '3D 皮克斯風格',  // pixar3d
     '毛絨玩偶質感',   // plush
+    '刻意歪扭的醜可愛', // yuruDoodle
+    '黑白網點復古漫畫', // showaManga
+    '手工黏土捏塑質感', // claymation
   ];
 
   @override
