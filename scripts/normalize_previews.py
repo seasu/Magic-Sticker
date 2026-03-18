@@ -2,16 +2,16 @@
 """
 normalize_previews.py — 統一 preview 圖片人物構圖位置
 
-解決問題：Gemini AI 生成的 preview 圖片，即使 prompt 有構圖規範，
-人物位置仍會隨機偏移（高低、大小不一）。本腳本以 PIL 偵測人物
-bounding box，並重新縮放、置中貼到固定位置，確保所有圖片人物位置統一。
+解決問題：Gemini AI 生成的 preview 圖片（1024×1024 RGB），
+即使 prompt 有構圖規範，人物位置仍會隨機偏移（高低、大小不一）。
 
-支援兩種圖片類型：
-  - 透明背景（preview_*.png，alpha=0）：偵測 alpha>8 的像素
-  - 白底縮圖（background #FFFFFF）：偵測 R<240 or G<240 or B<240 的像素
+偵測策略：
+  從四角各取 10×10 像素採樣背景色（平均值），
+  再找與背景色差距 > BG_DISTANCE_THRESHOLD 的像素 = 人物。
+  不依賴 alpha channel，適用所有 RGB 圖片。
 
 目標構圖參數：
-  TARGET_SIZE       = 800 px（正方形邊長）
+  TARGET_SIZE       = 1024 px（保持原圖尺寸）
   CHAR_HEIGHT_RATIO = 0.78（人物高度佔畫布 78%）
   CHAR_TOP_RATIO    = 0.07（人物頂端距上緣 7%）
   CHAR_MAX_W_RATIO  = 0.88（人物寬度上限 88%，防寬型角色溢出）
@@ -24,7 +24,7 @@ CLI 用法：
   python3 scripts/normalize_previews.py --all --dry-run
 
 作為 module 使用：
-  from normalize_previews import normalize_transparent, normalize_white_bg
+  from normalize_previews import normalize_transparent, normalize_white_bg, normalize_image
 """
 
 from __future__ import annotations
@@ -40,13 +40,16 @@ from PIL import Image
 
 ASSETS_DIR = Path(__file__).parent.parent / "assets" / "images"
 
-TARGET_SIZE = 800       # 輸出邊長（px）
-CHAR_HEIGHT_RATIO = 0.78  # 人物高度 = 畫布的 78%
-CHAR_TOP_RATIO = 0.07     # 人物頂端距上緣 7%
-CHAR_MAX_W_RATIO = 0.88   # 人物寬度上限（防寬型角色溢出）
+TARGET_SIZE = 1024         # 輸出邊長（px）— 保持與原圖相同
+CHAR_HEIGHT_RATIO = 0.78   # 人物高度 = 畫布的 78%
+CHAR_TOP_RATIO = 0.07      # 人物頂端距上緣 7%
+CHAR_MAX_W_RATIO = 0.88    # 人物寬度上限（防寬型角色溢出）
 
-ALPHA_THRESHOLD = 8     # alpha > 此值視為人物像素（透明背景圖）
-WHITE_THRESHOLD = 240   # R/G/B < 此值視為人物像素（白底縮圖）
+# 角落採樣框大小（px），用於估算背景色
+CORNER_SAMPLE = 12
+
+# 像素顏色距離閾值：與背景色差 > 此值視為人物像素
+BG_DISTANCE_THRESHOLD = 35
 
 ALL_STYLES = [
     "chibi", "popArt", "pixel", "sketch", "watercolor",
@@ -62,14 +65,31 @@ ALL_EMOTIONS = [
 # ── 核心函式 ──────────────────────────────────────────────────────────────────
 
 
-def _find_content_bbox(arr: np.ndarray, mode: str) -> tuple[int, int, int, int] | None:
-    """回傳 (left, top, right, bottom) 人物 bounding box；找不到時回傳 None。"""
-    if mode == "transparent":
-        alpha = arr[:, :, 3]
-        mask = alpha > ALPHA_THRESHOLD
-    else:  # white_bg
-        r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-        mask = (r < WHITE_THRESHOLD) | (g < WHITE_THRESHOLD) | (b < WHITE_THRESHOLD)
+def _sample_bg_color(arr: np.ndarray) -> np.ndarray:
+    """從四角各取 CORNER_SAMPLE×CORNER_SAMPLE 像素，回傳背景色平均值 [R, G, B]。"""
+    h, w = arr.shape[:2]
+    n = CORNER_SAMPLE
+    rgb = arr[:, :, :3]  # 只取 RGB
+    corners = np.concatenate([
+        rgb[:n,  :n ].reshape(-1, 3),
+        rgb[:n,  w-n:].reshape(-1, 3),
+        rgb[h-n:, :n ].reshape(-1, 3),
+        rgb[h-n:, w-n:].reshape(-1, 3),
+    ], axis=0)
+    return corners.mean(axis=0)
+
+
+def _find_char_bbox(arr: np.ndarray) -> tuple[int, int, int, int] | None:
+    """
+    偵測人物 bounding box。
+    回傳 (left, top, right, bottom)；找不到人物時回傳 None。
+    """
+    bg = _sample_bg_color(arr)
+    rgb = arr[:, :, :3].astype(np.int32)
+
+    # Euclidean distance from background color
+    dist = np.sqrt(np.sum((rgb - bg) ** 2, axis=2))
+    mask = dist > BG_DISTANCE_THRESHOLD
 
     rows = np.any(mask, axis=1)
     cols = np.any(mask, axis=0)
@@ -81,12 +101,50 @@ def _find_content_bbox(arr: np.ndarray, mode: str) -> tuple[int, int, int, int] 
     return cmin, rmin, cmax + 1, rmax + 1
 
 
-def _build_normalized(img: Image.Image, bbox: tuple[int, int, int, int],
-                       bg_color: tuple) -> Image.Image:
-    """裁切人物、縮放至目標構圖、貼到新畫布上。"""
+def normalize_image(img_path: Path | str, dry_run: bool = False) -> bool:
+    """
+    統一正規化函式：適用所有 preview 圖片（RGB 或 RGBA）。
+    背景色從四角自動偵測，人物縮放後貼到固定構圖位置。
+    """
+    img_path = Path(img_path)
+    try:
+        img = Image.open(img_path).convert("RGBA")
+    except Exception as e:
+        print(f"  ⚠️  無法開啟 {img_path.name}: {e}")
+        return False
+
+    arr = np.array(img)
+
+    # 判斷是否有真正的透明背景
+    alpha = arr[:, :, 3]
+    has_alpha = bool((alpha < 128).any())
+
+    if has_alpha:
+        # 透明背景圖：alpha > 8 的像素 = 人物
+        mask = alpha > 8
+        rows = np.any(mask, axis=1)
+        cols = np.any(mask, axis=0)
+        if not rows.any():
+            print(f"  ⚠️  {img_path.name}: 找不到人物（全透明？）")
+            return False
+        rmin, rmax = int(np.where(rows)[0][0]), int(np.where(rows)[0][-1])
+        cmin, cmax = int(np.where(cols)[0][0]), int(np.where(cols)[0][-1])
+        bbox = (cmin, rmin, cmax + 1, rmax + 1)
+        bg_fill: tuple = (0, 0, 0, 0)
+    else:
+        # RGB 圖：從角落採樣背景色，找與背景差異大的像素 = 人物
+        bbox = _find_char_bbox(arr)
+        if bbox is None:
+            print(f"  ⚠️  {img_path.name}: 找不到人物（背景過於複雜？）")
+            return False
+        bg = _sample_bg_color(arr)
+        bg_fill = (int(bg[0]), int(bg[1]), int(bg[2]), 255)
+
+    # 裁切人物
     char = img.crop(bbox)
     char_w, char_h = char.size
 
+    # 計算目標尺寸
     target = TARGET_SIZE
     target_char_h = int(target * CHAR_HEIGHT_RATIO)
     scale = target_char_h / char_h
@@ -101,85 +159,45 @@ def _build_normalized(img: Image.Image, bbox: tuple[int, int, int, int],
 
     char_resized = char.resize((target_char_w, target_char_h), Image.LANCZOS)
 
-    canvas = Image.new("RGBA", (target, target), bg_color)
+    # 建立畫布，貼上人物
+    canvas = Image.new("RGBA", (target, target), bg_fill)
     paste_x = (target - target_char_w) // 2
     paste_y = int(target * CHAR_TOP_RATIO)
 
-    if bg_color[3] == 0:
-        # 透明背景：需要 alpha mask
+    if has_alpha:
         canvas.paste(char_resized, (paste_x, paste_y), char_resized)
+        result = canvas
     else:
-        # 白底：直接貼
         canvas.paste(char_resized, (paste_x, paste_y))
-
-    return canvas
-
-
-def normalize_transparent(img_path: Path | str, dry_run: bool = False) -> bool:
-    """
-    正規化透明背景 preview 圖（alpha=0 背景）。
-    Returns True 表示成功處理，False 表示找不到人物或失敗。
-    """
-    img_path = Path(img_path)
-    try:
-        img = Image.open(img_path).convert("RGBA")
-    except Exception as e:
-        print(f"  ⚠️  無法開啟 {img_path.name}: {e}")
-        return False
-
-    arr = np.array(img)
-    bbox = _find_content_bbox(arr, "transparent")
-    if bbox is None:
-        print(f"  ⚠️  {img_path.name}: 找不到人物（全透明？）")
-        return False
-
-    result = _build_normalized(img, bbox, (0, 0, 0, 0))
+        result = canvas.convert("RGB")  # 保持原本 RGB 格式
 
     if not dry_run:
         result.save(str(img_path), "PNG")
     return True
 
 
+# 向下相容舊 API（generate_style_previews_ci.py 用）
+def normalize_transparent(img_path: Path | str, dry_run: bool = False) -> bool:
+    return normalize_image(img_path, dry_run)
+
+
+# 向下相容舊 API（generate_style_thumbnails.py 用）
 def normalize_white_bg(img_path: Path | str, dry_run: bool = False) -> bool:
-    """
-    正規化白底縮圖（background #FFFFFF）。
-    Returns True 表示成功處理，False 表示找不到人物或失敗。
-    """
-    img_path = Path(img_path)
-    try:
-        img = Image.open(img_path).convert("RGBA")
-    except Exception as e:
-        print(f"  ⚠️  無法開啟 {img_path.name}: {e}")
-        return False
-
-    arr = np.array(img)
-    bbox = _find_content_bbox(arr, "white_bg")
-    if bbox is None:
-        print(f"  ⚠️  {img_path.name}: 找不到人物（全白？）")
-        return False
-
-    result = _build_normalized(img, bbox, (255, 255, 255, 255))
-    # 轉回 RGB 儲存（白底縮圖不需要 alpha channel）
-    result_rgb = result.convert("RGB")
-
-    if not dry_run:
-        result_rgb.save(str(img_path), "PNG")
-    return True
+    return normalize_image(img_path, dry_run)
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 
-def _collect_targets(args: argparse.Namespace) -> list[tuple[Path, str]]:
-    """回傳 [(path, mode), ...] 的清單，mode = 'transparent' | 'white_bg'。"""
-    targets: list[tuple[Path, str]] = []
+def _collect_targets(args: argparse.Namespace) -> list[Path]:
+    """回傳需要處理的圖片路徑清單。"""
+    targets: list[Path] = []
 
     if args.all or args.thumbnails:
-        # 9 張白底縮圖：preview_{style}_greeting.png
         for style in ALL_STYLES:
             p = ASSETS_DIR / f"preview_{style}_greeting.png"
             if p.exists():
-                targets.append((p, "white_bg"))
+                targets.append(p)
 
     if args.all or args.styles or args.emotions:
         styles = args.styles if args.styles else ALL_STYLES
@@ -188,33 +206,17 @@ def _collect_targets(args: argparse.Namespace) -> list[tuple[Path, str]]:
             for emotion in emotions:
                 p = ASSETS_DIR / f"preview_{style}_{emotion}.png"
                 if p.exists():
-                    # greeting 是白底縮圖，但這裡處理的是透明版本
-                    # 確認是否真的是透明背景（由副檔名無法判斷，用 alpha 嘗試）
-                    targets.append((p, "auto"))
+                    targets.append(p)
 
-    # 去重
-    seen = set()
-    unique: list[tuple[Path, str]] = []
-    for path, mode in targets:
-        if path not in seen:
-            seen.add(path)
-            unique.append((path, mode))
+    # 去重、保留順序
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for p in targets:
+        if p not in seen:
+            seen.add(p)
+            unique.append(p)
 
     return unique
-
-
-def _detect_mode(img_path: Path) -> str:
-    """自動判斷圖片是透明背景還是白底。"""
-    try:
-        img = Image.open(img_path).convert("RGBA")
-        arr = np.array(img)
-        alpha = arr[:, :, 3]
-        # 如果 alpha channel 有任何真正透明的像素（< 128），視為透明背景
-        if (alpha < 128).any():
-            return "transparent"
-        return "white_bg"
-    except Exception:
-        return "transparent"
 
 
 def main() -> None:
@@ -242,7 +244,6 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # 若未指定任何選項，顯示說明
     if not args.all and not args.thumbnails and not args.styles and not args.emotions:
         parser.print_help()
         sys.exit(0)
@@ -257,23 +258,15 @@ def main() -> None:
 
     ok = 0
     fail = 0
-    for path, mode in targets:
-        if mode == "auto":
-            mode = _detect_mode(path)
-
-        prefix = "  [skip]" if args.dry_run else "  "
-        print(f"{prefix}{path.name} ({mode})", end="")
+    for path in targets:
+        print(f"  {path.name}", end="", flush=True)
 
         if args.dry_run:
             print()
             ok += 1
             continue
 
-        if mode == "transparent":
-            success = normalize_transparent(path, dry_run=False)
-        else:
-            success = normalize_white_bg(path, dry_run=False)
-
+        success = normalize_image(path)
         if success:
             print(" ✅")
             ok += 1
