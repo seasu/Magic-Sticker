@@ -2,13 +2,13 @@
 """
 generate_style_thumbnails.py
 ─────────────────────────────
-專門產生風格選擇畫面用的 9 張縮圖（9 種風格 × 打招呼情緒）。
+專門產生風格選擇畫面用的 12 張縮圖（12 種風格 × 打招呼情緒）。
 
-輸出：assets/images/preview_{style}_greeting.png（共 9 張）
+輸出：assets/images/preview_{style}_greeting.png（共 12 張）
 
 重點：
 - Prompt 與 App 實際產圖（_buildSinglePrompt，圓形 + Chroma Key 模式）完全一致
-- 額外加入【縮圖一致性規範】，確保 9 張人物大小、構圖比例相同
+- 額外加入【縮圖一致性規範】，確保 12 張人物大小、構圖比例相同
 - 來源：assets/images/seasu-source.jpg（JPEG）
 
 使用方法：
@@ -120,6 +120,34 @@ STYLES = {
         ),
         "promptSuffix": "毛絨玩偶插畫風格——以 2D 插圖形式模擬短絨毛材質、圓胖可愛比例、柔和邊緣輪廓、豐富毛色深淺層次。角色為純 2D 插圖貼圖，無攝影背景、無地面倒影、無環境投影，角色本體以外區域維持純技術背景色。",
     },
+    "yuruDoodle": {
+        "characterDesc": (
+            "根據照片人物繪製「ゆるい（鬆散可愛）」塗鴉風格角色\n"
+            "  * 刻意歪扭的不均勻輪廓線、五官大小不對稱（一大一小的眼睛等）\n"
+            "  * 粗糙肥厚的黑色手繪線條、臉部簡化至最基本形狀\n"
+            "  * 整體散漫自然、像小孩亂畫卻帶有獨特個性與溫度"
+        ),
+        "promptSuffix": "日本「下手上手（heta-uma）」ゆるキャラ 風格——刻意不精緻的歪扭線條與不對稱五官，散漫卻充滿個性，像地方吉祥物的手繪質感。",
+    },
+    "showaManga": {
+        "characterDesc": (
+            "根據照片人物繪製昭和復古漫畫風格肖像\n"
+            "  * 黑白為主（可有限度使用 1–2 種強調色）、手繪網點（スクリーントーン）陰影\n"
+            "  * 粗獷有力的黑色輪廓線、誇張的速度線與動感線條\n"
+            "  * 大而明亮的 60 年代漫畫風眼睛、誇張表情框線"
+        ),
+        "promptSuffix": "昭和復古漫畫風格——黑白手繪、スクリーントーン 網點陰影、粗獷輪廓線、60 年代日本漫畫質感。手塚治虫 / 藤子不二雄 風格。",
+    },
+    "claymation": {
+        "characterDesc": (
+            "根據照片人物繪製黏土捏塑風格角色（2D 插畫貼圖，非照片）\n"
+            "  * 模擬手工黏土材質——可見輕微指痕、不均勻的表面起伏\n"
+            "  * 圓潤厚重的造型比例、柔和的邊緣與輪廓\n"
+            "  * 豐富的黏土色澤高光與陰影，外觀像手工捏製的玩偶\n"
+            "  * 角色為 2D 平面插圖，無任何攝影背景、地板或真實場景元素"
+        ),
+        "promptSuffix": "黏土捏塑插畫風格——以 2D 插圖形式模擬手工黏土材質、圓潤厚重比例、可見指痕與不均勻表面起伏。Aardman（笑笑羊）/ 定格動畫黏土玩偶風格。",
+    },
 }
 
 # 固定使用「打招呼」情緒（對應 App 的 greeting spec）
@@ -129,7 +157,7 @@ GREETING_EMOTION = "開心地揮手打招呼，面帶笑容"
 def build_prompt(style_key: str) -> str:
     """
     與 App _buildSinglePrompt（圓形 + Chroma Key 模式）完全一致的 Prompt，
-    額外加入縮圖一致性規範，確保 9 種風格的人物大小與構圖比例相同。
+    額外加入縮圖一致性規範，確保 12 種風格的人物大小與構圖比例相同。
     """
     style = STYLES[style_key]
     return f"""\
@@ -142,7 +170,7 @@ def build_prompt(style_key: str) -> str:
 - 角色或裝飾的陰影禁止落在背景上
 - 四個角落像素必須為精確的 #FFFFFF
 
-【縮圖一致性規範 — 必須嚴格遵守，確保 9 種風格縮圖視覺統一】
+【縮圖一致性規範 — 必須嚴格遵守，確保 12 種風格縮圖視覺統一】
 - 角色構圖：臉部＋上半身正面或微 3/4 側面，頭部佔畫布高度的上方約 65%，水平置中
 - 角色頭頂距上緣保留 8%，下半身截止於畫布下緣約 20% 處（約到胸口/上腹部）
 - 角色左右各留 10% 邊距，人物寬度約佔畫布寬度 80%
@@ -205,14 +233,14 @@ def main():
     source_b64   = base64.b64encode(source_bytes).decode()
     print(f"📷 來源：{SOURCE_IMAGE.name}（{len(source_bytes) // 1024} KB）")
     print(f"🤖 模型：{image_model}")
-    print(f"🎯 目標：9 種風格 × greeting = 9 張縮圖\n")
+    print(f"🎯 目標：12 種風格 × greeting = 12 張縮圖\n")
 
     ASSETS_DIR.mkdir(parents=True, exist_ok=True)
     success, failed = 0, []
 
     for i, style_key in enumerate(STYLES.keys(), 1):
         out_path = ASSETS_DIR / f"preview_{style_key}_greeting.png"
-        print(f"🎨 [{i}/9] {style_key}...", end=" ", flush=True)
+        print(f"🎨 [{i}/12] {style_key}...", end=" ", flush=True)
 
         ok = False
         for attempt in range(1, MAX_RETRIES + 2):
@@ -260,7 +288,7 @@ def main():
             failed.append(style_key)
             print(f"❌ failed after {MAX_RETRIES + 1} attempts")
 
-    print(f"\n✨ 完成：{success}/9 張成功")
+    print(f"\n✨ 完成：{success}/12 張成功")
     if failed:
         print(f"   失敗：{', '.join(failed)}")
     if success == 0:

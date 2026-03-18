@@ -20,8 +20,8 @@ on:
         default: ''
       emotions:
         description: |
-          只產生指定情感（空格分隔，留空=全部 16 種）
-          可用值：greeting | praise | surprise | awkward | angry | happy | thinking | farewell | shy | cool | tired | cry | love | excited | scared | mischief
+          只產生指定情感（空格分隔，留空=全部 24 種）
+          可用值：greeting | praise | surprise | awkward | angry | happy | thinking | farewell | shy | cool | tired | cry | love | excited | scared | mischief | sleepy | beg | worried | hungry | celebrate | no | encourage | pain
         type: string
         default: ''
 
@@ -43,7 +43,7 @@ jobs:
           INPUT_STYLES="${{ github.event.inputs.styles }}"
           INPUT_EMOTIONS="${{ github.event.inputs.emotions }}"
           ALL_STYLES="chibi popArt pixel sketch watercolor webtoon celshade pixar3d plush yuruDoodle showaManga claymation"
-          ALL_EMOTIONS="greeting praise surprise awkward angry happy thinking farewell shy cool tired cry love excited scared mischief"
+          ALL_EMOTIONS="greeting praise surprise awkward angry happy thinking farewell shy cool tired cry love excited scared mischief sleepy beg worried hungry celebrate no encourage pain"
 
           # 手動觸發：用輸入值；自動觸發（sticker_style.dart 變動）：只補缺圖的風格
           if [ -n "$INPUT_STYLES" ]; then
