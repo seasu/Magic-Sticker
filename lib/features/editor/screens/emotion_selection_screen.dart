@@ -10,7 +10,7 @@ import '../../../core/theme/app_colors.dart';
 /// 步驟 3／3：使用者選擇情緒種類後，帶著選擇結果進入 EditorScreen。
 ///
 /// - 預設選中 8 種（[kDefaultCategoryIds]）
-/// - 最少 4 種，最多 12 種
+/// - 最少 1 種，最多 12 種
 /// - 確認後帶 categoryIds 傳入 /editor
 class EmotionSelectionScreen extends StatefulWidget {
   final String imagePath;
@@ -33,7 +33,7 @@ class _EmotionSelectionScreenState extends State<EmotionSelectionScreen>
   late final List<String> _selected;
   late final AnimationController _entryCtrl;
 
-  static const _kMin = 4;
+  static const _kMin = 1;
   static const _kMax = 12;
 
   @override
@@ -151,7 +151,7 @@ class _EmotionSelectionScreenState extends State<EmotionSelectionScreen>
                 ),
                 SizedBox(height: 1),
                 Text(
-                  '每種情緒各生成一張，可選 4–12 種',
+                  '每種情緒各生成一張，可選 1–12 種',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.black45,
