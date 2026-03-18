@@ -282,6 +282,33 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     ref.read(editorStateProvider(widget.imagePath).notifier).regenerateTexts();
   }
 
+  /// 右上角「重新來過」：確認後回首頁重選照片與風格
+  Future<void> _confirmRestart() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('確定要重新來過？'),
+        content: const Text(
+          '目前產生的貼圖不會自動存檔，\n此次記錄也不會顯示在歷史中。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('繼續留下'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              '確定離開',
+              style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) context.go('/');
+  }
+
   /// 使用者點擊「生成」按鈕，消耗 1 點產生圖片
   Future<void> _generateImage(int index) async {
     final credits = ref.read(creditProvider);
@@ -415,7 +442,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                           : '',
                       index: _currentIndex,
                       total: totalCount,
-                      onRefresh: (isReady && !isDone) ? _regenerate : null,
+                      onRefresh: (isReady && !isDone) ? _confirmRestart : null,
                     ),
 
                   // ── 卡片層疊 ──────────────────────────────────────────

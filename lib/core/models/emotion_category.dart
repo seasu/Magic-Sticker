@@ -18,10 +18,10 @@ class EmotionCategory {
   });
 }
 
-/// 16 種預設情感類別
+/// 24 種預設情感類別
 ///
 /// 前 8 種為預設選中（打招呼/讚美/驚訝/尷尬/生氣/開心/思考/道別），
-/// 後 8 種為可額外選取的擴充選項。
+/// 後 16 種為可額外選取的擴充選項。
 const kEmotionCategories = <EmotionCategory>[
   // ── 預設 8 種（defaultOn: true）─────────────────────────────
   EmotionCategory(id: 'greeting', label: '打招呼', emoji: '👋', promptHint: 'cheerfully waving hello',                       defaultOn: true),
@@ -40,7 +40,16 @@ const kEmotionCategories = <EmotionCategory>[
   EmotionCategory(id: 'love',     label: '愛心',   emoji: '🥰', promptHint: 'loving warm smile, heart eyes, rosy cheeks',   defaultOn: false),
   EmotionCategory(id: 'excited',  label: '興奮',   emoji: '🤩', promptHint: 'star-struck excitement, jumping with joy',      defaultOn: false),
   EmotionCategory(id: 'scared',   label: '害怕',   emoji: '😱', promptHint: 'terrified wide eyes, trembling in fear',        defaultOn: false),
-  EmotionCategory(id: 'mischief', label: '調皮',   emoji: '😜', promptHint: 'playful mischievous wink, sticking out tongue', defaultOn: false),
+  EmotionCategory(id: 'mischief',   label: '調皮', emoji: '😜', promptHint: 'playful mischievous wink, sticking out tongue',              defaultOn: false),
+  // ── 擴充 8 種（defaultOn: false）────────────────────────────
+  EmotionCategory(id: 'sleepy',     label: '想睡', emoji: '😴', promptHint: 'half-closed droopy eyes, dozing off, ZZZ bubble',            defaultOn: false),
+  EmotionCategory(id: 'beg',        label: '拜託', emoji: '🥺', promptHint: 'puppy dog eyes, clasped hands pleading desperately',         defaultOn: false),
+  EmotionCategory(id: 'worried',    label: '擔心', emoji: '😰', promptHint: 'anxious sweating, furrowed brows, trembling nervously',      defaultOn: false),
+  EmotionCategory(id: 'hungry',     label: '餓了', emoji: '🤤', promptHint: 'drooling mouth, stomach growling, starving expression',      defaultOn: false),
+  EmotionCategory(id: 'celebrate',  label: '慶祝', emoji: '🎉', promptHint: 'party popper, confetti raining, cheering with both arms up', defaultOn: false),
+  EmotionCategory(id: 'no',         label: '拒絕', emoji: '🙅', promptHint: 'shaking head firmly, crossed arms, X gesture refusing',     defaultOn: false),
+  EmotionCategory(id: 'encourage',  label: '加油', emoji: '💪', promptHint: 'pumping fist, determined face, cheering someone on',         defaultOn: false),
+  EmotionCategory(id: 'pain',       label: '崩潰', emoji: '😵', promptHint: 'completely overwhelmed, spinning dizzy eyes, breaking down', defaultOn: false),
 ];
 
 /// 依 id 查找 EmotionCategory，找不到回傳 null

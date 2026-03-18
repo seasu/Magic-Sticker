@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ─── 配色 ──────────────────────────────────────────────────────────────────────
-// 單色系：深海軍藍 × 白底，與品牌珊瑚粉形成優雅對比
-const _kCatBody  = Color(0xFF2B2D42); // 貓身主色（深海軍藍）
-const _kCatLight = Color(0xFF8D99AE); // 耳朵內側、鼻子等亮部
-const _kBg       = Colors.white;
+// 粉紅品牌色系：珊瑚粉貓咪 × 極淡玫瑰底，與整體 App 色調一致
+const _kCatBody  = Color(0xFFFD297B); // 貓身主色（品牌珊瑚粉）
+const _kCatLight = Color(0xFFFFB3C6); // 耳朵內側、鼻子等亮部（淡粉紅）
+const _kBg       = Color(0xFFFFF0F3); // 背景（極淡玫瑰白）
 
 /// 全畫面或全幅 Loading 動畫。
 /// 取代舊版兩個 GIF，統一為一個純 Flutter CustomPainter 貓咪跑步動畫。
@@ -52,7 +52,8 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
+    return SizedBox.expand(
+      child: ColoredBox(
       color: _kBg,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -65,7 +66,7 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
               style: GoogleFonts.notoSansTc(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
-                color: _kCatBody,
+                color: const Color(0xFF21262E),
               ),
             ),
             const SizedBox(height: 6),
@@ -76,7 +77,7 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
               textAlign: TextAlign.center,
               style: GoogleFonts.notoSansTc(
                 fontSize: 13,
-                color: _kCatLight,
+                color: const Color(0xFFFF5864),
               ),
             ),
             const SizedBox(height: 32),
@@ -100,7 +101,7 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
           ),
         ],
       ),
-    );
+    ));
   }
 }
 

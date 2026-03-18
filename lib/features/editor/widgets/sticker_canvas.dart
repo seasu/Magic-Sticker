@@ -535,38 +535,24 @@ class _StickerCanvasState extends State<StickerCanvas> {
   Widget _buildFallback() {
     final style = StickerStyle.values[
         widget.styleIndex.clamp(0, StickerStyle.values.length - 1)];
-    // 優先嘗試 style×emotion 示意圖，找不到則退回純風格示意圖
-    final assetWithEmotion = widget.categoryId.isNotEmpty
-        ? 'assets/images/preview_${style.name}_${widget.categoryId}.png'
-        : null;
-    final assetFallback = 'assets/images/preview_${style.name}.png';
+    // 所有情緒共用同一張風格縮圖（greeting）作佔位圖
+    final asset = 'assets/images/preview_${style.name}_greeting.png';
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.maxWidth;
-        Widget img(String asset) => Image.asset(
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
               asset,
               width: size,
               height: size,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Image.asset(
-                assetFallback,
-                width: size,
-                height: size,
-                fit: BoxFit.cover,
-                // 終極 fallback：新風格尚無專屬預覽圖時，以 chibi 暫代
-                errorBuilder: (_, __, ___) => Image.asset(
-                  'assets/images/preview_chibi.png',
-                  width: size,
-                  height: size,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            );
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            SizedBox.expand(child: img(assetWithEmotion ?? assetFallback)),
+              // 縮圖尚未產生時（如新風格），顯示品牌色底 + 風格 emoji
+              errorBuilder: (_, __, ___) =>
+                  _StyleEmojiPlaceholder(style: style, size: size),
+            ),
             // 文字示意（AI 已生成文案時顯示，與最終成品相同位置）
             if (widget.text.isNotEmpty)
               Align(
@@ -610,6 +596,28 @@ class _StickerCanvasState extends State<StickerCanvas> {
           ],
         );
       },
+    );
+  }
+}
+
+// ─── 風格 Emoji 佔位圖（縮圖尚未產生時使用）──────────────────────────────────────
+
+class _StyleEmojiPlaceholder extends StatelessWidget {
+  final StickerStyle style;
+  final double size;
+
+  const _StyleEmojiPlaceholder({required this.style, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xFFFFF0F3), // 品牌淡玫瑰底，與 loading 畫面一致
+      child: Center(
+        child: Text(
+          style.emoji,
+          style: TextStyle(fontSize: size * 0.35),
+        ),
+      ),
     );
   }
 }
