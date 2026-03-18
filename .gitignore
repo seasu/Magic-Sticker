@@ -35,3 +35,4 @@ functions/.env
 functions/.env.*
 google-services.json
 GoogleService-Info.plist
+scripts/__pycache__/
