@@ -9,6 +9,21 @@ import 'sticker_canvas_frame.dart';
 
 export 'sticker_canvas.dart' show StickerEditTarget;
 
+// ─── 背景色 preset ──────────────────────────────────────────────────────────
+
+/// index 0 = 透明，1–8 = 實心色
+const List<Color?> kBgColors = [
+  null,                     // 0: 透明
+  Color(0xFFFFFFFF),       // 1: 白色
+  Color(0xFFFFF9F0),       // 2: 米白
+  Color(0xFFF2F2F2),       // 3: 淺灰
+  Color(0xFFFFEDE0),       // 4: 淺橘
+  Color(0xFFE3F2FD),       // 5: 淺藍
+  Color(0xFFFFFDE7),       // 6: 淺黃
+  Color(0xFFFCE4EC),       // 7: 淺粉
+  Color(0xFFE8F5E9),       // 8: 淺綠
+];
+
 /// 目前開啟的編輯面板類型
 enum _PanelMode { none, image, text, color }
 
@@ -40,8 +55,11 @@ class StickerEditSheet extends StatefulWidget {
   final Uint8List? generatedImage;
   final StickerShape stickerShape;
 
+  final int initialBgColorIndex;
+
   final ValueChanged<String> onTextChanged;
   final ValueChanged<int> onSchemeChanged;
+  final ValueChanged<int> onBgColorChanged;
   final void Function(double scale, Offset offset, double angle)
       onTransformChanged;
   final ValueChanged<int> onFontChanged;
@@ -62,6 +80,7 @@ class StickerEditSheet extends StatefulWidget {
     required this.stickerIndex,
     required this.initialText,
     required this.initialSchemeIndex,
+    this.initialBgColorIndex = 0,
     required this.initialScale,
     required this.initialOffset,
     this.initialFontIndex = 0,
@@ -76,6 +95,7 @@ class StickerEditSheet extends StatefulWidget {
     this.stickerShape = StickerShape.circle,
     required this.onTextChanged,
     required this.onSchemeChanged,
+    required this.onBgColorChanged,
     required this.onTransformChanged,
     required this.onFontChanged,
     required this.onStyleChanged,
@@ -89,6 +109,7 @@ class StickerEditSheet extends StatefulWidget {
 class _StickerEditSheetState extends State<StickerEditSheet> {
   late final TextEditingController _textCtrl;
   late int _schemeIndex;
+  late int _bgColorIndex;
   late int _fontIndex;
   late double _textXAlign;
   late double _textYAlign;
@@ -110,6 +131,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
     super.initState();
     _textCtrl = TextEditingController(text: widget.initialText);
     _schemeIndex = widget.initialSchemeIndex;
+    _bgColorIndex = widget.initialBgColorIndex;
     _fontIndex = widget.initialFontIndex;
     _textXAlign = widget.initialTextXAlign;
     _textYAlign = widget.initialTextYAlign;
@@ -195,6 +217,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                           textXAlign: _textXAlign,
                           textYAlign: _textYAlign,
                           textAngle: _textAngle,
+                          backgroundColor: kBgColors[_bgColorIndex],
                           enableTextGestures: true,
                           externalTarget: _editTarget,
                           onTransformChanged: widget.onTransformChanged,
@@ -330,7 +353,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
     );
   }
 
-  /// 配色 → 色盤選擇
+  /// 配色 → 色盤選擇 + 背景填色
   Widget _buildColorPanel() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
@@ -338,6 +361,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── 配色（邊框 / 文字色）─────────────────────────────────────
           const _SectionLabel('配色'),
           const SizedBox(height: 10),
           Row(
@@ -360,8 +384,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                     color: c.borderColor,
                     border: isSelected
                         ? Border.all(color: Colors.black87, width: 2.5)
-                        : Border.all(
-                            color: Colors.transparent, width: 2.5),
+                        : Border.all(color: Colors.transparent, width: 2.5),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
@@ -372,6 +395,48 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                           ]
                         : null,
                   ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 18),
+          // ── 背景填色 ─────────────────────────────────────────────────
+          const _SectionLabel('背景色'),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(kBgColors.length, (i) {
+              final isSelected = i == _bgColorIndex;
+              final color = kBgColors[i];
+              return GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() => _bgColorIndex = i);
+                  widget.onBgColorChanged(i);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color ?? Colors.white,
+                    border: isSelected
+                        ? Border.all(color: Colors.black87, width: 2.5)
+                        : Border.all(color: Colors.grey.shade300, width: 1.5),
+                    boxShadow: isSelected
+                        ? [
+                            const BoxShadow(
+                              color: Color(0x33000000),
+                              blurRadius: 8,
+                              offset: Offset(0, 3),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: color == null
+                      ? ClipOval(child: const _CheckerboardSwatch())
+                      : null,
                 ),
               );
             }),
@@ -498,6 +563,39 @@ class _SectionLabel extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── 透明色棋盤格縮圖 ─────────────────────────────────────────────────────────
+
+class _CheckerboardSwatch extends StatelessWidget {
+  const _CheckerboardSwatch();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(painter: _SwatchCheckerPainter());
+  }
+}
+
+class _SwatchCheckerPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const tileSize = 6.0;
+    final light = Paint()..color = const Color(0xFFE8E8E8);
+    final dark = Paint()..color = const Color(0xFFC8C8C8);
+    final cols = (size.width / tileSize).ceil();
+    final rows = (size.height / tileSize).ceil();
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        canvas.drawRect(
+          Rect.fromLTWH(c * tileSize, r * tileSize, tileSize, tileSize),
+          (r + c).isEven ? light : dark,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SwatchCheckerPainter oldDelegate) => false;
 }
 
 // ─── 模式切換按鈕 ─────────────────────────────────────────────────────────────

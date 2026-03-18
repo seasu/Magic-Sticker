@@ -69,6 +69,9 @@ class StickerCanvas extends StatefulWidget {
   /// 空字串時退而使用純風格示意圖（preview_{style}.png）
   final String categoryId;
 
+  /// 背景填色（null = 透明）
+  final Color? backgroundColor;
+
   /// true → 啟用選取模式（編輯 Sheet），false → 主卡片模式
   final bool enableTextGestures;
 
@@ -113,6 +116,7 @@ class StickerCanvas extends StatefulWidget {
     this.textAngle = 0.0,
     this.styleIndex = 0,
     this.categoryId = '',
+    this.backgroundColor,
     this.enableTextGestures = false,
     this.interactive = true,
     this.externalTarget,
@@ -475,6 +479,10 @@ class _StickerCanvasState extends State<StickerCanvas> {
           return Stack(
             fit: StackFit.expand,
             children: [
+              // ── 背景填色層（透明時不渲染）──────────────────────────────────
+              if (widget.backgroundColor != null)
+                ColoredBox(color: widget.backgroundColor!),
+
               imageContent,
 
               // ── 人物層（ML Kit 去背，疊在 AI 背景上，同步 transform）──
