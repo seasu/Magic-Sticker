@@ -148,15 +148,17 @@ STYLES = {
     },
     "plush": {
         "characterDesc": (
-            "Plush stuffed toy style character based on the person\n"
+            "Plush stuffed toy style character based on the person (2D illustrated sticker, NOT a photo)\n"
             "  * Simulated short fluffy texture (fine brush strokes for fur flow)\n"
             "  * Chubby cute proportions, soft rounded edges\n"
-            "  * Rich light and dark fur color layers, like a real handmade plush toy"
+            "  * Rich light and dark fur color layers, plush toy appearance\n"
+            "  * 2D flat illustration only — NO photographic background, NO floor, NO environmental shadows or real-world scene elements"
         ),
         "promptSuffix": (
-            "Plush stuffed toy style — simulated short fluffy fur material, "
-            "chubby cute proportions, soft rounded outlines, "
-            "rich fur color depth. Like a real handmade stuffed animal."
+            "Plush stuffed toy illustration style — 2D illustrated sticker form simulating short fluffy fur material, "
+            "chubby cute proportions, soft rounded outlines, rich fur color depth. "
+            "Pure 2D illustration sticker, no photographic background, no floor reflection, no environmental shadows; "
+            "all areas outside the character must be pure technical background color."
         ),
     },
 }
