@@ -1,7 +1,7 @@
 name: magic_sticker
 description: AI 一鍵產 LINE 貼圖 — Magic Sticker
 publish_to: 'none'
-version: 3.2.47+254
+version: 3.2.48+255
 
 environment:
   sdk: '>=3.7.0 <4.0.0'

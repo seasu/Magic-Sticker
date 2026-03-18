@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.2.47+254 |
+| 目前版本 | v3.2.48+255 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -213,6 +213,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.2.48 | 2026-03-18 | **refactor(editor)**：新增 `StickerCanvasFrame` 共用元件（`sticker_canvas_frame.dart`），統一管理棋盤格背景、形狀裁切、陰影外框、虛線邊界、編輯按鈕；同時修正編輯 Sheet 中棋盤格超出形狀邊界的 bug（原本 `_CheckerboardPainter` 畫在整個正方形上而 canvas 才套用 ClipOval/ClipRRect）。移除 `editor_screen.dart` 與 `sticker_edit_sheet.dart` 中重複的 `_CheckerboardPainter` 與 `_BoundaryPainter`。 |
 | v3.2.46 | 2026-03-17 | **refactor(loading)**：以 GIF 動畫取代 `video_player` MP4 loading——分析階段用 `cat-research-loading.gif`、繪圖階段用 `cat-drawing-loading.gif`；`_FunLoadingView` 從 StatefulWidget 簡化為 StatelessWidget；移除 `video_player` 依賴。 |
 | v3.2.45 | 2026-03-17 | **feat(assets/ci)**：新增 `generate_style_thumbnails.py` 腳本與 `gen_style_thumbnails.yml` CI workflow，專門產生 9 張風格選擇縮圖（seasu-source.jpg × greeting 情緒）；Prompt 與 App 產圖完全一致（中文 Chroma Key 模式），額外加入縮圖一致性規範確保 9 張構圖比例相同。 |
 | v3.2.44 | 2026-03-17 | **fix(ui)**：編輯 Sheet 與歷史貼圖（sticker_replay_screen）畫布加入棋盤格透明示意背景；歷史編輯畫面同步補上虛線邊界圓，兩處 painters 均在 RepaintBoundary 外層，不影響 export 輸出。 |

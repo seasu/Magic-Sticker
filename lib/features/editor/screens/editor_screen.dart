@@ -13,7 +13,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/constants/build_config.dart';
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -24,6 +23,7 @@ import '../models/sticker_config.dart';
 import '../providers/editor_provider.dart';
 import '../../../core/models/emotion_category.dart';
 import '../widgets/sticker_canvas.dart';
+import '../widgets/sticker_canvas_frame.dart';
 import '../widgets/sticker_edit_sheet.dart';
 import '../widgets/sticker_swipe_card.dart';
 
@@ -730,95 +730,17 @@ class _StickerCard extends StatelessWidget {
       categoryId: categoryId,
     );
 
-    final repainted = repaintKey != null
+    // Chroma Key 模式：RepaintBoundary **外層**疊加 checkerboard，
+    // 只作為預覽示意，不會被 export 擷取。
+    final canvasChild = repaintKey != null
         ? RepaintBoundary(key: repaintKey, child: canvas)
         : canvas;
 
-    // Chroma Key 模式：在 RepaintBoundary **外層**疊加 checkerboard，
-    // 只作為預覽用透明示意，不會被 export 擷取。
-    final inner = kStickerBgChromaKey
-        ? Stack(children: [
-            Positioned.fill(child: const CustomPaint(painter: _CheckerboardPainter())),
-            repainted,
-          ])
-        : repainted;
-
-    // 圓形：卡片外框用圓形陰影；方形：維持圓角矩形陰影
-    final card = stickerShape == StickerShape.circle
-        ? Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.16),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: inner,
-          )
-        : Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.16),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: inner,
-          );
-
-    if (onTap == null) return card;
-
-    // 明顯可點擊的編輯按鈕，避免 Scale/HorizontalDrag gesture 衝突
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        card,
-        Positioned(
-          top: 10,
-          right: 8,
-          child: GestureDetector(
-            onTap: onTap,
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.edit_rounded,
-                size: 18,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-        ),
-      ],
+    return StickerCanvasFrame(
+      stickerShape: stickerShape,
+      showShadow: true,
+      onEditTap: onTap,
+      child: canvasChild,
     );
   }
 }
@@ -1398,31 +1320,4 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-// ─── Checkerboard 透明底色示意（僅用於預覽，不進入 RepaintBoundary）─────────────
 
-class _CheckerboardPainter extends CustomPainter {
-  const _CheckerboardPainter();
-
-  static const double _tileSize = 14.0;
-  static const Color _light = Color(0xFFE8E8E8);
-  static const Color _dark  = Color(0xFFC8C8C8);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final lightPaint = Paint()..color = _light;
-    final darkPaint  = Paint()..color = _dark;
-    final cols = (size.width  / _tileSize).ceil() + 1;
-    final rows = (size.height / _tileSize).ceil() + 1;
-    for (int r = 0; r < rows; r++) {
-      for (int c = 0; c < cols; c++) {
-        canvas.drawRect(
-          Rect.fromLTWH(c * _tileSize, r * _tileSize, _tileSize, _tileSize),
-          (r + c).isEven ? lightPaint : darkPaint,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
