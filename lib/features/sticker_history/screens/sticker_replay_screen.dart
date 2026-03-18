@@ -37,6 +37,7 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
   late String _text;
   late StickerShape _stickerShape;
   int _schemeIndex = 0;
+  int _bgColorIndex = 0;
   int _fontIndex = 0;
   int _styleIndex = 0;
   double _scale = 1.0;
@@ -92,6 +93,7 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
         stickerShape: _stickerShape,
         onTextChanged: (t) => setState(() => _text = t),
         onSchemeChanged: (si) => setState(() => _schemeIndex = si),
+        onBgColorChanged: (bi) => setState(() => _bgColorIndex = bi),
         onTransformChanged: (s, o, a) => setState(() {
           _scale = s;
           _offset = o;
@@ -264,6 +266,7 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
                                 textYAlign: _textYAlign,
                                 textAngle: _textAngle,
                                 styleIndex: _styleIndex,
+                                backgroundColor: kBgColors[_bgColorIndex],
                                 onTap: _openEditSheet,
                                 onTransformChanged: (s, o, a) => setState(() {
                                   _scale = s;

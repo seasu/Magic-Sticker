@@ -243,6 +243,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         stickerIndex: idx,
         initialText: state.stickerTexts[idx],
         initialSchemeIndex: state.colorSchemeIndices[idx],
+        initialBgColorIndex: state.bgColorIndices[idx],
         initialScale: state.imageScales[idx],
         initialOffset: state.imageOffsets[idx],
         initialImageAngle: state.imageAngles[idx],
@@ -257,6 +258,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         stickerShape: state.stickerShape,
         onTextChanged: (text) => notifier.updateStickerText(idx, text),
         onSchemeChanged: (si) => notifier.updateColorSchemeIndex(idx, si),
+        onBgColorChanged: (bi) => notifier.updateBgColorIndex(idx, bi),
         onTransformChanged: (s, o, a) =>
             notifier.updateImageTransform(idx, s, o, a),
         onFontChanged: (fi) => notifier.updateFontIndex(idx, fi),
@@ -667,6 +669,7 @@ class _CardStack extends StatelessWidget {
                 stickerShape: stickerShape,
                 styleIndex: state.styleIndices[currentIndex],
                 categoryId: state.categoryIds[currentIndex],
+                backgroundColor: kBgColors[state.bgColorIndices[currentIndex]],
               ),
 
               // ── 生成中 badge ──────────────────────────────────────────
@@ -712,6 +715,7 @@ class _StickerCard extends StatelessWidget {
   final StickerShape stickerShape;
   final int styleIndex;
   final String categoryId;
+  final Color? backgroundColor;
 
   const _StickerCard({
     this.repaintKey,
@@ -731,6 +735,7 @@ class _StickerCard extends StatelessWidget {
     this.stickerShape = StickerShape.circle,
     this.styleIndex = 0,
     this.categoryId = '',
+    this.backgroundColor,
   });
 
   @override
@@ -752,6 +757,7 @@ class _StickerCard extends StatelessWidget {
       stickerShape: stickerShape,
       styleIndex: styleIndex,
       categoryId: categoryId,
+      backgroundColor: backgroundColor,
     );
 
     // Chroma Key 模式：RepaintBoundary **外層**疊加 checkerboard，

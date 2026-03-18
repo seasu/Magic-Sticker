@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.5.1+272 |
+| 目前版本 | v3.5.2+273 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -220,6 +220,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.5.2 | 2026-03-18 | **feat(editor)**：「配色」Tab 新增「背景色」區塊 — 9 個 preset（透明＋8 種淺色）可獨立選擇，取代棋盤格透明底；背景色填入 `StickerCanvas` Stack 最底層，亦寫入匯出 PNG；`EditorState` 新增 `bgColorIndices`（每張貼圖獨立記錄），`kBgColors` 定義於 `sticker_edit_sheet.dart`，同步支援 replay 畫面。 |
 | v3.5.1 | 2026-03-18 | **refactor(editor)**：移除編輯器底部「產圖風格」Tab（風格已於前頁選定，中途切換需重新生成，流程斷裂）；「配色」升格為獨立第三 Tab（取代原「產圖風格」位置）；進入編輯器預設啟動「調整圖片」模式，省去多餘點擊。 |
 | v3.5.0 | 2026-03-18 | **feat(emotions)**：情緒類別從 16 擴充至 24 種（新增 sleepy/beg/worried/hungry/celebrate/no/encourage/pain，全部 defaultOn: false）；清理 `_buildFallback()` 死碼，終極 fallback 改為品牌色底 + 風格 emoji 的 `_StyleEmojiPlaceholder`（不再錯誤顯示 chibi）；`generate_style_thumbnails.py` 補入 3 個新風格定義（yuruDoodle/showaManga/claymation）；CI `generate_previews.yml` ALL_EMOTIONS 同步更新為 24 種。 |
 | v3.4.2 | 2026-03-18 | **refactor(canvas)**：`_buildFallback()` 改為直接重用 greeting 縮圖作佔位圖，不再依賴 12×16 組合圖；`generate_previews.yml` 停用 push 自動觸發（保留 workflow_dispatch 供日後復原），節省 Gemini API 費用。 |
