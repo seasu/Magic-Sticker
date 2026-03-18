@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.2.48+255 |
+| 目前版本 | v3.2.49+256 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -213,6 +213,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.2.49 | 2026-03-18 | **feat(scripts)**：新增 `normalize_previews.py` 後處理腳本，以 PIL bounding box 偵測人物像素後統一縮放（高度78%）並置中排版（頂部7%），解決 Gemini 生成 preview 圖片人物高低不齊問題；整合至 `generate_style_previews_ci.py`（透明背景）與 `generate_style_thumbnails.py`（白底縮圖），新圖生成後自動正規化；另提供 CLI `--all/--thumbnails/--styles/--emotions/--dry-run` 可一次處理現有所有圖片。 |
 | v3.2.48 | 2026-03-18 | **refactor(editor)**：新增 `StickerCanvasFrame` 共用元件（`sticker_canvas_frame.dart`），統一管理棋盤格背景、形狀裁切、陰影外框、虛線邊界、編輯按鈕；同時修正編輯 Sheet 中棋盤格超出形狀邊界的 bug（原本 `_CheckerboardPainter` 畫在整個正方形上而 canvas 才套用 ClipOval/ClipRRect）。移除 `editor_screen.dart` 與 `sticker_edit_sheet.dart` 中重複的 `_CheckerboardPainter` 與 `_BoundaryPainter`。 |
 | v3.2.46 | 2026-03-17 | **refactor(loading)**：以 GIF 動畫取代 `video_player` MP4 loading——分析階段用 `cat-research-loading.gif`、繪圖階段用 `cat-drawing-loading.gif`；`_FunLoadingView` 從 StatefulWidget 簡化為 StatelessWidget；移除 `video_player` 依賴。 |
 | v3.2.45 | 2026-03-17 | **feat(assets/ci)**：新增 `generate_style_thumbnails.py` 腳本與 `gen_style_thumbnails.yml` CI workflow，專門產生 9 張風格選擇縮圖（seasu-source.jpg × greeting 情緒）；Prompt 與 App 產圖完全一致（中文 Chroma Key 模式），額外加入縮圖一致性規範確保 9 張構圖比例相同。 |

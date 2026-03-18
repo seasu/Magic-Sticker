@@ -27,6 +27,10 @@ PROJECT_DIR = SCRIPT_DIR.parent
 ASSETS_DIR  = PROJECT_DIR / "assets" / "images"
 SOURCE_IMAGE = ASSETS_DIR / "seasu-source.jpg"
 
+# 正規化人物構圖位置（統一所有縮圖的人物高低、大小）
+sys.path.insert(0, str(SCRIPT_DIR))
+from normalize_previews import normalize_white_bg  # noqa: E402
+
 DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
 MAX_RETRIES = 2
 
@@ -236,6 +240,8 @@ def main():
                 img_data = _extract_image_bytes(response)
                 if img_data:
                     out_path.write_bytes(img_data)
+                    # 正規化人物構圖位置（裁切並統一排版）
+                    normalize_white_bg(out_path)
                     print(f"✅ {len(img_data) // 1024} KB → {out_path.name}")
                     ok = True
                     break

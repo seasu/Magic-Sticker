@@ -32,6 +32,10 @@ PROJECT_DIR = SCRIPT_DIR.parent
 ASSETS_DIR = PROJECT_DIR / "assets" / "images"
 SOURCE_IMAGE = ASSETS_DIR / "cat_source.png"
 
+# 正規化人物構圖位置（統一所有 preview 圖片的人物高低、大小）
+sys.path.insert(0, str(SCRIPT_DIR))
+from normalize_previews import normalize_transparent  # noqa: E402
+
 SOURCE_IMAGE_PROMPT = (
     "A cute brown tabby cat raising its right paw in a greeting pose, "
     "sitting upright, looking at the camera with big bright eyes. "
@@ -317,6 +321,8 @@ def main():
             return False
         out_path.write_bytes(img_data)
         kb = len(img_data) / 1024
+        # 正規化人物構圖位置（裁切並統一排版）
+        normalize_transparent(out_path)
         print(f"✅ {kb:.0f}KB → {out_path.name}")
         return True
 
