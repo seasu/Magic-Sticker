@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.2.50+257 |
+| 目前版本 | v3.2.51+258 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -213,6 +213,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.2.51 | 2026-03-18 | **fix(assets)**：更新 `normalize_previews.py` 加入去背功能（`_apply_bg_removal`），在正規化構圖後對已知純色背景做精確 alpha 遮罩（threshold=28, feather=22），輸出 RGBA 透明 PNG；對全部 160 張 preview 圖執行正規化＋去背，取代彩色背景版本，新圖生成後亦自動套用。 |
 | v3.2.50 | 2026-03-18 | **fix(assets)**：以 `normalize_previews.py --all` 正規化全部 160 張 preview 圖片，修正腳本改用「四角採樣背景色 + 顏色距離」偵測人物（原腳本錯誤假設透明或白底，實際為 RGB 彩色背景）；所有圖片人物頂端統一 7%、高度統一 78%、水平置中，視覺一致性大幅提升。 |
 | v3.2.49 | 2026-03-18 | **feat(scripts)**：新增 `normalize_previews.py` 後處理腳本，以 PIL bounding box 偵測人物像素後統一縮放（高度78%）並置中排版（頂部7%），解決 Gemini 生成 preview 圖片人物高低不齊問題；整合至 `generate_style_previews_ci.py`（透明背景）與 `generate_style_thumbnails.py`（白底縮圖），新圖生成後自動正規化；另提供 CLI `--all/--thumbnails/--styles/--emotions/--dry-run` 可一次處理現有所有圖片。 |
 | v3.2.48 | 2026-03-18 | **refactor(editor)**：新增 `StickerCanvasFrame` 共用元件（`sticker_canvas_frame.dart`），統一管理棋盤格背景、形狀裁切、陰影外框、虛線邊界、編輯按鈕；同時修正編輯 Sheet 中棋盤格超出形狀邊界的 bug（原本 `_CheckerboardPainter` 畫在整個正方形上而 canvas 才套用 ClipOval/ClipRRect）。移除 `editor_screen.dart` 與 `sticker_edit_sheet.dart` 中重複的 `_CheckerboardPainter` 與 `_BoundaryPainter`。 |

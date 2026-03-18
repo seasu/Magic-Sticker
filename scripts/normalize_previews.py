@@ -1,20 +1,27 @@
 #!/usr/bin/env python3
 """
-normalize_previews.py — 統一 preview 圖片人物構圖位置
+normalize_previews.py — 統一 preview 圖片人物構圖位置 + 去背
 
 解決問題：Gemini AI 生成的 preview 圖片（1024×1024 RGB），
-即使 prompt 有構圖規範，人物位置仍會隨機偏移（高低、大小不一）。
+即使 prompt 有構圖規範，人物位置仍會隨機偏移（高低、大小不一），
+且帶有彩色背景（各情緒對應色）。
 
-偵測策略：
-  從四角各取 10×10 像素採樣背景色（平均值），
-  再找與背景色差距 > BG_DISTANCE_THRESHOLD 的像素 = 人物。
-  不依賴 alpha channel，適用所有 RGB 圖片。
+處理流程：
+  1. 從四角採樣估算背景色
+  2. 找人物 bounding box（與背景色差 > BG_DISTANCE_THRESHOLD 的像素）
+  3. 裁切人物，縮放至目標構圖（高度 CHAR_HEIGHT_RATIO，頂端 CHAR_TOP_RATIO）
+  4. 貼到新畫布（背景填充採樣色）
+  5. 去背：對畫布背景色做精確 alpha 遮罩（含羽化），輸出 RGBA 透明 PNG
 
 目標構圖參數：
-  TARGET_SIZE       = 1024 px（保持原圖尺寸）
+  TARGET_SIZE       = 1024 px（保持與原圖相同）
   CHAR_HEIGHT_RATIO = 0.78（人物高度佔畫布 78%）
   CHAR_TOP_RATIO    = 0.07（人物頂端距上緣 7%）
   CHAR_MAX_W_RATIO  = 0.88（人物寬度上限 88%，防寬型角色溢出）
+
+去背參數：
+  REMOVE_THRESHOLD  = 28（與背景色差 < 28 的像素設為全透明）
+  FEATHER_WIDTH     = 22（過渡羽化帶寬度，讓邊緣平滑）
 
 CLI 用法：
   python3 scripts/normalize_previews.py --all
@@ -23,7 +30,7 @@ CLI 用法：
   python3 scripts/normalize_previews.py --thumbnails
   python3 scripts/normalize_previews.py --all --dry-run
 
-作為 module 使用：
+作為 module 使用（供生成腳本呼叫）：
   from normalize_previews import normalize_transparent, normalize_white_bg, normalize_image
 """
 
@@ -40,16 +47,16 @@ from PIL import Image
 
 ASSETS_DIR = Path(__file__).parent.parent / "assets" / "images"
 
-TARGET_SIZE = 1024         # 輸出邊長（px）— 保持與原圖相同
-CHAR_HEIGHT_RATIO = 0.78   # 人物高度 = 畫布的 78%
-CHAR_TOP_RATIO = 0.07      # 人物頂端距上緣 7%
-CHAR_MAX_W_RATIO = 0.88    # 人物寬度上限（防寬型角色溢出）
+TARGET_SIZE = 1024          # 輸出邊長（px）— 保持與原圖相同
+CHAR_HEIGHT_RATIO = 0.78    # 人物高度 = 畫布的 78%
+CHAR_TOP_RATIO = 0.07       # 人物頂端距上緣 7%
+CHAR_MAX_W_RATIO = 0.88     # 人物寬度上限（防寬型角色溢出）
 
-# 角落採樣框大小（px），用於估算背景色
-CORNER_SAMPLE = 12
+CORNER_SAMPLE = 12          # 採樣角落框大小（px）
+BG_DISTANCE_THRESHOLD = 35  # 偵測人物用：色差 > 此值 = 人物像素
 
-# 像素顏色距離閾值：與背景色差 > 此值視為人物像素
-BG_DISTANCE_THRESHOLD = 35
+REMOVE_THRESHOLD = 28       # 去背用：色差 < 此值 → 全透明
+FEATHER_WIDTH = 22          # 去背羽化帶寬度，讓邊緣自然過渡
 
 ALL_STYLES = [
     "chibi", "popArt", "pixel", "sketch", "watercolor",
@@ -62,18 +69,18 @@ ALL_EMOTIONS = [
     "love", "excited", "scared", "mischief",
 ]
 
-# ── 核心函式 ──────────────────────────────────────────────────────────────────
+# ── 背景偵測 ──────────────────────────────────────────────────────────────────
 
 
 def _sample_bg_color(arr: np.ndarray) -> np.ndarray:
     """從四角各取 CORNER_SAMPLE×CORNER_SAMPLE 像素，回傳背景色平均值 [R, G, B]。"""
     h, w = arr.shape[:2]
     n = CORNER_SAMPLE
-    rgb = arr[:, :, :3]  # 只取 RGB
+    rgb = arr[:, :, :3]
     corners = np.concatenate([
-        rgb[:n,  :n ].reshape(-1, 3),
-        rgb[:n,  w-n:].reshape(-1, 3),
-        rgb[h-n:, :n ].reshape(-1, 3),
+        rgb[:n,   :n  ].reshape(-1, 3),
+        rgb[:n,   w-n:].reshape(-1, 3),
+        rgb[h-n:, :n  ].reshape(-1, 3),
         rgb[h-n:, w-n:].reshape(-1, 3),
     ], axis=0)
     return corners.mean(axis=0)
@@ -81,13 +88,11 @@ def _sample_bg_color(arr: np.ndarray) -> np.ndarray:
 
 def _find_char_bbox(arr: np.ndarray) -> tuple[int, int, int, int] | None:
     """
-    偵測人物 bounding box。
-    回傳 (left, top, right, bottom)；找不到人物時回傳 None。
+    從背景色找人物 bounding box。
+    回傳 (left, top, right, bottom)；找不到時回傳 None。
     """
     bg = _sample_bg_color(arr)
     rgb = arr[:, :, :3].astype(np.int32)
-
-    # Euclidean distance from background color
     dist = np.sqrt(np.sum((rgb - bg) ** 2, axis=2))
     mask = dist > BG_DISTANCE_THRESHOLD
 
@@ -100,11 +105,45 @@ def _find_char_bbox(arr: np.ndarray) -> tuple[int, int, int, int] | None:
     cmin, cmax = int(np.where(cols)[0][0]), int(np.where(cols)[0][-1])
     return cmin, rmin, cmax + 1, rmax + 1
 
+# ── 去背（精確：針對已知純色背景）────────────────────────────────────────────
+
+
+def _apply_bg_removal(canvas: Image.Image, bg_color: tuple) -> Image.Image:
+    """
+    對畫布做去背：將接近 bg_color 的像素設為透明（含羽化邊緣）。
+    bg_color 必須是畫布的已知純色背景（在 _build_normalized 中填充的顏色）。
+    Returns RGBA Image.
+    """
+    rgba = canvas.convert("RGBA")
+    arr = np.array(rgba, dtype=np.float32)
+
+    bg = np.array(bg_color[:3], dtype=np.float32)
+    rgb = arr[:, :, :3]
+    dist = np.sqrt(np.sum((rgb - bg) ** 2, axis=2))
+
+    # 羽化：dist < REMOVE_THRESHOLD → alpha=0；
+    #        dist > REMOVE_THRESHOLD + FEATHER_WIDTH → alpha=255；中間線性插值
+    alpha = np.clip(
+        (dist - REMOVE_THRESHOLD) / FEATHER_WIDTH * 255,
+        0, 255
+    ).astype(np.uint8)
+
+    arr[:, :, 3] = alpha
+    return Image.fromarray(arr.astype(np.uint8), "RGBA")
+
+
+# ── 主要正規化函式 ─────────────────────────────────────────────────────────────
+
 
 def normalize_image(img_path: Path | str, dry_run: bool = False) -> bool:
     """
-    統一正規化函式：適用所有 preview 圖片（RGB 或 RGBA）。
-    背景色從四角自動偵測，人物縮放後貼到固定構圖位置。
+    統一正規化函式：
+      1. 偵測背景色（四角採樣）
+      2. 裁切人物、縮放至目標構圖
+      3. 貼到新畫布（純色背景）
+      4. 去背（背景轉透明）→ 輸出 RGBA PNG
+
+    適用所有 preview 圖片（RGB 彩色背景 或 RGBA 透明背景）。
     """
     img_path = Path(img_path)
     try:
@@ -114,31 +153,33 @@ def normalize_image(img_path: Path | str, dry_run: bool = False) -> bool:
         return False
 
     arr = np.array(img)
-
-    # 判斷是否有真正的透明背景
-    alpha = arr[:, :, 3]
-    has_alpha = bool((alpha < 128).any())
+    alpha_ch = arr[:, :, 3]
+    has_alpha = bool((alpha_ch < 128).any())
 
     if has_alpha:
-        # 透明背景圖：alpha > 8 的像素 = 人物
-        mask = alpha > 8
+        # 已是透明背景：只做位置正規化，不需去背
+        mask = alpha_ch > 8
         rows = np.any(mask, axis=1)
         cols = np.any(mask, axis=0)
         if not rows.any():
             print(f"  ⚠️  {img_path.name}: 找不到人物（全透明？）")
             return False
-        rmin, rmax = int(np.where(rows)[0][0]), int(np.where(rows)[0][-1])
-        cmin, cmax = int(np.where(cols)[0][0]), int(np.where(cols)[0][-1])
+        rmin = int(np.where(rows)[0][0])
+        rmax = int(np.where(rows)[0][-1])
+        cmin = int(np.where(cols)[0][0])
+        cmax = int(np.where(cols)[0][-1])
         bbox = (cmin, rmin, cmax + 1, rmax + 1)
         bg_fill: tuple = (0, 0, 0, 0)
+        remove_bg = False
     else:
-        # RGB 圖：從角落採樣背景色，找與背景差異大的像素 = 人物
+        # RGB 彩色背景：偵測背景色後找人物、再去背
         bbox = _find_char_bbox(arr)
         if bbox is None:
             print(f"  ⚠️  {img_path.name}: 找不到人物（背景過於複雜？）")
             return False
         bg = _sample_bg_color(arr)
         bg_fill = (int(bg[0]), int(bg[1]), int(bg[2]), 255)
+        remove_bg = True
 
     # 裁切人物
     char = img.crop(bbox)
@@ -150,7 +191,6 @@ def normalize_image(img_path: Path | str, dry_run: bool = False) -> bool:
     scale = target_char_h / char_h
     target_char_w = int(char_w * scale)
 
-    # 寬度超限時改以寬度為基準縮放
     max_w = int(target * CHAR_MAX_W_RATIO)
     if target_char_w > max_w:
         target_char_w = max_w
@@ -159,7 +199,7 @@ def normalize_image(img_path: Path | str, dry_run: bool = False) -> bool:
 
     char_resized = char.resize((target_char_w, target_char_h), Image.LANCZOS)
 
-    # 建立畫布，貼上人物
+    # 建立畫布、貼上人物
     canvas = Image.new("RGBA", (target, target), bg_fill)
     paste_x = (target - target_char_w) // 2
     paste_y = int(target * CHAR_TOP_RATIO)
@@ -169,19 +209,19 @@ def normalize_image(img_path: Path | str, dry_run: bool = False) -> bool:
         result = canvas
     else:
         canvas.paste(char_resized, (paste_x, paste_y))
-        result = canvas.convert("RGB")  # 保持原本 RGB 格式
+        # 去背：對畫布背景色做精確 alpha 遮罩
+        result = _apply_bg_removal(canvas, bg_fill)
 
     if not dry_run:
         result.save(str(img_path), "PNG")
     return True
 
 
-# 向下相容舊 API（generate_style_previews_ci.py 用）
+# 向下相容舊 API（generate_style_previews_ci.py / generate_style_thumbnails.py 用）
 def normalize_transparent(img_path: Path | str, dry_run: bool = False) -> bool:
     return normalize_image(img_path, dry_run)
 
 
-# 向下相容舊 API（generate_style_thumbnails.py 用）
 def normalize_white_bg(img_path: Path | str, dry_run: bool = False) -> bool:
     return normalize_image(img_path, dry_run)
 
@@ -190,7 +230,6 @@ def normalize_white_bg(img_path: Path | str, dry_run: bool = False) -> bool:
 
 
 def _collect_targets(args: argparse.Namespace) -> list[Path]:
-    """回傳需要處理的圖片路徑清單。"""
     targets: list[Path] = []
 
     if args.all or args.thumbnails:
@@ -208,20 +247,18 @@ def _collect_targets(args: argparse.Namespace) -> list[Path]:
                 if p.exists():
                     targets.append(p)
 
-    # 去重、保留順序
     seen: set[Path] = set()
     unique: list[Path] = []
     for p in targets:
         if p not in seen:
             seen.add(p)
             unique.append(p)
-
     return unique
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="統一 preview 圖片人物構圖位置",
+        description="統一 preview 圖片人物構圖位置 + 去背（輸出 RGBA 透明 PNG）",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 範例：
@@ -249,12 +286,11 @@ def main() -> None:
         sys.exit(0)
 
     targets = _collect_targets(args)
-
     if not targets:
         print("找不到符合條件的圖片。")
         sys.exit(0)
 
-    print(f"{'[DRY RUN] ' if args.dry_run else ''}處理 {len(targets)} 張圖片...\n")
+    print(f"{'[DRY RUN] ' if args.dry_run else ''}處理 {len(targets)} 張圖片（正規化 + 去背）...\n")
 
     ok = 0
     fail = 0
