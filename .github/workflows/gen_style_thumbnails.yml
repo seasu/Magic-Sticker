@@ -1,15 +1,30 @@
-name: 🎨 Generate Style Thumbnails (9 張)
+name: 🎨 Generate Style Thumbnails (12 張)
 
-# 手動觸發，專門產生風格選擇畫面的 9 張縮圖
+# 手動觸發，專門產生風格選擇畫面的 12 張縮圖
 # 使用 seasu-source.jpg 作為來源，greeting 情緒，加強構圖一致性
 
 on:
   workflow_dispatch:
     inputs:
       styles:
-        description: '要重新產生的風格（空白 = 全部 9 種）例：chibi pixel webtoon'
+        description: '要重新產生的風格縮圖（選「全部」= 產生所有 12 種）'
         required: false
-        default: ''
+        type: choice
+        default: '全部'
+        options:
+          - 全部
+          - chibi
+          - popArt
+          - pixel
+          - sketch
+          - watercolor
+          - webtoon
+          - celshade
+          - pixar3d
+          - plush
+          - yuruDoodle
+          - showaManga
+          - claymation
       commit_message:
         description: 'Commit 說明（留空使用預設）'
         required: false
@@ -17,7 +32,7 @@ on:
 
 jobs:
   generate:
-    name: Generate 9 Style Thumbnails
+    name: Generate 12 Style Thumbnails
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -48,6 +63,8 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_IMAGE_MODEL: ${{ vars.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image' }}
+          # 「全部」→ 空字串（腳本視空字串為產生所有風格）
+          PREVIEW_STYLES: ${{ github.event.inputs.styles == '全部' && '' || github.event.inputs.styles }}
         run: python3 scripts/generate_style_thumbnails.py
 
       - name: Show generated files
