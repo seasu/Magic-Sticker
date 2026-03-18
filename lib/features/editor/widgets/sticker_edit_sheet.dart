@@ -6,6 +6,7 @@ import '../../../core/models/sticker_style.dart';
 import '../models/sticker_config.dart';
 import '../models/sticker_font.dart';
 import 'sticker_canvas.dart';
+import 'sticker_canvas_frame.dart';
 
 export 'sticker_canvas.dart' show StickerEditTarget;
 
@@ -214,44 +215,36 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                     child: SizedBox(
                       width: side,
                       height: side,
-                      child: CustomPaint(
-                        painter: const _CheckerboardPainter(),
-                        foregroundPainter: _BoundaryPainter(stickerShape: widget.stickerShape),
-                        child: Builder(builder: (ctx) {
-                          final canvas = StickerCanvas(
-                            subjectBytes: widget.subjectBytes,
-                            generatedImage: widget.generatedImage,
-                            text: _textCtrl.text,
-                            config: config,
-                            stickerShape: widget.stickerShape,
-                            initialScale: widget.initialScale,
-                            initialOffset: widget.initialOffset,
-                            initialImageAngle: widget.initialImageAngle,
-                            fontIndex: _fontIndex,
-                            fontSizeScale: _textSizeScale,
-                            textXAlign: _textXAlign,
-                            textYAlign: _textYAlign,
-                            textAngle: _textAngle,
-                            enableTextGestures: true,
-                            externalTarget: _editTarget,
-                            onTransformChanged: widget.onTransformChanged,
-                            onTextGestureChanged: (xAlign, yAlign, angle, scale) {
-                              setState(() {
-                                _textXAlign = xAlign;
-                                _textYAlign = yAlign;
-                                _textAngle = angle;
-                                _textSizeScale = scale;
-                              });
-                              widget.onTextGestureChanged(xAlign, yAlign, angle, scale);
-                            },
-                          );
-                          return widget.stickerShape == StickerShape.circle
-                              ? ClipOval(child: canvas)
-                              : ClipRRect(
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: canvas,
-                                );
-                        }),
+                      child: StickerCanvasFrame(
+                        stickerShape: widget.stickerShape,
+                        showBoundary: true,
+                        child: StickerCanvas(
+                          subjectBytes: widget.subjectBytes,
+                          generatedImage: widget.generatedImage,
+                          text: _textCtrl.text,
+                          config: config,
+                          stickerShape: widget.stickerShape,
+                          initialScale: widget.initialScale,
+                          initialOffset: widget.initialOffset,
+                          initialImageAngle: widget.initialImageAngle,
+                          fontIndex: _fontIndex,
+                          fontSizeScale: _textSizeScale,
+                          textXAlign: _textXAlign,
+                          textYAlign: _textYAlign,
+                          textAngle: _textAngle,
+                          enableTextGestures: true,
+                          externalTarget: _editTarget,
+                          onTransformChanged: widget.onTransformChanged,
+                          onTextGestureChanged: (xAlign, yAlign, angle, scale) {
+                            setState(() {
+                              _textXAlign = xAlign;
+                              _textYAlign = yAlign;
+                              _textAngle = angle;
+                              _textSizeScale = scale;
+                            });
+                            widget.onTextGestureChanged(xAlign, yAlign, angle, scale);
+                          },
+                        ),
                       ),
                     ),
                   );
@@ -669,71 +662,4 @@ class _ModeButton extends StatelessWidget {
   }
 }
 
-// ─── 貼圖最大邊界虛線框 ───────────────────────────────────────────────────────
 
-class _BoundaryPainter extends CustomPainter {
-  final StickerShape stickerShape;
-  const _BoundaryPainter({required this.stickerShape});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFBBBBBB)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    const dashLen = 5.0;
-    const gapLen = 4.0;
-
-    final path = stickerShape == StickerShape.circle
-        ? (Path()
-          ..addOval(Rect.fromLTWH(0, 0, size.width, size.height)))
-        : (Path()
-          ..addRRect(RRect.fromRectAndRadius(
-            Rect.fromLTWH(0, 0, size.width, size.height),
-            const Radius.circular(16),
-          )));
-
-    for (final metric in path.computeMetrics()) {
-      double dist = 0;
-      while (dist < metric.length) {
-        final end = (dist + dashLen).clamp(0.0, metric.length);
-        canvas.drawPath(metric.extractPath(dist, end), paint);
-        dist += dashLen + gapLen;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _BoundaryPainter old) =>
-      old.stickerShape != stickerShape;
-}
-
-// ─── Checkerboard 透明底色示意（不進入 export）────────────────────────────────
-
-class _CheckerboardPainter extends CustomPainter {
-  const _CheckerboardPainter();
-
-  static const double _tileSize = 14.0;
-  static const Color _light = Color(0xFFE8E8E8);
-  static const Color _dark  = Color(0xFFC8C8C8);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final lightPaint = Paint()..color = _light;
-    final darkPaint  = Paint()..color = _dark;
-    final cols = (size.width  / _tileSize).ceil() + 1;
-    final rows = (size.height / _tileSize).ceil() + 1;
-    for (int r = 0; r < rows; r++) {
-      for (int c = 0; c < cols; c++) {
-        canvas.drawRect(
-          Rect.fromLTWH(c * _tileSize, r * _tileSize, _tileSize, _tileSize),
-          (r + c).isEven ? lightPaint : darkPaint,
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
