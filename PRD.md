@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.2.57+264 |
+| 目前版本 | v3.3.0+265 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -33,21 +33,22 @@
 
 > 所有 Cloud Functions 與 Firestore 存取均須通過 App Check 裝置驗證（Android: Play Integrity / Debug Token；iOS Phase 2: DeviceCheck），防止非官方客戶端盜用 API。
 
-**生成流程**
+**生成流程（v3.3.0 延遲分析架構）**
 ```
-選圖 → Resize（≤1080px）
-  → Cloud Function: generateStickerSpecs（免費）
-      ├── 驗證 App Check（enforceAppCheck: true）
-      ├── 驗證 Firebase Auth
-      └── 呼叫 Gemini 2.0 Flash（文字）→ 取得 8 組規格（不扣點）
-  → Editor 顯示 8 張 Spec 預覽卡片（文字 + 情緒 + 背景色）
-  → 使用者點擊「生成 · 1點」觸發個別貼圖生成
-      → Cloud Function: generateStickerImage（1 點/張）
-          ├── 驗證 App Check（enforceAppCheck: true）
-          ├── 驗證 Firebase Auth
-          ├── Firestore Transaction 原子性扣 1 點
-          ├── 寫入 creditHistory 紀錄
-          └── 呼叫 Gemini 2.5 Flash（圖片）→ 回傳 PNG base64
+選圖 → 選風格 → 選情緒 → 進入 Editor（立即顯示，無需等待分析）
+  → Editor 顯示 N 張情緒 Placeholder 卡片（可立即右滑觸發生成）
+  → 使用者右滑 / 點擊「生成 · 1點」：
+      ┌─ 若尚未分析（首次）：
+      │   → Cloud Function: generateStickerSpecs（免費，延遲執行）
+      │       ├── 驗證 App Check
+      │       ├── 驗證 Firebase Auth
+      │       └── 呼叫 Gemini 2.0 Flash → 取得全組規格（快取，後續不重複）
+      └─ → Cloud Function: generateStickerImage（1 點/張）
+              ├── 驗證 App Check（enforceAppCheck: true）
+              ├── 驗證 Firebase Auth
+              ├── Firestore Transaction 原子性扣 1 點
+              ├── 寫入 creditHistory 紀錄
+              └── 呼叫 Gemini 2.5 Flash（圖片）→ 回傳 PNG base64
   → 生成失敗自動退點 + 寫入退點紀錄
 ```
 

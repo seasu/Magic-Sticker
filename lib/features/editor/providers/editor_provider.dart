@@ -34,8 +34,9 @@ class _EditorFamilyNotifier
   @override
   EditorState build(String arg) => EditorState(originalImagePath: arg);
 
-  /// 初始化：取得 Spec（免費，不扣點）
+  /// 初始化：立即設定 placeholder 狀態，不呼叫 AI（免去進場等待）。
   ///
+  /// AI 分析（generateStickerSpecs）改為在使用者觸發第一張生成時才執行（延遲分析）。
   /// [defaultStyleIndex] 對應 [StickerStyle.values]，預設 0（Q版卡通）
   /// [stickerShape] 貼圖形狀，預設圓形
   /// [initialCategoryIds] 由 EmotionSelectionScreen 傳入；null 則沿用 state 預設
@@ -44,53 +45,69 @@ class _EditorFamilyNotifier
     StickerShape stickerShape = StickerShape.circle,
     List<String>? initialCategoryIds,
   }) async {
+    final categoryIds = initialCategoryIds != null
+        ? List<String>.from(initialCategoryIds)
+        : state.selectedCategoryIds;
+    final count = categoryIds.length;
+
     state = state.copyWith(
-      status: EditorStatus.generatingTexts,
-      styleIndices: List.filled(8, defaultStyleIndex),
+      status: EditorStatus.ready,
+      styleIndices: List.filled(count, defaultStyleIndex),
       stickerShape: stickerShape,
-      selectedCategoryIds: initialCategoryIds != null
-          ? List<String>.from(initialCategoryIds)
-          : null,
-    );
-
-    try {
-      final imageFile = File(state.originalImagePath);
-      _cachedResized = await ImageProcessor.resizeForNative(imageFile);
-    } catch (e, stack) {
-      await FirebaseService.recordError(
-        e, stack, reason: 'editor_resize_failed',
-      );
-      state = state.copyWith(
-        status: EditorStatus.idle,
-        errorMessage: '圖片處理失敗，請重試',
-      );
-      return;
-    }
-
-    final specs = await GeminiService().generateStickerSpecs(
-      _cachedResized!,
-      categoryIds: state.selectedCategoryIds,
-    );
-    _specs = specs;
-    final count = specs.length;
-    final texts = specs.map((s) => s.text).toList();
-    state = state.copyWith(
-      stickerTexts: texts,
-      categoryIds: specs.map((s) => s.categoryId).toList(),
+      selectedCategoryIds: categoryIds,
       generatedImages: List.filled(count, _kNotGeneratedSentinel),
       imageErrors: List.filled(count, null),
       colorSchemeIndices: List.generate(count, (i) => i % 8),
       imageScales: List.filled(count, 1.0),
       imageOffsets: List.filled(count, Offset.zero),
       fontIndices: List.filled(count, 0),
-      styleIndices: List.filled(count, state.styleIndices.isNotEmpty ? state.styleIndices[0] : 0),
       fontSizeScales: List.filled(count, 1.0),
       textXAligns: List.filled(count, 0.0),
       textYAligns: List.filled(count, 0.85),
       textAngles: List.filled(count, 0.0),
       imageAngles: List.filled(count, 0.0),
-      status: EditorStatus.ready,
     );
+
+    // 預先縮圖（在背景執行，不阻擋 UI）
+    try {
+      _cachedResized = await ImageProcessor.resizeForNative(
+        File(state.originalImagePath),
+      );
+    } catch (e, stack) {
+      await FirebaseService.recordError(e, stack, reason: 'editor_resize_failed');
+      state = state.copyWith(
+        status: EditorStatus.idle,
+        errorMessage: '圖片處理失敗，請重試',
+      );
+    }
+  }
+
+  /// 延遲分析：若 _specs 尚未載入，先呼叫 generateStickerSpecs 再繼續。
+  /// 成功後更新文字與 categoryIds；失敗回傳 false（呼叫方終止生成）。
+  Future<bool> _ensureSpecsLoaded(int index) async {
+    if (_specs != null) return index < _specs!.length;
+
+    try {
+      final resized = _cachedResized ??
+          await ImageProcessor.resizeForNative(File(state.originalImagePath));
+      _cachedResized = resized;
+
+      final specs = await GeminiService().generateStickerSpecs(
+        resized,
+        categoryIds: state.selectedCategoryIds,
+      );
+      _specs = specs;
+
+      // 更新 AI 生成的文字與情感 ID（不改變 generatedImages 狀態）
+      state = state.copyWith(
+        stickerTexts: specs.map((s) => s.text).toList(),
+        categoryIds: specs.map((s) => s.categoryId).toList(),
+      );
+      return index < specs.length;
+    } catch (e, stack) {
+      await FirebaseService.recordError(e, stack, reason: 'editor_lazy_analysis_failed');
+      return false;
+    }
   }
 
   /// 重新讓 AI 依目前選中的情感類別生成全新規格（免費，不扣點）
@@ -190,19 +207,27 @@ class _EditorFamilyNotifier
 
   /// 使用者主動觸發第 [index] 張貼圖的圖片生成（扣 1 點）
   ///
+  /// 若 _specs 尚未載入（首次生成），會先執行延遲分析再繼續。
+  ///
   /// 回傳值：
   ///   'ok'              — 成功
   ///   'insufficient'    — 點數不足（呼叫方應彈出 paywall）
   ///   'error'           — 其他錯誤
   Future<String> generateSingleImage(int index) async {
-    if (_specs == null || index >= _specs!.length) return 'error';
-
-    // 設定 loading 狀態
+    // 設定 loading 狀態（先讓 UI 顯示動畫）
     final loading = List<Uint8List?>.from(state.generatedImages);
     final clearErrors = List<String?>.from(state.imageErrors);
     loading[index] = null;
     clearErrors[index] = null;
     state = state.copyWith(generatedImages: loading, imageErrors: clearErrors);
+
+    // 延遲分析：首次生成時自動執行 AI 分析，快取後續使用不重複呼叫
+    if (!await _ensureSpecsLoaded(index)) {
+      final reset = List<Uint8List?>.from(state.generatedImages);
+      reset[index] = _kNotGeneratedSentinel;
+      state = state.copyWith(generatedImages: reset);
+      return 'error';
+    }
 
     final styleIdx = state.styleIndices[index];
 
