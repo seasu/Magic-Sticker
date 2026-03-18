@@ -26,6 +26,7 @@ import '../widgets/sticker_canvas.dart';
 import '../widgets/sticker_canvas_frame.dart';
 import '../widgets/sticker_edit_sheet.dart';
 import '../widgets/sticker_swipe_card.dart';
+import '../../../shared/widgets/cat_loading_widget.dart';
 
 // ── 顏色常數 ──────────────────────────────────────────────────────────────────
 
@@ -337,7 +338,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final totalCount = state.stickerTexts.length;
     final isDone = isReady && _currentIndex >= totalCount;
 
-    // 分析完成時，引導使用者點擊「生成」按鈕（每次進入 ready 都提示一次）
+    // regenerateTexts 完成時，提示使用者新概念就緒
     ref.listen<EditorState>(editorStateProvider(widget.imagePath), (prev, next) {
       if (prev?.status == EditorStatus.generatingTexts &&
           next.status == EditorStatus.ready) {
@@ -347,7 +348,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                '✨ $n 款概念就緒！右滑生成（耗 1 點），左滑跳過',
+                '✨ $n 款全新概念！右滑生成（耗 1 點），左滑跳過',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
@@ -355,7 +356,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   color: Colors.white,
                 ),
               ),
-              duration: const Duration(seconds: 5),
+              duration: const Duration(seconds: 4),
               behavior: SnackBarBehavior.floating,
               backgroundColor: const Color(0xDD1A1A2E),
               margin: const EdgeInsets.fromLTRB(12, 0, 12, 96),
@@ -386,13 +387,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 _TopBar(onBack: () => context.go('/')),
 
                 if (isLoading)
-                  Expanded(
-                    child: _FunLoadingView(
-                      title: 'AI 分析照片中',
-                      subtitle:
-                          '✦ 免費分析 · 產生 ${widget.categoryIds?.length ?? 8} 款貼圖概念，約 5~10 秒',
-                    ),
-                  )
+                  const Expanded(child: CatLoadingWidget(
+                    title: 'AI 重新分析中',
+                    subtitle: '✦ 免費分析 · 重新產生貼圖概念，約 5~10 秒',
+                  ))
                 else if (state.errorMessage != null)
                   Expanded(child: _ErrorView(message: state.errorMessage!))
                 else if (isDone)
@@ -447,13 +445,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               ],
             ),
 
-            // ── 圖片生成中：全畫面貓追老鼠遮罩（鎖定操作）───────────────
+            // ── 圖片生成中：全畫面貓咪遮罩（鎖定操作）────────────────────
             if (isCurrentImageLoading)
               AbsorbPointer(
-                child: _FunLoadingView(
-                  title: 'AI 繪製貼圖中',
-                  subtitle: '✦ 第 ${_currentIndex + 1} 張 · 已扣 1 點，約 20~30 秒',
-                  isImageGen: true,
+                child: CatLoadingWidget(
+                  title: 'AI 努力製作中',
+                  subtitle: '✦ 第 ${_currentIndex + 1} 張 · 已扣 1 點，約 20~40 秒',
                 ),
               ),
           ],
@@ -1223,77 +1220,7 @@ class _CompletionViewState extends State<_CompletionView>
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// 全螢幕趣味 Loading：貓追老鼠大場景（追劇雙關）
-// ═══════════════════════════════════════════════════════════════════════════════
-
-class _FunLoadingView extends StatelessWidget {
-  const _FunLoadingView({this.title, this.subtitle, this.isImageGen = false});
-
-  /// 大標題，顯示在動畫上方，清楚說明目前在做什麼
-  final String? title;
-
-  /// 輔助說明（時間預估、是否免費等）
-  final String? subtitle;
-
-  /// true = 圖片生成模式（使用不同的 GIF）
-  final bool isImageGen;
-
-  @override
-  Widget build(BuildContext context) {
-    final gifAsset = isImageGen
-        ? 'assets/cat-drawing-loading.gif'
-        : 'assets/cat-research-loading.gif';
-
-    return ColoredBox(
-      color: Colors.white,
-      child: Column(
-        children: [
-          // ── 狀態標題（告知使用者目前在做什麼）───────────────────────
-          if (title != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-              child: Column(
-                children: [
-                  Text(
-                    title!,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.notoSansTc(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle!,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.notoSansTc(
-                        fontSize: 13,
-                        color: Colors.black45,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-
-          // ── GIF 動畫區 ─────────────────────────────────────────────
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Image.asset(
-                gifAsset,
-                fit: BoxFit.contain,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// _FunLoadingView 已由 CatLoadingWidget（lib/shared/widgets/cat_loading_widget.dart）取代。
 
 // ─── 錯誤畫面 ─────────────────────────────────────────────────────────────────
 
