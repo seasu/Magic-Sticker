@@ -255,11 +255,12 @@ class _EditorFamilyNotifier
       state = state.copyWith(generatedImages: updated, imageErrors: errors);
 
       // 自動存檔：點數已扣、圖片已產出，立即寫入本地以防使用者誤觸離開
-      if (result.bytes != null) {
+      // 使用 finalBytes（已套用 chroma key 去背的透明 PNG），而非原始 result.bytes
+      if (finalBytes != null && finalBytes.isNotEmpty) {
         unawaited(
           StickerArchiveService.instance
               .archive(
-                pngBytes: result.bytes!,
+                pngBytes: finalBytes,
                 stickerText: state.stickerTexts[index],
                 styleIndex: styleIdx,
                 shape: state.stickerShape,
