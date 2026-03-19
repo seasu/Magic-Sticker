@@ -56,12 +56,25 @@ android {
     buildTypes {
         release {
             minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
             firebaseCrashlytics {
                 mappingFileUploadEnabled true
                 nativeSymbolUploadEnabled false
             }
+        }
+    }
+
+    bundle {
+        language {
+            enableSplit = true
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
         }
     }
 }

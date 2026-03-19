@@ -465,7 +465,7 @@ class _StyleCardState extends State<_StyleCard>
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: Image.asset(
-                        'assets/images/preview_${widget.style.name}_greeting.png',
+                        'assets/images/preview_${widget.style.name}_greeting.webp',
                         width: 56,
                         height: 56,
                         fit: BoxFit.cover,

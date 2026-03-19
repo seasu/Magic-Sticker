@@ -545,7 +545,7 @@ class _StickerCanvasState extends State<StickerCanvas> {
         widget.styleIndex.clamp(0, StickerStyle.values.length - 1)];
     // 依 style × emotion 組合選擇示意圖；categoryId 為空時退回 greeting
     final emotionId = widget.categoryId.isNotEmpty ? widget.categoryId : 'greeting';
-    final asset = 'assets/images/preview_${style.name}_$emotionId.png';
+    final asset = 'assets/images/preview_${style.name}_$emotionId.webp';
 
     return LayoutBuilder(
       builder: (context, constraints) {
