@@ -543,8 +543,9 @@ class _StickerCanvasState extends State<StickerCanvas> {
   Widget _buildFallback() {
     final style = StickerStyle.values[
         widget.styleIndex.clamp(0, StickerStyle.values.length - 1)];
-    // 所有情緒共用同一張風格縮圖（greeting）作佔位圖
-    final asset = 'assets/images/preview_${style.name}_greeting.png';
+    // 依 style × emotion 組合選擇示意圖；categoryId 為空時退回 greeting
+    final emotionId = widget.categoryId.isNotEmpty ? widget.categoryId : 'greeting';
+    final asset = 'assets/images/preview_${style.name}_$emotionId.png';
 
     return LayoutBuilder(
       builder: (context, constraints) {

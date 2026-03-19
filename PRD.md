@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.5.11+282 |
+| 目前版本 | v3.5.12+283 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -220,6 +220,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.5.12 | 2026-03-19 | **fix(canvas)**：`StickerCanvas._buildFallback()` 修正佔位示意圖永遠顯示 `greeting` 的 bug — 改依 `categoryId` 選擇 `preview_{style}_{emotion}.png`，`categoryId` 為空時退回 `greeting`。 |
 | v3.5.11 | 2026-03-19 | **chore(assets)**：無損壓縮靜態圖片資源 — `app_icon.png` 4836KB→3614KB (-25%)、`cat_source.png` 887KB→818KB (-8%)，合計節省 ~1.3MB，尺寸不變。 |
 | v3.5.10 | 2026-03-19 | **fix**：登入成功 badge「+5 點 已入帳」僅在訪客首次升級時顯示（`AuthResult.wasPromoted`）；`_maxDimension` 1080→768px（Gemini 1-tile 邊界）。 |
 | v3.5.4 | 2026-03-19 | **ci(play-store)**：`main_build.yml` 新增 Google Play Store 自動發布 job（`play-store-deploy`）— 每次 merge to main 自動 build AAB 並上傳至 internal track；同步改 mapping.txt 為每次都上傳（原本僅 tag 時）；需設定 `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` secret。 |
