@@ -362,10 +362,17 @@ def main():
         if not img_data:
             return False
         out_path.write_bytes(img_data)
-        kb = len(img_data) / 1024
+        kb_orig = len(img_data) / 1024
         # 正規化人物構圖位置（裁切並統一排版）
         normalize_transparent(out_path)
-        print(f"✅ {kb:.0f}KB → {out_path.name}")
+        # 壓縮：resize 至 512×512 + PNG 最高壓縮（無損）
+        from PIL import Image as _Image
+        _img = _Image.open(out_path)
+        if _img.size != (512, 512):
+            _img = _img.resize((512, 512), _Image.LANCZOS)
+        _img.save(out_path, format="PNG", optimize=True, compress_level=9)
+        kb_new = out_path.stat().st_size / 1024
+        print(f"✅ {kb_orig:.0f}KB → {kb_new:.0f}KB  {out_path.name}")
         return True
 
     for style_key in only_styles:
