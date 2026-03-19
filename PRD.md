@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.5.10+281 |
+| 目前版本 | v3.5.12+283 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -20,7 +20,7 @@
 
 ### 2.1 照片輸入與 Resize
 - 使用者從相簿選取任意照片（`image_picker`）
-- Flutter 端先 Resize ≤ 1080px（`image_processor.dart`），避免傳送巨圖給 API 造成 OOM
+- Flutter 端先 Resize ≤ 768px（`image_processor.dart`），避免傳送巨圖給 API 造成 OOM；768px 為 Gemini tile 邊界（768×768 = 1 tile），超過則跳為 4 tile，token 費用增加 4 倍
 - Resize 後以 Base64 傳送至 Gemini
 
 ### 2.2 AI 貼圖生成（Gemini 2.0 Flash — 透過 Cloud Functions）
@@ -167,7 +167,7 @@ lib/
 │   ├── theme/
 │   │   └── app_colors.dart
 │   └── utils/
-│       └── image_processor.dart      # Resize ≤ 1080px
+│       └── image_processor.dart      # Resize ≤ 768px（Gemini 1-tile 邊界）
 ├── features/
 │   ├── home/                         # 照片選取首頁
 │   ├── billing/
@@ -220,6 +220,9 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.5.12 | 2026-03-19 | **fix(canvas)**：`StickerCanvas._buildFallback()` 修正佔位示意圖永遠顯示 `greeting` 的 bug — 改依 `categoryId` 選擇 `preview_{style}_{emotion}.png`，`categoryId` 為空時退回 `greeting`。 |
+| v3.5.11 | 2026-03-19 | **chore(assets)**：無損壓縮靜態圖片資源 — `app_icon.png` 4836KB→3614KB (-25%)、`cat_source.png` 887KB→818KB (-8%)，合計節省 ~1.3MB，尺寸不變。 |
+| v3.5.10 | 2026-03-19 | **fix**：登入成功 badge「+5 點 已入帳」僅在訪客首次升級時顯示（`AuthResult.wasPromoted`）；`_maxDimension` 1080→768px（Gemini 1-tile 邊界）。 |
 | v3.5.4 | 2026-03-19 | **ci(play-store)**：`main_build.yml` 新增 Google Play Store 自動發布 job（`play-store-deploy`）— 每次 merge to main 自動 build AAB 並上傳至 internal track；同步改 mapping.txt 為每次都上傳（原本僅 tag 時）；需設定 `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` secret。 |
 | v3.5.3 | 2026-03-19 | **fix(prompts)**：修正 6 個貼圖風格的 `characterDesc` 導致角色被截斷的問題 — 移除「肖像」描述詞（popArt / sketch / watercolor / showaManga），改為明確要求完整身形；yuruDoodle 補入「身體四肢完整可見」；claymation 補入「頭頂至腳底不被截斷」；showaManga 新增「速度線僅集中於角色周邊，不延伸至畫布邊緣」約束。 |
 | v3.5.2 | 2026-03-18 | **feat(editor)**：「配色」Tab 新增「背景色」區塊 — 9 個 preset（透明＋8 種淺色）可獨立選擇，取代棋盤格透明底；背景色填入 `StickerCanvas` Stack 最底層，亦寫入匯出 PNG；`EditorState` 新增 `bgColorIndices`（每張貼圖獨立記錄），`kBgColors` 定義於 `sticker_edit_sheet.dart`，同步支援 replay 畫面。 |

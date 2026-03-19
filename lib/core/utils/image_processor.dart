@@ -7,7 +7,7 @@ import 'package:image/image.dart' as img;
 import '../services/firebase_service.dart';
 
 class ImageProcessor {
-  static const int _maxDimension = 1080;
+  static const int _maxDimension = 768;
 
   /// 縮圖至最長邊不超過 1080px，回傳 JPEG bytes
   /// 必須在傳往原生層前呼叫，以防 OOM

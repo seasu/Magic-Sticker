@@ -229,8 +229,9 @@ class AuthService {
         // the updated token may not yet be in the Firestore SDK's cache.
         await _auth.currentUser?.getIdToken(true);
         // 升級成功：同一 UID，給登入獎勵（若已升級過不重複給）
+        bool didPromote = false;
         try {
-          await _promoteUser(currentUser.uid, previousCredits: anonCredits);
+          didPromote = await _promoteUser(currentUser.uid, previousCredits: anonCredits);
         } catch (e, stack) {
           await FirebaseService.recordError(e, stack,
               reason: 'post_link_promote_failed');
@@ -238,7 +239,7 @@ class AuthService {
         FirebaseService.log(
           'AuthService: anonymous upgraded uid=${currentUser.uid}',
         );
-        return AuthResult.success;
+        return didPromote ? AuthResult.successWithBonus : AuthResult.success;
       } on FirebaseAuthException catch (e) {
         if (e.code != 'credential-already-in-use' &&
             e.code != 'email-already-in-use') {
@@ -314,7 +315,8 @@ class AuthService {
   }
 
   /// 訪客升級：標記為非匿名，補發登入獎勵點數
-  static Future<void> _promoteUser(String uid, {required int previousCredits}) async {
+  /// 回傳 true = 本次實際升級並給點；false = 已升級過（不重複給）
+  static Future<bool> _promoteUser(String uid, {required int previousCredits}) async {
     final ref = _userDoc(uid);
     bool promoted = false;
     await _db.runTransaction((tx) async {
@@ -340,6 +342,7 @@ class AuthService {
           amount: kLoginBonusCredits,
           reason: CreditHistoryReason.loginBonus);
     }
+    return promoted;
   }
 }
 
@@ -350,11 +353,18 @@ enum _AuthStatus { success, cancelled, error }
 class AuthResult {
   final _AuthStatus _status;
   final String? errorMessage;
+  /// 本次登入是否實際完成「訪客 → 正式帳號」升級並發放獎勵點數
+  final bool wasPromoted;
 
-  const AuthResult._({required _AuthStatus status, this.errorMessage})
-      : _status = status;
+  const AuthResult._({
+    required _AuthStatus status,
+    this.errorMessage,
+    this.wasPromoted = false,
+  }) : _status = status;
 
   static const success = AuthResult._(status: _AuthStatus.success);
+  static const successWithBonus =
+      AuthResult._(status: _AuthStatus.success, wasPromoted: true);
   static const cancelled = AuthResult._(status: _AuthStatus.cancelled);
   static AuthResult error(String msg) =>
       AuthResult._(status: _AuthStatus.error, errorMessage: msg);
