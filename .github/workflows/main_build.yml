@@ -66,14 +66,24 @@ jobs:
           flutter build apk --release \
             --dart-define=STICKER_BG_TRANSPARENT=${{ vars.STICKER_BG_TRANSPARENT || 'true' }}
 
+      - name: Build AAB (release)
+        run: |
+          flutter build appbundle --release \
+            --dart-define=STICKER_BG_TRANSPARENT=${{ vars.STICKER_BG_TRANSPARENT || 'true' }}
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+
       - name: Upload mapping.txt
-        if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v4
         with:
           name: android-mapping
@@ -275,6 +285,36 @@ jobs:
           args: deploy --only hosting --project ${{ secrets.FIREBASE_PROJECT_ID }}
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+
+  # ─── Google Play Store Deploy ──────────────────────────────
+  play-store-deploy:
+    name: Google Play Store (internal track)
+    runs-on: ubuntu-latest
+    needs: android-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Download AAB artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-aab
+          path: dist/
+
+      - name: Download mapping.txt
+        uses: actions/download-artifact@v4
+        with:
+          name: android-mapping
+          path: mapping/
+        continue-on-error: true
+
+      - name: Upload to Google Play (internal track)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.magicsticker.magic_sticker
+          releaseFiles: dist/app-release.aab
+          track: internal
+          status: completed
+          mappingFile: mapping/mapping.txt
 
   # ─── iOS Build（暫停：待取得 Apple Developer 帳號後啟用）────
   # ios-build:
