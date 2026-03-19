@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.5.13+284 |
+| 目前版本 | v3.6.0+285 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -220,6 +220,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.6.0 | 2026-03-19 | **perf(assets)**：214 張預覽圖從 PNG 轉換為 WebP（quality=85），assets 體積 40.9MB→8.2MB（省 32.6MB / 80%）；更新 `style_selection_screen.dart` 和 `sticker_canvas.dart` 引用為 `.webp`；`build.gradle` 啟用 `shrinkResources true` 並加入 AAB `bundle { language/density/abi splits }`。 |
 | v3.5.13 | 2026-03-19 | **fix(ci)**：Google Play 上傳 status 從 `completed` 改為 `draft` — App 首次上架前為 draft 狀態，`completed` 會導致 `Only releases with status draft may be created on draft app` 錯誤。 |
 | v3.5.12 | 2026-03-19 | **fix(canvas)**：`StickerCanvas._buildFallback()` 修正佔位示意圖永遠顯示 `greeting` 的 bug — 改依 `categoryId` 選擇 `preview_{style}_{emotion}.png`，`categoryId` 為空時退回 `greeting`。 |
 | v3.5.11 | 2026-03-19 | **chore(assets)**：無損壓縮靜態圖片資源 — `app_icon.png` 4836KB→3614KB (-25%)、`cat_source.png` 887KB→818KB (-8%)，合計節省 ~1.3MB，尺寸不變。 |
