@@ -27,6 +27,7 @@ class EditorState {
   final String? errorMessage;
   final StickerShape stickerShape;        // 全域形狀：圓形 or 方形
   final List<int> colorSchemeIndices;     // 每張貼圖使用哪組配色 (0-7)
+  final List<int> bgColorIndices;         // 每張貼圖的背景填色索引 (0=透明)
   final List<double> imageScales;         // 每張貼圖的縮放值
   final List<Offset> imageOffsets;        // 每張貼圖的位移量
   final List<int> fontIndices;            // 每張貼圖的字型索引 (0-4)
@@ -49,6 +50,7 @@ class EditorState {
     this.errorMessage,
     this.stickerShape = StickerShape.circle,
     List<int>? colorSchemeIndices,
+    List<int>? bgColorIndices,
     List<double>? imageScales,
     List<Offset>? imageOffsets,
     List<int>? fontIndices,
@@ -66,6 +68,7 @@ class EditorState {
         generatedImages = generatedImages ?? List.filled(8, null),
         imageErrors = imageErrors ?? List.filled(8, null),
         colorSchemeIndices = colorSchemeIndices ?? List.generate(8, (i) => i),
+        bgColorIndices = bgColorIndices ?? List.filled(8, 0),
         imageScales = imageScales ?? List.filled(8, 1.0),
         imageOffsets = imageOffsets ?? List.filled(8, Offset.zero),
         fontIndices = fontIndices ?? List.filled(8, 0),
@@ -85,6 +88,7 @@ class EditorState {
     String? errorMessage,
     StickerShape? stickerShape,
     List<int>? colorSchemeIndices,
+    List<int>? bgColorIndices,
     List<double>? imageScales,
     List<Offset>? imageOffsets,
     List<int>? fontIndices,
@@ -107,6 +111,7 @@ class EditorState {
       errorMessage: errorMessage,
       stickerShape: stickerShape ?? this.stickerShape,
       colorSchemeIndices: colorSchemeIndices ?? this.colorSchemeIndices,
+      bgColorIndices: bgColorIndices ?? this.bgColorIndices,
       imageScales: imageScales ?? this.imageScales,
       imageOffsets: imageOffsets ?? this.imageOffsets,
       fontIndices: fontIndices ?? this.fontIndices,

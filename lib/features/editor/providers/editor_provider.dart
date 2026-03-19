@@ -58,6 +58,7 @@ class _EditorFamilyNotifier
       generatedImages: List.filled(count, _kNotGeneratedSentinel),
       imageErrors: List.filled(count, null),
       colorSchemeIndices: List.generate(count, (i) => i % 8),
+      bgColorIndices: List.filled(count, 0),
       imageScales: List.filled(count, 1.0),
       imageOffsets: List.filled(count, Offset.zero),
       fontIndices: List.filled(count, 0),
@@ -135,6 +136,7 @@ class _EditorFamilyNotifier
         generatedImages: List.filled(newCount, _kNotGeneratedSentinel),
         imageErrors: List.filled(newCount, null),
         colorSchemeIndices: List.generate(newCount, (i) => i % 8),
+      bgColorIndices: List.filled(newCount, 0),
         imageScales: List.filled(newCount, 1.0),
         imageOffsets: List.filled(newCount, Offset.zero),
         fontIndices: List.filled(newCount, 0),
@@ -164,6 +166,7 @@ class _EditorFamilyNotifier
       generatedImages: List.filled(count, _kNotGeneratedSentinel),
       imageErrors: List.filled(count, null),
       colorSchemeIndices: List.generate(count, (i) => i % 8),
+      bgColorIndices: List.filled(count, 0),
       imageScales: List.filled(count, 1.0),
       imageOffsets: List.filled(count, Offset.zero),
       fontIndices: List.filled(count, 0),
@@ -188,6 +191,7 @@ class _EditorFamilyNotifier
         generatedImages: List.filled(newCount, _kNotGeneratedSentinel),
         imageErrors: List.filled(newCount, null),
         colorSchemeIndices: List.generate(newCount, (i) => i % 8),
+      bgColorIndices: List.filled(newCount, 0),
         imageScales: List.filled(newCount, 1.0),
         imageOffsets: List.filled(newCount, Offset.zero),
         fontIndices: List.filled(newCount, 0),
@@ -338,6 +342,13 @@ class _EditorFamilyNotifier
     final updated = List<String>.from(state.stickerTexts);
     updated[index] = text;
     state = state.copyWith(stickerTexts: updated);
+  }
+
+  /// 使用者在編輯 popup 選擇背景填色
+  void updateBgColorIndex(int stickerIdx, int bgColorIdx) {
+    final updated = List<int>.from(state.bgColorIndices);
+    updated[stickerIdx] = bgColorIdx;
+    state = state.copyWith(bgColorIndices: updated);
   }
 
   /// 使用者在編輯 popup 選擇不同配色
