@@ -20,7 +20,7 @@
 
 ### 2.1 照片輸入與 Resize
 - 使用者從相簿選取任意照片（`image_picker`）
-- Flutter 端先 Resize ≤ 1080px（`image_processor.dart`），避免傳送巨圖給 API 造成 OOM
+- Flutter 端先 Resize ≤ 768px（`image_processor.dart`），避免傳送巨圖給 API 造成 OOM；768px 為 Gemini tile 邊界（768×768 = 1 tile），超過則跳為 4 tile，token 費用增加 4 倍
 - Resize 後以 Base64 傳送至 Gemini
 
 ### 2.2 AI 貼圖生成（Gemini 2.0 Flash — 透過 Cloud Functions）
@@ -167,7 +167,7 @@ lib/
 │   ├── theme/
 │   │   └── app_colors.dart
 │   └── utils/
-│       └── image_processor.dart      # Resize ≤ 1080px
+│       └── image_processor.dart      # Resize ≤ 768px（Gemini 1-tile 邊界）
 ├── features/
 │   ├── home/                         # 照片選取首頁
 │   ├── billing/

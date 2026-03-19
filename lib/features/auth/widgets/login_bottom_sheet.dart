@@ -92,7 +92,7 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
     if (!mounted) return;
 
     if (result.isSuccess) {
-      _handleSuccess();
+      _handleSuccess(result);
     } else if (result.isError) {
       HapticFeedback.vibrate();
       setState(() {
@@ -114,7 +114,7 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
     if (!mounted) return;
 
     if (result.isSuccess) {
-      _handleSuccess();
+      _handleSuccess(result);
     } else if (result.isError) {
       HapticFeedback.vibrate();
       setState(() {
@@ -126,7 +126,7 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
     }
   }
 
-  void _handleSuccess() {
+  void _handleSuccess(AuthResult result) {
     HapticFeedback.mediumImpact();
     final user = FirebaseAuth.instance.currentUser;
     // Explicitly reload credits so the badge reflects the login bonus
@@ -136,7 +136,7 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
       _state = _SheetState.success;
       _userName = user?.displayName ?? user?.email?.split('@').first ?? '使用者';
       _userPhotoUrl = user?.photoURL;
-      _bonusCredits = kLoginBonusCredits;
+      _bonusCredits = result.wasPromoted ? kLoginBonusCredits : 0;
     });
     _successCtrl.forward();
   }
@@ -450,10 +450,10 @@ class _SuccessView extends StatelessWidget {
             color: AppColors.textSecondary,
           ),
         ),
-        const SizedBox(height: 22),
-
-        // ── +5 點 入帳動畫 badge ────────────────────────────────────
-        SlideTransition(
+        // ── +5 點 入帳動畫 badge（僅首次升級時顯示）──────────────
+        if (bonusCredits > 0) ...[
+          const SizedBox(height: 22),
+          SlideTransition(
           position: badgeSlide,
           child: FadeTransition(
             opacity: badgeFade,
@@ -491,7 +491,8 @@ class _SuccessView extends StatelessWidget {
               ),
             ),
           ),
-        ),
+          ),
+        ],
         const SizedBox(height: 30),
 
         // ── 確認按鈕 ────────────────────────────────────────────────
