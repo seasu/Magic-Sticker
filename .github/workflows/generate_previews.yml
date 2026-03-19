@@ -87,9 +87,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install google-genai
+      - name: Install dependencies
         if: steps.check.outputs.needs_generation == '1'
-        run: pip install google-genai -q
+        run: pip install google-genai numpy pillow -q
 
       - name: Generate style×emotion preview images
         if: steps.check.outputs.needs_generation == '1'
