@@ -2,14 +2,16 @@
 """
 generate_style_previews_ci.py
 ─────────────────────────────
-CI/CD 專用：使用 Gemini image generation 將貓咪圖片轉換為
-9 種風格 × 16 種情感 = 144 張示意圖。
+CI/CD 專用：使用 Gemini image generation 將人物照片轉換為
+12 種風格 × 16 種情感 = 192 張示意圖。
 
 命名格式：preview_{style}_{emotionId}.png
 例如：preview_chibi_greeting.png、preview_webtoon_happy.png
 
-Prompt 格式與 App 實際產圖（_buildSinglePrompt，透明背景模式）完全一致，
-確保示意圖呈現效果與正式貼圖相符。
+Prompt 格式與 App 實際產圖（_buildSinglePrompt，圓形 + Chroma Key 模式）完全一致：
+- 正體中文 prompt 結構
+- 背景：Chroma Key 純白 #FFFFFF（非透明）
+- characterDesc / promptSuffix 直接對應 lib/core/models/sticker_style.dart
 
 若 assets/images/cat_source.png 不存在，腳本會先用 Gemini 文字生成它。
 
@@ -43,122 +45,153 @@ SOURCE_IMAGE_PROMPT = (
     "Photo-realistic style, natural fur texture."
 )
 
-# ── 風格定義（與 StickerStyle enum 同步）─────────────────────────────────────
-# characterDesc 與 promptSuffix 直接對應 lib/core/models/sticker_style.dart
+# ── 風格定義（與 StickerStyle enum 同步，使用正體中文）────────────────────────
+# characterDesc / promptSuffix 直接對應 lib/core/models/sticker_style.dart
 
 STYLES = {
     "chibi": {
         "characterDesc": (
-            "Cartoon chibi-style face of the person (cute Q-version)\n"
-            "  * Big sparkly eyes, small nose, chubby cheeks\n"
-            "  * Clean flat illustration, thick black outlines, no photo-realism\n"
-            "  * Face and upper body fill the circle naturally"
+            "根據照片人物繪製卡通 Q 版臉型（可愛 Chibi 風格）\n"
+            "  * 大閃亮眼睛、小鼻子、圓潤臉頰\n"
+            "  * 乾淨平面插畫、粗黑色描邊、非寫實風格\n"
+            "  * 臉部與上半身自然填滿圓形"
         ),
-        "promptSuffix": "LINE Friends / Chiikawa quality.",
+        "promptSuffix": "LINE Friends / Chiikawa 畫質水準。",
     },
     "popArt": {
         "characterDesc": (
-            "Pop Art portrait inspired by the person in the photo\n"
-            "  * Bold simplified face features, vivid high-contrast colors\n"
-            "  * Flat colored areas, Ben-Day dot shading, NO black outlines\n"
-            "  * Andy Warhol / Roy Lichtenstein aesthetic"
+            "根據照片人物繪製普普藝術風格的完整 Q 版卡通人物（非肖像、非半身，頭頂至腳底完整呈現）\n"
+            "  * 大膽簡化的臉部特徵、鮮豔高對比色彩\n"
+            "  * 平塗色塊、Ben-Day 網點陰影、無黑色描邊\n"
+            "  * Andy Warhol / Roy Lichtenstein 美術風格\n"
+            "  * 完整身形不被任何畫布邊緣截斷"
         ),
         "promptSuffix": (
-            "Pop Art style — vivid flat colors, Ben-Day dot shading, no gradients, "
-            "NO black outlines or borders. Andy Warhol / Roy Lichtenstein aesthetic."
+            "普普藝術風格——鮮豔平塗色彩、Ben-Day 網點陰影、無漸層、無黑色描邊。"
+            "Andy Warhol / Roy Lichtenstein 美術風格。"
         ),
     },
     "pixel": {
         "characterDesc": (
-            "Pixel art sprite rendered on a 32×32 grid upscaled 8×\n"
-            "  * Every pixel visibly chunky (each block ≥4 px), limited palette (≤16 colors)\n"
-            "  * Hard right-angle edges, no anti-aliasing, no gradients; blocky shapes only\n"
-            "  * Nintendo / SNES game sprite aesthetic"
+            "根據照片人物繪製像素藝術角色\n"
+            "  * 整張圖以 32×32 格子構成再放大，每格至少 4px，強制可見方塊感\n"
+            "  * 限制色盤（≤16 色）、無任何反鋸齒或漸層\n"
+            "  * 所有邊緣皆為直角硬邊；任天堂 / SNES 遊戲像素風"
         ),
         "promptSuffix": (
-            "Retro 8-bit pixel art style — render as if drawn on a 32×32 canvas then scaled up 8×. "
-            "Every pixel must be visibly large and blocky. "
-            "Limited palette (≤16 colors), absolutely no anti-aliasing or gradients, "
-            "all edges hard right-angles. Nintendo / SNES sprite aesthetic."
+            "復古 8-bit 像素風格——整張圖如同在 32×32 畫布上繪製再放大 8 倍，"
+            "每個像素必須明顯呈現方塊感、限制色盤（≤16 色）、絕對無反鋸齒或漸層、所有邊緣皆為直角方塊。"
+            "任天堂 / SNES 像素風。"
         ),
     },
     "sketch": {
         "characterDesc": (
-            "Pencil sketch portrait of the person\n"
-            "  * Hand-drawn lines capturing the likeness from the photo\n"
-            "  * Crosshatching for depth and shading, rough expressive strokes\n"
-            "  * Monochrome or sepia tones"
+            "根據照片人物繪製鉛筆素描風格的完整 Q 版卡通人物（非肖像、非半身，頭頂至腳底完整呈現）\n"
+            "  * 手繪線條捕捉照片人物神韻\n"
+            "  * 交叉線條表現深度與陰影、粗糙有力的筆觸\n"
+            "  * 單色或深褐色調\n"
+            "  * 完整身形不被任何畫布邊緣截斷"
         ),
         "promptSuffix": (
-            "Pencil sketch / hand-drawn style — monochrome or sepia tones, "
-            "visible pencil strokes and crosshatching for shadows, "
-            "rough and expressive line quality."
+            "鉛筆素描／手繪風格——單色或深褐色調、可見的鉛筆筆觸與交叉線條陰影、粗糙且富有表現力的線條品質。"
         ),
     },
     "watercolor": {
         "characterDesc": (
-            "Watercolor painting portrait of the person\n"
-            "  * Soft rounded face with gentle color washes that bleed at edges\n"
-            "  * Translucent layered colors, slight paper texture visible\n"
-            "  * Dreamy, cute watercolor quality"
+            "根據照片人物繪製水彩風格的完整 Q 版卡通人物（非肖像、非半身，頭頂至腳底完整呈現）\n"
+            "  * 柔和圓潤的臉部、邊緣暈染的溫柔色調\n"
+            "  * 透明疊色、隱約可見的紙張紋理\n"
+            "  * 夢幻可愛的水彩質感\n"
+            "  * 完整身形不被任何畫布邊緣截斷"
         ),
         "promptSuffix": (
-            "Soft watercolor painting style — gentle color washes bleeding at edges, "
-            "translucent layered colors, slight paper texture. "
-            "Cute and dreamy watercolor quality."
+            "柔和水彩風格——邊緣暈染的溫柔色塊、透明疊色、隱約紙張紋理。可愛夢幻的水彩質感。"
         ),
     },
     "webtoon": {
         "characterDesc": (
-            "Korean webtoon flat illustration of the person\n"
-            "  * Clean smooth black outlines, uniform flat colors\n"
-            "  * Bright gentle large eyes, cute Q-version proportions\n"
-            "  * LINE Friends / NAVER Webtoon illustration style"
+            "根據照片人物繪製韓式 Webtoon 扁平插畫\n"
+            "  * 乾淨圓滑的黑色輪廓線、均勻平塗色彩\n"
+            "  * 明亮柔和的大眼睛、Q 版可愛比例\n"
+            "  * 接近 LINE Friends / NAVER Webtoon 的插畫風格"
         ),
         "promptSuffix": (
-            "Korean Webtoon illustration style — clean fluid lines, uniform flat colors, "
-            "bright expressive eyes. LINE Friends / NAVER Webtoon quality."
+            "韓系 Webtoon 插畫風格——乾淨流暢線條、均勻平塗、明亮眼睛。"
+            "LINE Friends / NAVER Webtoon 畫質水準。"
         ),
     },
     "celshade": {
         "characterDesc": (
-            "Japanese anime cel-shaded illustration of the person\n"
-            "  * Clear thick black outlines, hard-edge shadow layers (2–3 tones, no gradient edges)\n"
-            "  * Saturated vivid colors, strong specular highlight spots\n"
-            "  * Japanese anime cel-animation art style"
+            "根據照片人物繪製日系動漫賽璐璐厚塗插畫\n"
+            "  * 清晰的厚黑邊輪廓線、硬邊陰影分層（2–3 階，無漸層邊緣）\n"
+            "  * 飽和鮮豔色彩、強烈光澤反光點\n"
+            "  * 日本動漫賽璐璐作畫風格"
         ),
         "promptSuffix": (
-            "Japanese anime cel-shaded style — thick black outlines, "
-            "hard-edge shadow layers (no gradient edges), "
-            "saturated vivid colors, prominent specular highlight spots."
+            "日系動漫賽璐璐風格——粗黑輪廓線、硬邊分層陰影（無漸層邊緣）、飽和鮮豔色彩、明顯的高光反光點。"
         ),
     },
     "pixar3d": {
         "characterDesc": (
-            "Pixar / Disney 3D rendered character based on the person\n"
-            "  * Refined subsurface scattering skin tones, chubby cartoon proportions\n"
-            "  * Soft ambient occlusion shading, bright specular highlight points\n"
-            "  * Pixar animated film 3D rendering quality"
+            "根據照片人物繪製 Pixar / Disney 3D 渲染風格角色\n"
+            "  * 精緻的 subsurface scattering 膚色、圓潤卡通比例\n"
+            "  * 柔和的環境光遮蔽（AO）、明亮的鏡面高光點\n"
+            "  * Pixar 動畫電影的 3D 渲染質感"
         ),
         "promptSuffix": (
-            "Pixar 3D animation style — chubby cartoon 3D character, "
-            "refined lighting (key + fill lights), subsurface skin tones, "
-            "specular highlights. 3D render quality."
+            "Pixar 3D 動畫風格——圓潤立體卡通造型、精緻打光（主光源＋補光）、subsurface 膚色、鏡面高光。"
+            "3D 渲染質感。"
         ),
     },
     "plush": {
         "characterDesc": (
-            "Plush stuffed toy style character based on the person (2D illustrated sticker, NOT a photo)\n"
-            "  * Simulated short fluffy texture (fine brush strokes for fur flow)\n"
-            "  * Chubby cute proportions, soft rounded edges\n"
-            "  * Rich light and dark fur color layers, plush toy appearance\n"
-            "  * 2D flat illustration only — NO photographic background, NO floor, NO environmental shadows or real-world scene elements"
+            "根據照片人物繪製毛絨布偶玩具風格角色（2D 插畫貼圖，非照片）\n"
+            "  * 模擬短絨毛質感（細小筆觸表現毛流）\n"
+            "  * 圓胖可愛比例、柔和邊緣輪廓\n"
+            "  * 豐富的深淺毛色層次，外觀質感像手工布偶\n"
+            "  * 角色為 2D 平面插圖，無任何攝影背景、地板、環境陰影或真實場景元素"
         ),
         "promptSuffix": (
-            "Plush stuffed toy illustration style — 2D illustrated sticker form simulating short fluffy fur material, "
-            "chubby cute proportions, soft rounded outlines, rich fur color depth. "
-            "Pure 2D illustration sticker, no photographic background, no floor reflection, no environmental shadows; "
-            "all areas outside the character must be pure technical background color."
+            "毛絨玩偶插畫風格——以 2D 插圖形式模擬短絨毛材質、圓胖可愛比例、柔和邊緣輪廓、豐富毛色深淺層次。"
+            "角色為純 2D 插圖貼圖，無攝影背景、無地面倒影、無環境投影，角色本體以外區域維持純技術背景色。"
+        ),
+    },
+    "yuruDoodle": {
+        "characterDesc": (
+            "根據照片人物繪製「ゆるい（鬆散可愛）」塗鴉風格的完整 Q 版角色（頭頂至腳底完整呈現）\n"
+            "  * 刻意歪扭的不均勻輪廓線、五官大小不對稱（一大一小的眼睛等）\n"
+            "  * 粗糙肥厚的黑色手繪線條、面部簡化但身體四肢完整可見\n"
+            "  * 整體散漫自然、像小孩亂畫卻帶有獨特個性與溫度\n"
+            "  * 完整身形不被任何畫布邊緣截斷"
+        ),
+        "promptSuffix": (
+            "日本「下手上手（heta-uma）」ゆるキャラ 風格——刻意不精緻的歪扭線條與不對稱五官，散漫卻充滿個性，像地方吉祥物的手繪質感。"
+        ),
+    },
+    "showaManga": {
+        "characterDesc": (
+            "根據照片人物繪製昭和復古漫畫風格的完整 Q 版卡通人物（非肖像、非半身，頭頂至腳底完整呈現）\n"
+            "  * 黑白為主（可有限度使用 1–2 種強調色）、手繪網點（スクリーントーン）陰影\n"
+            "  * 粗獷有力的黑色輪廓線、誇張的速度線與動感線條僅集中於角色周邊，不延伸至畫布邊緣\n"
+            "  * 大而明亮的 60 年代漫畫風眼睛、誇張表情框線\n"
+            "  * 完整身形不被任何畫布邊緣截斷"
+        ),
+        "promptSuffix": (
+            "昭和復古漫畫風格——黑白手繪、スクリーントーン 網點陰影、粗獷輪廓線、60 年代日本漫畫質感。手塚治虫 / 藤子不二雄 風格。"
+        ),
+    },
+    "claymation": {
+        "characterDesc": (
+            "根據照片人物繪製黏土捏塑風格的完整 Q 版角色（2D 插畫貼圖，非照片，頭頂至腳底完整呈現）\n"
+            "  * 模擬手工黏土材質——可見輕微指痕、不均勻的表面起伏\n"
+            "  * 圓潤厚重的造型比例、柔和的邊緣與輪廓\n"
+            "  * 豐富的黏土色澤高光與陰影，外觀像手工捏製的玩偶\n"
+            "  * 角色為 2D 平面插圖，無任何攝影背景、地板或真實場景元素\n"
+            "  * 完整身形不被任何畫布邊緣截斷"
+        ),
+        "promptSuffix": (
+            "黏土捏塑插畫風格——以 2D 插圖形式模擬手工黏土材質、圓潤厚重比例、可見指痕與不均勻表面起伏。"
+            "Aardman（笑笑羊）/ 定格動畫黏土玩偶風格。"
         ),
     },
 }
@@ -167,21 +200,21 @@ STYLES = {
 # emotion 對應 StickerSpec.emotion（promptHint），bgColor 對應預設配色
 
 EMOTIONS = {
-    "greeting": {"emotion": "cheerfully waving hello",                "bgColor": "warm peach #F4A261"},
-    "praise":   {"emotion": "excited thumbs-up with sparkles",        "bgColor": "sky blue #74C0FC"},
-    "surprise": {"emotion": "shocked wide eyes, question marks",      "bgColor": "golden yellow #FFD43B"},
-    "awkward":  {"emotion": "embarrassed blushing, sweat drop",       "bgColor": "soft pink #FFB3C6"},
-    "angry":    {"emotion": "angry frowning with flames",             "bgColor": "deep red #FF6B6B"},
-    "happy":    {"emotion": "joyful laughing, rainbow confetti",      "bgColor": "mint green #63E6BE"},
-    "thinking": {"emotion": "thoughtful chin-rubbing, thought bubble","bgColor": "lavender #C084FC"},
-    "farewell": {"emotion": "waving goodbye with sunglasses",         "bgColor": "baby blue #ADE8F4"},
-    "shy":      {"emotion": "shy blushing, covering face gently",     "bgColor": "blush pink #FFD6E0"},
+    "greeting": {"emotion": "cheerfully waving hello",                 "bgColor": "warm peach #F4A261"},
+    "praise":   {"emotion": "excited thumbs-up with sparkles",         "bgColor": "sky blue #74C0FC"},
+    "surprise": {"emotion": "shocked wide eyes, question marks",       "bgColor": "golden yellow #FFD43B"},
+    "awkward":  {"emotion": "embarrassed blushing, sweat drop",        "bgColor": "soft pink #FFB3C6"},
+    "angry":    {"emotion": "angry frowning with flames",              "bgColor": "deep red #FF6B6B"},
+    "happy":    {"emotion": "joyful laughing, rainbow confetti",       "bgColor": "mint green #63E6BE"},
+    "thinking": {"emotion": "thoughtful chin-rubbing, thought bubble", "bgColor": "lavender #C084FC"},
+    "farewell": {"emotion": "waving goodbye with sunglasses",          "bgColor": "baby blue #ADE8F4"},
+    "shy":      {"emotion": "shy blushing, covering face gently",      "bgColor": "blush pink #FFD6E0"},
     "cool":     {"emotion": "smug cool confident sunglasses expression","bgColor": "electric blue #339AF0"},
-    "tired":    {"emotion": "tired droopy eyes, yawning heavily",     "bgColor": "warm grey #CED4DA"},
-    "cry":      {"emotion": "crying tears flowing dramatically",      "bgColor": "light blue #A5D8FF"},
+    "tired":    {"emotion": "tired droopy eyes, yawning heavily",      "bgColor": "warm grey #CED4DA"},
+    "cry":      {"emotion": "crying tears flowing dramatically",       "bgColor": "light blue #A5D8FF"},
     "love":     {"emotion": "loving warm smile, heart eyes, rosy cheeks","bgColor": "rose #FF8FAB"},
-    "excited":  {"emotion": "star-struck excitement, jumping with joy","bgColor": "bright orange #FF922B"},
-    "scared":   {"emotion": "terrified wide eyes, trembling in fear", "bgColor": "pale purple #E5DBFF"},
+    "excited":  {"emotion": "star-struck excitement, jumping with joy", "bgColor": "bright orange #FF922B"},
+    "scared":   {"emotion": "terrified wide eyes, trembling in fear",  "bgColor": "pale purple #E5DBFF"},
     "mischief": {"emotion": "playful mischievous wink, sticking out tongue","bgColor": "lime green #94D82D"},
 }
 
@@ -190,29 +223,36 @@ MAX_RETRIES = 2
 
 
 def build_prompt(style_key: str, emotion_key: str) -> str:
-    """使用與 App _buildSinglePrompt（透明背景模式，kStickerBgTransparent=true）完全相同的格式。
-    背景透明，圓形裁切由 Flutter ClipOval 處理。
+    """使用與 App _buildSinglePrompt（圓形 + Chroma Key 模式，kStickerBgChromaKey=true）
+    完全相同的格式與語言（正體中文）。
     """
     style = STYLES[style_key]
     emotion = EMOTIONS[emotion_key]
-    return (
-        "You are a professional LINE sticker illustrator. "
-        "Draw ONE square sticker with a fully transparent background "
-        "based on the person's face in the reference photo.\n\n"
-        "CANVAS REQUIREMENTS:\n"
-        "- The entire square canvas background must be fully transparent (alpha = 0)\n"
-        "- NO opaque background fill, NO white corners, NO white borders or outlines\n\n"
-        "CHARACTER DESIGN:\n"
-        f"- Character expression / pose: {emotion['emotion']}\n"
-        f"- {style['characterDesc']}\n"
-        "- Place the character in the upper-center of the canvas "
-        "(top 65% of height, horizontally centered)\n"
-        "- Leave ~10% margin on the left and right sides\n"
-        "- DO NOT draw any text or letters inside the image\n"
-        "- 2–4 small sparkles / stars clustered around the character\n\n"
-        "OUTPUT: A single square PNG with fully transparent background (RGBA, alpha = 0).\n"
-        f"STYLE: {style['promptSuffix']}\n"
-    )
+    return f"""\
+你是一位專業的 LINE 貼圖插畫師。請根據參考照片，繪製一張正方形貼圖。
+
+【畫布規格 — Chroma Key 去背模式】
+背景是純技術用遮罩色，與插畫風格完全無關，必須嚴格遵守以下規則：
+- 所有背景區域（角色與裝飾以外的全部畫面）一律以電腦純色平塗填充為純白色 #FFFFFF（R=255, G=255, B=255）
+- 背景禁止任何藝術加工：無光暈、無漸層、無反光、無筆觸、無紋理、無陰影投射、無霧感
+- 角色或裝飾的陰影禁止落在背景上
+- 四個角落像素必須為精確的 #FFFFFF
+
+【角色設計】
+- 根據參考照片，繪製可愛 Q 版卡通人物
+- 表情 / 動作：{emotion['emotion']}
+- {style['characterDesc']}
+- 將角色完整置於畫布中央偏上（約佔畫布高度的上方 65%，水平置中）
+- 角色頭頂保留至少 5% 的上邊距，雙腳或身體下緣保留至少 5% 的下邊距，確保角色不被任何邊緣裁切
+- 角色左右兩側保留約 10% 邊距
+- 嚴禁角色的任何部位（頭頂、耳朵、手臂、腳等）被畫布邊緣截斷
+- 禁止出現任何文字、英文字母或數字
+
+【裝飾】在角色周圍點綴 2–4 個小閃光或星星（集中在角色周邊，不接觸背景邊緣）
+
+【輸出】單一正方形 PNG，背景為純平塗 #FFFFFF，無任何光影處理。
+風格：{style['promptSuffix']}
+"""
 
 
 def _extract_image_bytes(response) -> bytes | None:
