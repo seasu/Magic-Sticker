@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.6.1+286 |
+| 目前版本 | v3.6.2+287 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -220,6 +220,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.6.2 | 2026-03-19 | **ci**：新增 PR label `release` 觸發機制——merge PR 時若有 `release` label 則自動跑完整 build + deploy，不需額外打 tag 或手動觸發。 |
 | v3.6.1 | 2026-03-19 | **ci**：CI 改為雙軌觸發——push main 只跑 `dart analyze`；push tag `v*` 或手動 `workflow_dispatch` 才跑完整 build + deploy（Android / Firebase / Play Store）；新增 `workflow_dispatch` 輸入欄位支援自訂發版說明。 |
 | v3.6.0 | 2026-03-19 | **perf(assets)**：214 張預覽圖從 PNG 轉換為 WebP（quality=85），assets 體積 40.9MB→8.2MB（省 32.6MB / 80%）；更新 `style_selection_screen.dart` 和 `sticker_canvas.dart` 引用為 `.webp`；`build.gradle` 啟用 `shrinkResources true` 並加入 AAB `bundle { language/density/abi splits }`。 |
 | v3.5.13 | 2026-03-19 | **fix(ci)**：Google Play 上傳 status 從 `completed` 改為 `draft` — App 首次上架前為 draft 狀態，`completed` 會導致 `Only releases with status draft may be created on draft app` 錯誤。 |
