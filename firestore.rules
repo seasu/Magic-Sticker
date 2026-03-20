@@ -1,18 +1,28 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 用戶文件：只允許本人讀寫
-    // 注意：App Check (request.app != null) 已移除，因為客戶端尚未整合 App Check SDK。
-    // API 安全性由 Cloud Functions 層的 enforceAppCheck 與 Firebase Auth 保護。
+    // 用戶文件：本人可讀；寫入不得異動 credits / updatedAt 欄位（由 Cloud Functions 控管）
     match /users/{uid} {
-      allow read, write: if request.auth != null
-                         && request.auth.uid == uid;
+      allow read: if request.auth != null
+                  && request.auth.uid == uid;
 
-      // 點數紀錄：本人可讀、可新增（不可修改或刪除）
-      // 客戶端負責 earned 記錄；Cloud Functions 負責 spent/refund 記錄
+      // 允許 client 更新非金融欄位（例如 displayName、photoURL 等）
+      // 明確禁止 client 觸碰 credits / updatedAt
+      allow update: if request.auth != null
+                    && request.auth.uid == uid
+                    && !('credits' in request.resource.data.diff(resource.data).affectedKeys())
+                    && !('updatedAt' in request.resource.data.diff(resource.data).affectedKeys());
+
+      // create 僅允許 Auth trigger 建立初始文件（沒有 credits 欄位時）
+      allow create: if request.auth != null
+                    && request.auth.uid == uid
+                    && !('credits' in request.resource.data);
+
+      // 點數紀錄：本人只讀；所有寫入僅允許 Cloud Functions
       match /creditHistory/{docId} {
-        allow read, create: if request.auth != null
-                            && request.auth.uid == uid;
+        allow read: if request.auth != null
+                    && request.auth.uid == uid;
+        allow write: if false; // 僅 Cloud Functions 可寫
       }
 
       // 付費功能解鎖紀錄：本人只讀（寫入僅允許 Cloud Functions）

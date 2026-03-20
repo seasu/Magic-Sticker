@@ -468,72 +468,71 @@ export const verifyProPurchase = onCall(
     // ── 呼叫 Google Play Developer API ──────────────────────────────────────
     // 需要服務帳戶具備 Android Publisher API 存取權限
     // 設定方式：Google Play Console → 設定 → API 存取 → 連結服務帳戶
-    let accessToken: string | null | undefined;
+    let accessToken: string;
     try {
       const auth = new GoogleAuth({
         scopes: ["https://www.googleapis.com/auth/androidpublisher"],
       });
       const client = await auth.getClient();
       const tokenResponse = await client.getAccessToken();
+      if (!tokenResponse.token) {
+        throw new Error("getAccessToken returned empty token");
+      }
       accessToken = tokenResponse.token;
     } catch (e) {
-      warn("verifyProPurchase: GoogleAuth failed (Play API not configured?)", {
-        error: String(e),
-      });
-      // Play API 未設定時，仍允許寫入 Firestore（僅 token 未驗證）
-      // 上線前需在 Google Play Console 完成服務帳戶設定
-      accessToken = null;
+      warn("verifyProPurchase: GoogleAuth failed", {error: String(e)});
+      throw new HttpsError(
+        "internal",
+        "Play API authentication unavailable. Please try again later."
+      );
     }
 
-    if (accessToken) {
-      const verifyUrl =
-        `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
-        `${kPackageName}/purchases/products/${kProProductId}/tokens/${purchaseToken}`;
+    const verifyUrl =
+      `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
+      `${kPackageName}/purchases/products/${kProProductId}/tokens/${purchaseToken}`;
 
-      const verifyRes = await fetch(verifyUrl, {
+    const verifyRes = await fetch(verifyUrl, {
+      headers: {Authorization: `Bearer ${accessToken}`},
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!verifyRes.ok) {
+      const errText = await verifyRes.text();
+      warn("verifyProPurchase: Play API error", {
+        status: verifyRes.status,
+        body: errText.slice(0, 500),
+        uid,
+      });
+      throw new HttpsError(
+        "failed-precondition",
+        `Play API returned ${verifyRes.status}`
+      );
+    }
+
+    const playData = (await verifyRes.json()) as {
+      purchaseState?: number; // 0=Purchased, 1=Canceled, 2=Pending
+      acknowledgementState?: number; // 0=Yet to acknowledge, 1=Acknowledged
+      orderId?: string;
+    };
+
+    if (playData.purchaseState !== 0) {
+      throw new HttpsError(
+        "failed-precondition",
+        `Purchase not valid. state=${playData.purchaseState}`
+      );
+    }
+
+    // Acknowledge if needed（防止 Google 自動退款）
+    if (playData.acknowledgementState === 0) {
+      const ackUrl = verifyUrl + ":acknowledge";
+      await fetch(ackUrl, {
+        method: "POST",
         headers: {Authorization: `Bearer ${accessToken}`},
-        signal: AbortSignal.timeout(15000),
-      });
-
-      if (!verifyRes.ok) {
-        const errText = await verifyRes.text();
-        warn("verifyProPurchase: Play API error", {
-          status: verifyRes.status,
-          body: errText.slice(0, 200),
-        });
-        throw new HttpsError(
-          "failed-precondition",
-          `Play API returned ${verifyRes.status}: ${errText.slice(0, 100)}`
-        );
-      }
-
-      const playData = (await verifyRes.json()) as {
-        purchaseState?: number; // 0=Purchased, 1=Canceled, 2=Pending
-        acknowledgementState?: number; // 0=Yet to acknowledge, 1=Acknowledged
-        orderId?: string;
-      };
-
-      if (playData.purchaseState !== 0) {
-        throw new HttpsError(
-          "failed-precondition",
-          `Purchase not valid. state=${playData.purchaseState}`
-        );
-      }
-
-      // Acknowledge if needed（防止 Google 自動退款）
-      if (playData.acknowledgementState === 0) {
-        const ackUrl = verifyUrl + ":acknowledge";
-        await fetch(ackUrl, {
-          method: "POST",
-          headers: {Authorization: `Bearer ${accessToken}`},
-          signal: AbortSignal.timeout(10000),
-        }).catch((e) => warn("verifyProPurchase: acknowledge failed (non-fatal)", {error: String(e)}));
-      }
-
-      log("verifyProPurchase: Play API verified OK", {uid, orderId});
-    } else {
-      log("verifyProPurchase: Play API skipped (not configured)", {uid});
+        signal: AbortSignal.timeout(10000),
+      }).catch((e) => warn("verifyProPurchase: acknowledge failed (non-fatal)", {error: String(e)}));
     }
+
+    log("verifyProPurchase: Play API verified OK", {uid, orderId});
 
     // ── 寫入 Firestore ────────────────────────────────────────────────────────
     await db
@@ -605,58 +604,62 @@ export const fulfillCreditPurchase = onCall(
     }
 
     // ── 呼叫 Google Play Developer API ──────────────────────────────────────
-    let accessToken: string | null | undefined;
+    let accessToken: string;
     try {
       const auth = new GoogleAuth({
         scopes: ["https://www.googleapis.com/auth/androidpublisher"],
       });
       const client = await auth.getClient();
       const tokenResponse = await client.getAccessToken();
+      if (!tokenResponse.token) {
+        throw new Error("getAccessToken returned empty token");
+      }
       accessToken = tokenResponse.token;
     } catch (e) {
       warn("fulfillCreditPurchase: GoogleAuth failed", {error: String(e)});
-      accessToken = null;
+      throw new HttpsError(
+        "internal",
+        "Play API authentication unavailable. Please try again later."
+      );
     }
 
-    if (accessToken) {
-      const verifyUrl =
-        `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
-        `${kPackageName}/purchases/products/${productId}/tokens/${purchaseToken}`;
+    const verifyUrl =
+      `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
+      `${kPackageName}/purchases/products/${productId}/tokens/${purchaseToken}`;
 
-      const verifyRes = await fetch(verifyUrl, {
-        headers: {Authorization: `Bearer ${accessToken}`},
-        signal: AbortSignal.timeout(15000),
+    const verifyRes = await fetch(verifyUrl, {
+      headers: {Authorization: `Bearer ${accessToken}`},
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!verifyRes.ok) {
+      const errText = await verifyRes.text();
+      warn("fulfillCreditPurchase: Play API error", {
+        status: verifyRes.status,
+        body: errText.slice(0, 500),
+        uid,
+        productId,
       });
-
-      if (!verifyRes.ok) {
-        const errText = await verifyRes.text();
-        warn("fulfillCreditPurchase: Play API error", {
-          status: verifyRes.status,
-          body: errText.slice(0, 200),
-        });
-        throw new HttpsError(
-          "failed-precondition",
-          `Play API returned ${verifyRes.status}: ${errText.slice(0, 100)}`
-        );
-      }
-
-      const playData = (await verifyRes.json()) as {
-        purchaseState?: number; // 0=Purchased, 1=Canceled, 2=Pending
-        acknowledgementState?: number;
-        consumptionState?: number; // 0=Yet to consume, 1=Consumed
-      };
-
-      if (playData.purchaseState !== 0) {
-        throw new HttpsError(
-          "failed-precondition",
-          `Purchase not valid. state=${playData.purchaseState}`
-        );
-      }
-
-      log("fulfillCreditPurchase: Play API verified OK", {uid, productId});
-    } else {
-      log("fulfillCreditPurchase: Play API skipped (not configured)", {uid});
+      throw new HttpsError(
+        "failed-precondition",
+        `Play API returned ${verifyRes.status}`
+      );
     }
+
+    const playData = (await verifyRes.json()) as {
+      purchaseState?: number; // 0=Purchased, 1=Canceled, 2=Pending
+      acknowledgementState?: number;
+      consumptionState?: number; // 0=Yet to consume, 1=Consumed
+    };
+
+    if (playData.purchaseState !== 0) {
+      throw new HttpsError(
+        "failed-precondition",
+        `Purchase not valid. state=${playData.purchaseState}`
+      );
+    }
+
+    log("fulfillCreditPurchase: Play API verified OK", {uid, productId});
 
     // ── 冪等性檢查 + 原子性入帳 ──────────────────────────────────────────────
     // purchaseTokens/{token} 作為已處理紀錄，防止重複入帳

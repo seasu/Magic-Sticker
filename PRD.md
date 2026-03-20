@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.8.2+303 |
+| 目前版本 | v3.8.3+304 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -314,6 +314,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.8.3 | 2026-03-20 | **security(billing)**：補強購買安全性 — ① CF `verifyProPurchase` / `fulfillCreditPurchase` 改為強制 Play API 驗證，GoogleAuth 失敗時直接 throw（移除 skip 邏輯），防止假 token 免費取得 Pro/點數；② Firestore rules 禁止 client 直接寫 `credits` / `updatedAt` 欄位（只允許 CF via Admin SDK），移除 `creditHistory` 的 client create 權限；③ `IAPService._fulfill()` 改為 CF 成功後才呼叫 `completePurchase`，CF 失敗時保持 purchase pending，讓 Google Play 重新送達。 |
 | v3.8.2 | 2026-03-20 | **security(billing)**：點數包購買補上 server 端收據驗證 — 新增 Cloud Function `fulfillCreditPurchase`（Google Play Developer API 驗證 purchaseToken + Firestore `purchaseTokens/{token}` 冪等性防重複入帳 + 原子性新增點數 + 寫 creditHistory）；`IAPService._fulfill()` 改呼叫 CF 取代本機直接入帳，防止偽造收據攻擊。 |
 | v3.8.1 | 2026-03-20 | **feat(pro)**：Pro 自訂輸入功能全面實作 — Flutter：新增 `isProUnlockedProvider`（Firestore `purchases` 串流）、擴充 `IAPService` 加入 `buyProCustomInput()` + `ProUnlockResult`、新建 `ProUnlockSheet`（NT$49 解鎖 UI）、`StyleSelectionScreen`/`EmotionSelectionScreen` 頂部加 Pro 卡片（鎖定/解鎖兩態）、`app.dart` `EmotionSelectArgs`/`EditorArgs` 新增 `customStyleDesc`/`customEmotionDesc`、`GeminiService.generateStickerSpecs()` 傳遞 custom desc 至 CF；Cloud Functions：新增 `verifyProPurchase`（Google Play Developer API 驗證 + Firestore 寫入）、`generateStickerSpecs` 加入 Pro hint section；`firestore.rules` 新增 `purchases` 只讀規則；`functions/package.json` 加入 `google-auth-library`。 |
 | v3.8.0 | 2026-03-20 | **docs(prd)**：整理 Phase Pro 開發計劃 — 新增第 2.8 節「Pro 自訂輸入功能」完整規格：UI 設計（風格/情緒頁頂部 Pro 卡片）、NT$49 一次性 IAP（Google Play Billing `pro_custom_input`）、Firestore `purchases` 子集合購買紀錄、`verifyProPurchase` Cloud Function 流程、`generateStickerSpecs` 新增 `customStyleDesc`/`customEmotionDesc` 可選參數、互動規則與驗收標準。 |

@@ -278,13 +278,17 @@ class IAPService {
       FirebaseService.log(
         'IAPService: fulfilled $creditsEarned credits uid=$uid product=${pack.productId}',
       );
+
+      // completePurchase 只在 CF 確認成功後才呼叫。
+      // 若 CF 失敗（網路逾時等），保留 purchase pending 狀態，
+      // Google Play 下次啟動 App 時會重新透過 purchaseStream 送達，可再次觸發驗證。
+      await _iap.completePurchase(purchase);
       _resultController.add(IapPurchaseResult.success(creditsEarned));
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack, reason: 'iap_fulfill_failed');
+      // 不呼叫 completePurchase，讓 Google Play 在下次啟動時重試
       _resultController.add(IapPurchaseResult.failure(e.toString()));
     }
-
-    await _iap.completePurchase(purchase);
   }
 
   Future<void> _fulfillPro(PurchaseDetails purchase) async {
