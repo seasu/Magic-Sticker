@@ -55,6 +55,8 @@ class _EditorFamilyNotifier
       styleIndices: List.filled(count, defaultStyleIndex),
       stickerShape: stickerShape,
       selectedCategoryIds: categoryIds,
+      categoryIds: List<String>.from(categoryIds),
+      stickerTexts: List.filled(count, ''),
       generatedImages: List.filled(count, _kNotGeneratedSentinel),
       imageErrors: List.filled(count, null),
       colorSchemeIndices: List.generate(count, (i) => i % 8),
