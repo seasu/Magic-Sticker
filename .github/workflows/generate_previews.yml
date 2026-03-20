@@ -50,7 +50,7 @@ jobs:
             # 自動偵測缺少 greeting 圖片（代表整組都未產生）的風格
             MISSING_STYLES=""
             for s in $ALL_STYLES; do
-              if [ ! -f "assets/images/preview_${s}_greeting.png" ]; then
+              if [ ! -f "assets/images/preview_${s}_greeting.webp" ]; then
                 MISSING_STYLES="$MISSING_STYLES $s"
               fi
             done
@@ -70,7 +70,7 @@ jobs:
           MISSING=0
           for s in $STYLES; do
             for e in $EMOTIONS; do
-              if [ ! -f "assets/images/preview_${s}_${e}.png" ] || \
+              if [ ! -f "assets/images/preview_${s}_${e}.webp" ] || \
                  [ "${{ github.event.inputs.force_regenerate }}" = "true" ]; then
                 MISSING=1
                 break 2
@@ -100,12 +100,35 @@ jobs:
           PREVIEW_EMOTIONS: ${{ github.event.inputs.emotions }}
         run: python3 scripts/generate_style_previews_ci.py
 
+      - name: Convert PNG → WebP
+        if: steps.check.outputs.needs_generation == '1'
+        run: |
+          python3 - <<'EOF'
+          from pathlib import Path
+          from PIL import Image
+
+          assets = Path("assets/images")
+          pngs = list(assets.glob("preview_*.png"))
+          if not pngs:
+              print("No PNG previews found to convert")
+              exit(1)
+
+          for png in pngs:
+              webp = png.with_suffix(".webp")
+              img = Image.open(png)
+              img.save(webp, "WEBP", quality=85, method=6)
+              orig = png.stat().st_size
+              conv = webp.stat().st_size
+              print(f"✅ {png.name} → {webp.name}  {orig//1024}KB → {conv//1024}KB")
+              png.unlink()
+          EOF
+
       - name: Create PR with generated images
         if: steps.check.outputs.needs_generation == '1'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add assets/images/preview_*.png
+          git add assets/images/preview_*.webp
           if git diff --cached --quiet; then
             echo "No changes to commit."
             exit 0
@@ -128,7 +151,7 @@ jobs:
           git checkout -b "$BRANCH"
           git commit -m "feat: add AI-generated style×emotion preview images (v${NEW_VER})"
           git push origin "$BRANCH"
-          PR_BODY=$(printf '由 **Generate Style×Emotion Preview Images** workflow 自動產生。\n\n包含 12 種風格 × 16 種情感 = 192 張示意圖（preview_{style}_{emotion}.png）。\n\nPrompt 格式與 App 實際產圖（_buildSinglePrompt，圓形 + Chroma Key 模式）完全一致，示意圖呈現效果忠實反映正式貼圖風格。')
+          PR_BODY=$(printf '由 **Generate Style×Emotion Preview Images** workflow 自動產生。\n\n包含 12 種風格 × 16 種情感 = 192 張示意圖（preview_{style}_{emotion}.webp）。\n\nPrompt 格式與 App 實際產圖（_buildSinglePrompt，圓形 + Chroma Key 模式）完全一致，示意圖呈現效果忠實反映正式貼圖風格。')
           gh pr create \
             --base main \
             --head "$BRANCH" \
