@@ -13,7 +13,7 @@ Prompt 格式與 App 實際產圖（_buildSinglePrompt，圓形 + Chroma Key 模
 - 背景：Chroma Key 純白 #FFFFFF（非透明）
 - characterDesc / promptSuffix 直接對應 lib/core/models/sticker_style.dart
 
-若 assets/images/cat_source.png 不存在，腳本會先用 Gemini 文字生成它。
+來源圖片固定使用 assets/images/seasu-source.jpg（已 commit 至 repo）。
 
 使用方法（GitHub Actions）：
   pip install google-genai
@@ -32,18 +32,11 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_DIR = SCRIPT_DIR.parent
 ASSETS_DIR = PROJECT_DIR / "assets" / "images"
-SOURCE_IMAGE = ASSETS_DIR / "cat_source.png"
+SOURCE_IMAGE = ASSETS_DIR / "seasu-source.jpg"
 
 # 正規化人物構圖位置（統一所有 preview 圖片的人物高低、大小）
 sys.path.insert(0, str(SCRIPT_DIR))
 from normalize_previews import normalize_transparent  # noqa: E402
-
-SOURCE_IMAGE_PROMPT = (
-    "A cute brown tabby cat raising its right paw in a greeting pose, "
-    "sitting upright, looking at the camera with big bright eyes. "
-    "Clean white background. Square format 512x512px. "
-    "Photo-realistic style, natural fur texture."
-)
 
 # ── 風格定義（與 StickerStyle enum 同步，使用正體中文）────────────────────────
 # characterDesc / promptSuffix 直接對應 lib/core/models/sticker_style.dart
@@ -274,21 +267,6 @@ def _extract_image_bytes(response) -> bytes | None:
     return None
 
 
-def generate_source_image(client, types, model: str) -> bytes:
-    print("🐱 cat_source.png 不存在，正在用 Gemini 生成來源圖片...", flush=True)
-    response = client.models.generate_content(
-        model=model,
-        contents=SOURCE_IMAGE_PROMPT,
-        config=types.GenerateContentConfig(
-            response_modalities=["image"],
-            temperature=0.8,
-        ),
-    )
-    img = _extract_image_bytes(response)
-    if img is None:
-        raise RuntimeError("Gemini 未回傳圖片 (來源圖生成失敗)")
-    return img
-
 
 def main():
     api_key = os.environ.get("GEMINI_API_KEY", "")
@@ -312,12 +290,10 @@ def main():
 
     ASSETS_DIR.mkdir(parents=True, exist_ok=True)
     if not SOURCE_IMAGE.exists():
-        source_bytes = generate_source_image(client, types, image_model)
-        SOURCE_IMAGE.write_bytes(source_bytes)
-        print(f"   ✅ cat_source.png 已生成並儲存 ({len(source_bytes) // 1024}KB)\n")
-    else:
-        source_bytes = SOURCE_IMAGE.read_bytes()
-        print(f"🐱 Source image loaded: {len(source_bytes) // 1024}KB\n")
+        print(f"❌ Source image not found: {SOURCE_IMAGE}")
+        sys.exit(1)
+    source_bytes = SOURCE_IMAGE.read_bytes()
+    print(f"🖼️ Source image loaded: {SOURCE_IMAGE.name} ({len(source_bytes) // 1024}KB)\n")
 
     source_b64 = base64.b64encode(source_bytes).decode()
 
