@@ -206,17 +206,17 @@ jobs:
           args: deploy --only firestore:rules --project ${{ secrets.FIREBASE_PROJECT_ID }}
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-        continue-on-error: true
 
       - name: Set Cloud Run IAM (allUsers invoker)
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > /tmp/sa.json
           gcloud auth activate-service-account --key-file=/tmp/sa.json
           gcloud config set project ${{ secrets.FIREBASE_PROJECT_ID }}
-          gcloud run services add-iam-policy-binding generatestickerspecs \
-            --region=asia-east1 --member=allUsers --role=roles/run.invoker
-          gcloud run services add-iam-policy-binding generatestickerimage \
-            --region=asia-east1 --member=allUsers --role=roles/run.invoker
+          for SVC in generatestickerspecs generatestickerimage verifypropurchase fulfillcreditpurchase getconfig; do
+            gcloud run services add-iam-policy-binding "$SVC" \
+              --region=asia-east1 --member=allUsers --role=roles/run.invoker \
+              2>&1 || echo "⚠️  IAM binding failed for $SVC (may not exist yet, skipping)"
+          done
           rm /tmp/sa.json
 
       - name: Smoke test — verify Cloud Functions are live
