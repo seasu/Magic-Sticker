@@ -346,7 +346,7 @@ jobs:
           packageName: com.magicsticker.magic_sticker
           releaseFiles: dist/app-release.aab
           track: internal
-          status: completed
+          status: draft
           mappingFile: mapping/mapping.txt
 
   # ─── iOS Build & TestFlight ───────────────────────────────────
