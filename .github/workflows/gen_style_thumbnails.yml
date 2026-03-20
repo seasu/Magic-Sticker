@@ -99,15 +99,15 @@ jobs:
           git checkout -b "$BRANCH"
           MSG="${{ github.event.inputs.commit_message }}"
           if [ -z "$MSG" ]; then
-            MSG="feat(assets): 更新 9 張風格縮圖（seasu-source × greeting）(v${NEW_VER})"
+            MSG="feat(assets): 更新 12 張風格縮圖（seasu-source × greeting）(v${NEW_VER})"
           fi
           git commit -m "$MSG"
           git push origin "$BRANCH"
-          PR_BODY="由 **Generate Style Thumbnails** workflow 自動產生。\n\n9 種風格 × greeting 情緒縮圖，使用 seasu-source.jpg 作為來源。\nPrompt 與 App 實際產圖完全一致（中文 Chroma Key 模式）。"
+          PR_BODY="由 **Generate Style Thumbnails** workflow 自動產生。\n\n12 種風格 × greeting 情緒縮圖，使用 seasu-source.jpg 作為來源。\nPrompt 與 App 實際產圖完全一致（中文 Chroma Key 模式）。"
           gh pr create \
             --base main \
             --head "$BRANCH" \
-            --title "feat(assets): 更新 9 張風格縮圖" \
+            --title "feat(assets): 更新 12 張風格縮圖" \
             --body "$(printf '%b' "$PR_BODY")"
           echo "✅ PR created from branch $BRANCH"
         env:
