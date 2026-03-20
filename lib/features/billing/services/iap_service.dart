@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
-import '../../../core/services/auth_service.dart';
 import '../../../core/services/firebase_service.dart';
 import '../models/credit_pack.dart';
 
@@ -261,13 +260,25 @@ class IAPService {
     }
 
     try {
-      // ⚠️ TODO: 上線前換成 Cloud Function fulfillCreditPurchase(receipt, platform)
-      // 以 Server 端驗證收據後再入帳，防止偽造。
-      await AuthService.addCreditsFromPurchase(uid, pack.credits);
+      final token = purchase.verificationData.serverVerificationData.isNotEmpty
+          ? purchase.verificationData.serverVerificationData
+          : purchase.verificationData.localVerificationData;
+
+      final result = await _fn
+          .httpsCallable(
+            'fulfillCreditPurchase',
+            options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
+          )
+          .call<Map<String, dynamic>>({
+        'purchaseToken': token,
+        'productId': purchase.productID,
+      });
+
+      final creditsEarned = (result.data['credits'] as num?)?.toInt() ?? pack.credits;
       FirebaseService.log(
-        'IAPService: fulfilled ${pack.credits} credits uid=$uid product=${pack.productId}',
+        'IAPService: fulfilled $creditsEarned credits uid=$uid product=${pack.productId}',
       );
-      _resultController.add(IapPurchaseResult.success(pack.credits));
+      _resultController.add(IapPurchaseResult.success(creditsEarned));
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack, reason: 'iap_fulfill_failed');
       _resultController.add(IapPurchaseResult.failure(e.toString()));
