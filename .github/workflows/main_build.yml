@@ -200,6 +200,18 @@ jobs:
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
 
+      - name: Grant firebaserules.admin to SA (idempotent)
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > /tmp/sa.json
+          gcloud auth activate-service-account --key-file=/tmp/sa.json
+          gcloud config set project ${{ secrets.FIREBASE_PROJECT_ID }}
+          SA_EMAIL=$(python3 -c "import json; print(json.load(open('/tmp/sa.json'))['client_email'])")
+          gcloud projects add-iam-policy-binding ${{ secrets.FIREBASE_PROJECT_ID }} \
+            --member="serviceAccount:${SA_EMAIL}" \
+            --role="roles/firebaserules.admin" \
+            --condition=None \
+            2>&1 && echo "✅ roles/firebaserules.admin granted" || echo "⚠️  IAM grant failed (may already exist or SA lacks resourcemanager.projectIamAdmin)"
+
       - name: Deploy Firestore Rules
         uses: w9jds/firebase-action@master
         with:
@@ -334,7 +346,7 @@ jobs:
           packageName: com.magicsticker.magic_sticker
           releaseFiles: dist/app-release.aab
           track: internal
-          status: completed
+          status: draft
           mappingFile: mapping/mapping.txt
 
   # ─── iOS Build & TestFlight ───────────────────────────────────

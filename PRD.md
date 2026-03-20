@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.8.6+307 |
+| 目前版本 | v3.8.8+309 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -314,6 +314,8 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.8.8 | 2026-03-20 | **ci(play-store)**：修正 Google Play upload 失敗 — App 仍為 draft 狀態時不允許 `status: completed`，改為 `status: draft`，解決 "Only releases with status draft may be created on draft app" 錯誤。 |
+| v3.8.7 | 2026-03-20 | **ci(deploy)**：修正 Firestore Rules 部署 403 — `firebaserules.googleapis.com` 要求 `roles/firebaserules.admin`，在 Deploy Firestore Rules 步驟前新增 `Grant firebaserules.admin to SA` 步驟，透過 `gcloud projects add-iam-policy-binding` 對 SA 自身補上此 role（冪等操作），解決 "The caller does not have permission" 錯誤；若 SA 缺少 `resourcemanager.projectIamAdmin` 則輸出警告並繼續，保持 non-blocking。 |
 | v3.8.6 | 2026-03-20 | **ci(android-build)**：根本修正 `flutter_launcher_icons` 在 Android build job 失敗問題 — 新增 `flutter_launcher_icons_android.yaml`（`ios: false`），CI 改用 `dart run flutter_launcher_icons -f flutter_launcher_icons_android.yaml`，避免工具嘗試修改不存在的 `ios/Runner.xcodeproj/project.pbxproj`。 |
 | v3.8.5 | 2026-03-20 | **ci(android-build)**：修正 Android build job 中 `flutter_launcher_icons` 因 `ios/` 目錄不存在而拋出 PathNotFoundException（exit 255）的問題，在 icon 產生步驟前加 `mkdir -p ios/Runner/Assets.xcassets/AppIcon.appiconset`。 |
 | v3.8.4 | 2026-03-20 | **ci(deploy)**：修正 CI 部署安全漏洞 — ① 移除 Firestore rules 部署的 `continue-on-error: true`（防止 rules 更新失敗被靜默忽略）；② Cloud Run IAM 設定改以 loop 涵蓋全部 5 個 functions（新增 `verifypropurchase`、`fulfillcreditpurchase`、`getconfig`），防止新函式部署後因缺少 IAM binding 造成 403。 |
