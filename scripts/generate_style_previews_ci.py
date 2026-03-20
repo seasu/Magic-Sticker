@@ -3,7 +3,7 @@
 generate_style_previews_ci.py
 ─────────────────────────────
 CI/CD 專用：使用 Gemini image generation 將人物照片轉換為
-12 種風格 × 16 種情感 = 192 張示意圖。
+12 種風格 × 24 種情感 = 288 張示意圖。
 
 命名格式：preview_{style}_{emotionId}.png
 例如：preview_chibi_greeting.png、preview_webtoon_happy.png
@@ -208,7 +208,15 @@ EMOTIONS = {
     "love":     {"emotion": "loving warm smile, heart eyes, rosy cheeks","bgColor": "rose #FF8FAB"},
     "excited":  {"emotion": "star-struck excitement, jumping with joy", "bgColor": "bright orange #FF922B"},
     "scared":   {"emotion": "terrified wide eyes, trembling in fear",  "bgColor": "pale purple #E5DBFF"},
-    "mischief": {"emotion": "playful mischievous wink, sticking out tongue","bgColor": "lime green #94D82D"},
+    "mischief":  {"emotion": "playful mischievous wink, sticking out tongue", "bgColor": "lime green #94D82D"},
+    "sleepy":    {"emotion": "sleepy half-closed eyes, Zzz floating above",   "bgColor": "soft indigo #748FFC"},
+    "beg":       {"emotion": "pleading puppy eyes, hands pressed together",   "bgColor": "warm yellow #FFE066"},
+    "worried":   {"emotion": "anxious sweating, nervous biting lip",          "bgColor": "pale teal #96F2D7"},
+    "hungry":    {"emotion": "drooling with starry eyes, stomach growling",   "bgColor": "warm orange #FFA94D"},
+    "celebrate": {"emotion": "cheering with confetti and party popper",       "bgColor": "festive magenta #FF6B9D"},
+    "no":        {"emotion": "firm headshaking, crossed arms, disapproving",  "bgColor": "cool grey #868E96"},
+    "encourage": {"emotion": "cheerful fist pump, motivational sparkles",     "bgColor": "sunny yellow #FCC419"},
+    "pain":      {"emotion": "wincing in pain, teary eyes, ouch expression",  "bgColor": "light red #FF8787"},
 }
 
 DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
