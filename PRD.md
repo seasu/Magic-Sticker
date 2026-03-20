@@ -220,6 +220,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.6.12 | 2026-03-20 | **docs(readme)**：更新 README 反映最新 App 狀態 — 風格 6→12 種、情緒 16→24 種、選擇門檻 4→1 種、延遲分析架構、點數商店、App Check 安全性、768px Resize、GIF loading、背景色功能。 |
 | v3.6.11 | 2026-03-20 | **fix(ci)**：`generate_style_previews_ci.py` 補入缺少的 8 種情感（sleepy/beg/worried/hungry/celebrate/no/encourage/pain），修正產圖數量 192 → 288（12 × 24），與 workflow yml 及 `kEmotionCategories` 一致。 |
 | v3.6.10 | 2026-03-20 | **fix(ci)**：`generate_previews.yml` 修正 header comment 與 PR body 中情感數量錯誤（16 種 → 24 種、192 張 → 288 張），與 `kEmotionCategories` 實際定義一致。 |
 | v3.6.3 | 2026-03-20 | **fix(editor)**：`initialize()` 修正示意圖三個 bug —— ① `categoryIds` 預先從 `selectedCategoryIds` 填入，fallback 顯示正確情緒預覽圖；② `stickerTexts` 初始化為空字串 list，避免顯示與情緒無關的佔位文字（哈囉！等）；③ 同時修正使用者選超過 8 種情緒時 `stickerTexts` 長度不足導致 index out of range 的問題。 |
