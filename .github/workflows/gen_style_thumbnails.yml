@@ -67,16 +67,39 @@ jobs:
           PREVIEW_STYLES: ${{ github.event.inputs.styles == '全部' && '' || github.event.inputs.styles }}
         run: python3 scripts/generate_style_thumbnails.py
 
+      - name: Convert PNG → WebP
+        run: |
+          python3 - <<'EOF'
+          import os
+          from pathlib import Path
+          from PIL import Image
+
+          assets = Path("assets/images")
+          pngs = list(assets.glob("preview_*_greeting.png"))
+          if not pngs:
+              print("No PNG thumbnails found to convert")
+              exit(1)
+
+          for png in pngs:
+              webp = png.with_suffix(".webp")
+              img = Image.open(png)
+              img.save(webp, "WEBP", quality=85, method=6)
+              orig = png.stat().st_size
+              conv = webp.stat().st_size
+              print(f"✅ {png.name} → {webp.name}  {orig//1024}KB → {conv//1024}KB")
+              png.unlink()
+          EOF
+
       - name: Show generated files
         run: |
           echo "📁 Generated thumbnails:"
-          ls -lh assets/images/preview_*_greeting.png 2>/dev/null || echo "No greeting thumbnails found"
+          ls -lh assets/images/preview_*_greeting.webp 2>/dev/null || echo "No greeting thumbnails found"
 
       - name: Create PR with generated thumbnails
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add assets/images/preview_*_greeting.png
+          git add assets/images/preview_*_greeting.webp
           if git diff --cached --quiet; then
             echo "⚠️ No changes to commit"
             exit 0
