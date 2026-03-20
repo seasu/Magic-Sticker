@@ -58,9 +58,7 @@ jobs:
         run: flutter pub get
 
       - name: Generate launcher icons
-        run: |
-          mkdir -p ios/Runner/Assets.xcassets/AppIcon.appiconset
-          dart run flutter_launcher_icons
+        run: dart run flutter_launcher_icons -f flutter_launcher_icons_android.yaml
 
       - name: Write google-services.json
         env:
