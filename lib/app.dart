@@ -25,11 +25,13 @@ class EmotionSelectArgs {
   final String imagePath;
   final int styleIndex;
   final StickerShape stickerShape;
+  final String? customStyleDesc; // Pro 自訂風格描述（≤15字）
 
   const EmotionSelectArgs({
     required this.imagePath,
     required this.styleIndex,
     this.stickerShape = StickerShape.circle,
+    this.customStyleDesc,
   });
 }
 
@@ -38,13 +40,17 @@ class EditorArgs {
   final String imagePath;
   final int styleIndex;
   final StickerShape stickerShape;
-  final List<String>? categoryIds; // 由 EmotionSelectionScreen 傳入
+  final List<String>? categoryIds;    // 由 EmotionSelectionScreen 傳入
+  final String? customStyleDesc;      // Pro 自訂風格描述（≤15字）
+  final String? customEmotionDesc;    // Pro 自訂情緒描述（≤15字）
 
   const EditorArgs({
     required this.imagePath,
     required this.styleIndex,
     this.stickerShape = StickerShape.circle,
     this.categoryIds,
+    this.customStyleDesc,
+    this.customEmotionDesc,
   });
 }
 
@@ -70,6 +76,7 @@ final _router = GoRouter(
           imagePath: args.imagePath,
           styleIndex: args.styleIndex,
           stickerShape: args.stickerShape,
+          customStyleDesc: args.customStyleDesc,
         );
       },
     ),
@@ -82,6 +89,8 @@ final _router = GoRouter(
           styleIndex: args.styleIndex,
           stickerShape: args.stickerShape,
           categoryIds: args.categoryIds,
+          customStyleDesc: args.customStyleDesc,
+          customEmotionDesc: args.customEmotionDesc,
         );
       },
     ),

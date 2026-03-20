@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.8.0+301 |
+| 目前版本 | v3.8.1+302 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -313,6 +313,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.8.1 | 2026-03-20 | **feat(pro)**：Pro 自訂輸入功能全面實作 — Flutter：新增 `isProUnlockedProvider`（Firestore `purchases` 串流）、擴充 `IAPService` 加入 `buyProCustomInput()` + `ProUnlockResult`、新建 `ProUnlockSheet`（NT$49 解鎖 UI）、`StyleSelectionScreen`/`EmotionSelectionScreen` 頂部加 Pro 卡片（鎖定/解鎖兩態）、`app.dart` `EmotionSelectArgs`/`EditorArgs` 新增 `customStyleDesc`/`customEmotionDesc`、`GeminiService.generateStickerSpecs()` 傳遞 custom desc 至 CF；Cloud Functions：新增 `verifyProPurchase`（Google Play Developer API 驗證 + Firestore 寫入）、`generateStickerSpecs` 加入 Pro hint section；`firestore.rules` 新增 `purchases` 只讀規則；`functions/package.json` 加入 `google-auth-library`。 |
 | v3.8.0 | 2026-03-20 | **docs(prd)**：整理 Phase Pro 開發計劃 — 新增第 2.8 節「Pro 自訂輸入功能」完整規格：UI 設計（風格/情緒頁頂部 Pro 卡片）、NT$49 一次性 IAP（Google Play Billing `pro_custom_input`）、Firestore `purchases` 子集合購買紀錄、`verifyProPurchase` Cloud Function 流程、`generateStickerSpecs` 新增 `customStyleDesc`/`customEmotionDesc` 可選參數、互動規則與驗收標準。 |
 | v3.7.0 | 2026-03-20 | **ci(ios)**：Phase 2 iOS CI/CD 啟動 — `main_build.yml` 新增 `ios-build` job（`macos-latest` runner，免費 for public repo）；自動初始化 ios/ 目錄、設定 Bundle ID `com.magicsticker.magic_sticker`、iOS 15.0+ 部署目標、匯入 Distribution Certificate + Provisioning Profile、產生 ExportOptions.plist、`flutter build ipa`、上傳至 TestFlight（`apple-actions/upload-testflight-build@v3`）；`pubspec.yaml` 啟用 `flutter_launcher_icons` iOS 圖示生成。 |
 | v3.6.12 | 2026-03-20 | **docs(readme)**：更新 README 反映最新 App 狀態 — 風格 6→12 種、情緒 16→24 種、選擇門檻 4→1 種、延遲分析架構、點數商店、App Check 安全性、768px Resize、GIF loading、背景色功能。 |

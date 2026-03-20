@@ -14,6 +14,13 @@ service cloud.firestore {
         allow read, create: if request.auth != null
                             && request.auth.uid == uid;
       }
+
+      // 付費功能解鎖紀錄：本人只讀（寫入僅允許 Cloud Functions）
+      match /purchases/{productId} {
+        allow read: if request.auth != null
+                    && request.auth.uid == uid;
+        allow write: if false; // 僅 Cloud Functions 可寫
+      }
     }
   }
 }

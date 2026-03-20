@@ -1,37 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../app.dart';
 import '../../../core/models/emotion_category.dart';
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../features/billing/providers/pro_purchase_provider.dart';
+import '../../../shared/widgets/pro_unlock_sheet.dart';
 
 /// 步驟 3／3：使用者選擇情緒種類後，帶著選擇結果進入 EditorScreen。
 ///
 /// - 預設選中 8 種（[kDefaultCategoryIds]）
 /// - 最少 1 種，最多 12 種
 /// - 確認後帶 categoryIds 傳入 /editor
-class EmotionSelectionScreen extends StatefulWidget {
+class EmotionSelectionScreen extends ConsumerStatefulWidget {
   final String imagePath;
   final int styleIndex;
   final StickerShape stickerShape;
+  final String? customStyleDesc;
 
   const EmotionSelectionScreen({
     super.key,
     required this.imagePath,
     required this.styleIndex,
     this.stickerShape = StickerShape.circle,
+    this.customStyleDesc,
   });
 
   @override
-  State<EmotionSelectionScreen> createState() => _EmotionSelectionScreenState();
+  ConsumerState<EmotionSelectionScreen> createState() =>
+      _EmotionSelectionScreenState();
 }
 
-class _EmotionSelectionScreenState extends State<EmotionSelectionScreen>
+class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
     with SingleTickerProviderStateMixin {
   late final List<String> _selected;
   late final AnimationController _entryCtrl;
+  final _proEmotionCtrl = TextEditingController();
 
   static const _kMin = 1;
   static const _kMax = 12;
@@ -49,6 +57,7 @@ class _EmotionSelectionScreenState extends State<EmotionSelectionScreen>
   @override
   void dispose() {
     _entryCtrl.dispose();
+    _proEmotionCtrl.dispose();
     super.dispose();
   }
 
@@ -81,6 +90,7 @@ class _EmotionSelectionScreenState extends State<EmotionSelectionScreen>
 
   void _confirm() {
     HapticFeedback.mediumImpact();
+    final customEmotionDesc = _proEmotionCtrl.text.trim();
     context.pushReplacement(
       '/editor',
       extra: EditorArgs(
@@ -88,6 +98,8 @@ class _EmotionSelectionScreenState extends State<EmotionSelectionScreen>
         styleIndex: widget.styleIndex,
         stickerShape: widget.stickerShape,
         categoryIds: List<String>.from(_selected),
+        customStyleDesc: widget.customStyleDesc,
+        customEmotionDesc: customEmotionDesc.isNotEmpty ? customEmotionDesc : null,
       ),
     );
   }
@@ -185,29 +197,58 @@ class _EmotionSelectionScreenState extends State<EmotionSelectionScreen>
   // ── 情緒格子 ─────────────────────────────────────────────────────────────────
 
   Widget _buildGrid() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: GridView.builder(
-        physics: const BouncingScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 4,
-          childAspectRatio: 0.88,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
+    final isPro = ref.watch(isProUnlockedProvider).valueOrNull ?? false;
+
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              // Pro 自訂情緒卡片
+              _ProCustomEmotionCard(
+                isPro: isPro,
+                controller: _proEmotionCtrl,
+                hint: '輸入任意情緒，例：淡定無語、興奮尖叫',
+                onLockedTap: () => ProUnlockSheet.show(context),
+              ),
+              const SizedBox(height: 12),
+              // 分隔標籤
+              _Divider(
+                label: isPro ? '或從 24 種情緒中選（可多選）' : '從 24 種情緒中選（可多選）',
+              ),
+              const SizedBox(height: 12),
+            ]),
+          ),
         ),
-        itemCount: kEmotionCategories.length,
-        itemBuilder: (_, i) {
-          final cat = kEmotionCategories[i];
-          final isSelected = _selected.contains(cat.id);
-          final order = isSelected ? _selected.indexOf(cat.id) + 1 : null;
-          return _EmotionCard(
-            category: cat,
-            isSelected: isSelected,
-            selectionOrder: order,
-            onTap: () => _toggle(cat.id),
-          );
-        },
-      ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              childAspectRatio: 0.88,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (_, i) {
+                final cat = kEmotionCategories[i];
+                final isSelected = _selected.contains(cat.id);
+                final order = isSelected ? _selected.indexOf(cat.id) + 1 : null;
+                return _EmotionCard(
+                  category: cat,
+                  isSelected: isSelected,
+                  selectionOrder: order,
+                  onTap: () => _toggle(cat.id),
+                );
+              },
+              childCount: kEmotionCategories.length,
+            ),
+          ),
+        ),
+        const SliverPadding(padding: EdgeInsets.only(bottom: 16)),
+      ],
     );
   }
 
@@ -306,6 +347,143 @@ class _EmotionSelectionScreenState extends State<EmotionSelectionScreen>
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Pro 自訂情緒卡片 ─────────────────────────────────────────────────────────
+
+class _ProCustomEmotionCard extends StatelessWidget {
+  final bool isPro;
+  final TextEditingController controller;
+  final String hint;
+  final VoidCallback onLockedTap;
+
+  const _ProCustomEmotionCard({
+    required this.isPro,
+    required this.controller,
+    required this.hint,
+    required this.onLockedTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isPro ? null : onLockedTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        decoration: BoxDecoration(
+          color: isPro ? const Color(0xFFFFFDE7) : AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isPro ? const Color(0xFFFFD700) : Colors.black12,
+            width: isPro ? 1.5 : 1,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: isPro
+                    ? const LinearGradient(
+                        colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: isPro ? null : const Color(0xFFE0E0E0),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.workspace_premium_rounded,
+                size: 20,
+                color: isPro ? Colors.white : Colors.black38,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: isPro
+                  ? TextField(
+                      controller: controller,
+                      maxLength: 15,
+                      maxLines: 1,
+                      decoration: InputDecoration(
+                        hintText: hint,
+                        hintStyle: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black38,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                        counterText: '',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pro 自訂情緒',
+                          style: GoogleFonts.notoSansTc(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black45,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          '點擊解鎖，NT\$49 · 一次性永久使用',
+                          style: TextStyle(fontSize: 11, color: Colors.black38),
+                        ),
+                      ],
+                    ),
+            ),
+            if (isPro)
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (_, val, __) => Text(
+                  '${val.text.length}/15',
+                  style: const TextStyle(fontSize: 11, color: Colors.black38),
+                ),
+              )
+            else
+              const Icon(Icons.lock_outline_rounded,
+                  size: 18, color: Colors.black38),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── 分隔標籤 ─────────────────────────────────────────────────────────────────
+
+class _Divider extends StatelessWidget {
+  final String label;
+  const _Divider({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(child: Divider(color: Colors.black12)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Colors.black38),
+          ),
+        ),
+        const Expanded(child: Divider(color: Colors.black12)),
+      ],
     );
   }
 }

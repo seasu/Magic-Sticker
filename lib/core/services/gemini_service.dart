@@ -30,10 +30,14 @@ class GeminiService {
   /// 呼叫 Cloud Function `generateStickerSpecs`。
   ///
   /// [categoryIds] 指定要生成的情感類別（不傳則使用預設 8 種）。
+  /// [customStyleDesc] Pro 自訂風格描述（≤15字，傳入 CF 影響 Gemini prompt）。
+  /// [customEmotionDesc] Pro 自訂情緒描述（≤15字，傳入 CF 影響 Gemini prompt）。
   /// Spec 預覽免費，不扣點。失敗時回傳 fallback specs。
   Future<List<StickerSpec>> generateStickerSpecs(
     Uint8List imageBytes, {
     List<String>? categoryIds,
+    String? customStyleDesc,
+    String? customEmotionDesc,
   }) async {
     FirebaseService.log('GeminiService.generateStickerSpecs: start');
 
@@ -54,10 +58,18 @@ class GeminiService {
           options: HttpsCallableOptions(timeout: const Duration(seconds: 65)),
         );
 
-        final result = await callable.call<Map<String, dynamic>>({
+        final payload = <String, dynamic>{
           'photoBase64': base64Encode(imageBytes),
           'categoryIds': ids,
-        });
+        };
+        if (customStyleDesc != null && customStyleDesc.isNotEmpty) {
+          payload['customStyleDesc'] = customStyleDesc;
+        }
+        if (customEmotionDesc != null && customEmotionDesc.isNotEmpty) {
+          payload['customEmotionDesc'] = customEmotionDesc;
+        }
+
+        final result = await callable.call<Map<String, dynamic>>(payload);
 
         final data = result.data;
         final rawList = (data['specs'] as List<dynamic>);

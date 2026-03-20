@@ -31,6 +31,10 @@ class _EditorFamilyNotifier
   /// 縮圖快取（避免每次生成都重新 resize）
   Uint8List? _cachedResized;
 
+  /// Pro 自訂描述（從 EditorScreen 傳入）
+  String? _customStyleDesc;
+  String? _customEmotionDesc;
+
   @override
   EditorState build(String arg) => EditorState(originalImagePath: arg);
 
@@ -40,11 +44,17 @@ class _EditorFamilyNotifier
   /// [defaultStyleIndex] 對應 [StickerStyle.values]，預設 0（Q版卡通）
   /// [stickerShape] 貼圖形狀，預設圓形
   /// [initialCategoryIds] 由 EmotionSelectionScreen 傳入；null 則沿用 state 預設
+  /// [customStyleDesc] Pro 自訂風格描述（≤15字）
+  /// [customEmotionDesc] Pro 自訂情緒描述（≤15字）
   Future<void> initialize({
     int defaultStyleIndex = 0,
     StickerShape stickerShape = StickerShape.circle,
     List<String>? initialCategoryIds,
+    String? customStyleDesc,
+    String? customEmotionDesc,
   }) async {
+    _customStyleDesc = customStyleDesc;
+    _customEmotionDesc = customEmotionDesc;
     final categoryIds = initialCategoryIds != null
         ? List<String>.from(initialCategoryIds)
         : state.selectedCategoryIds;
@@ -98,6 +108,8 @@ class _EditorFamilyNotifier
       final specs = await GeminiService().generateStickerSpecs(
         resized,
         categoryIds: state.selectedCategoryIds,
+        customStyleDesc: _customStyleDesc,
+        customEmotionDesc: _customEmotionDesc,
       );
       _specs = specs;
 
