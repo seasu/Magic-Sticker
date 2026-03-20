@@ -334,7 +334,7 @@ jobs:
           packageName: com.magicsticker.magic_sticker
           releaseFiles: dist/app-release.aab
           track: internal
-          status: draft
+          status: completed
           mappingFile: mapping/mapping.txt
 
   # ─── iOS Build（暫停：待取得 Apple Developer 帳號後啟用）────
