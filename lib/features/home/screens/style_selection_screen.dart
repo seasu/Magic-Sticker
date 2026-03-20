@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -7,24 +8,27 @@ import '../../../app.dart';
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/models/sticker_style.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../features/billing/providers/pro_purchase_provider.dart';
+import '../../../shared/widgets/pro_unlock_sheet.dart';
 
 /// 步驟 2／3：選擇貼圖風格與形狀。
 ///
 /// 與 EmotionSelectionScreen 採用一致的全螢幕樣式與標頭。
-class StyleSelectionScreen extends StatefulWidget {
+class StyleSelectionScreen extends ConsumerStatefulWidget {
   final String imagePath;
 
   const StyleSelectionScreen({super.key, required this.imagePath});
 
   @override
-  State<StyleSelectionScreen> createState() => _StyleSelectionScreenState();
+  ConsumerState<StyleSelectionScreen> createState() => _StyleSelectionScreenState();
 }
 
-class _StyleSelectionScreenState extends State<StyleSelectionScreen>
+class _StyleSelectionScreenState extends ConsumerState<StyleSelectionScreen>
     with SingleTickerProviderStateMixin {
   int? _selectedStyleIndex;
   StickerShape _shape = StickerShape.circle;
   late final AnimationController _entryCtrl;
+  final _proStyleCtrl = TextEditingController();
 
   static const _descs = [
     '可愛 Q 版插畫',   // chibi
@@ -53,18 +57,21 @@ class _StyleSelectionScreenState extends State<StyleSelectionScreen>
   @override
   void dispose() {
     _entryCtrl.dispose();
+    _proStyleCtrl.dispose();
     super.dispose();
   }
 
   void _confirm() {
     if (_selectedStyleIndex == null) return;
     HapticFeedback.mediumImpact();
+    final customDesc = _proStyleCtrl.text.trim();
     context.pushReplacement(
       '/emotion-select',
       extra: EmotionSelectArgs(
         imagePath: widget.imagePath,
         styleIndex: _selectedStyleIndex!,
         stickerShape: _shape,
+        customStyleDesc: customDesc.isNotEmpty ? customDesc : null,
       ),
     );
   }
@@ -161,11 +168,26 @@ class _StyleSelectionScreenState extends State<StyleSelectionScreen>
   // ── 內容（形狀切換 + 風格格子） ────────────────────────────────────────────
 
   Widget _buildContent() {
+    final isPro = ref.watch(isProUnlockedProvider).valueOrNull ?? false;
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Column(
         children: [
+          // Pro 自訂風格卡片
+          _ProCustomCard(
+            isPro: isPro,
+            controller: _proStyleCtrl,
+            hint: '輸入任意風格，例：油畫、浮世繪',
+            onLockedTap: () => ProUnlockSheet.show(context),
+          ),
+          const SizedBox(height: 12),
+
+          // 分隔標籤
+          _Divider(label: isPro ? '或從 12 種預設風格中選擇' : '從 12 種預設風格中選擇'),
+          const SizedBox(height: 12),
+
           // 形狀切換
           _ShapeToggle(
             selected: _shape,
@@ -283,6 +305,150 @@ class _StyleSelectionScreenState extends State<StyleSelectionScreen>
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Pro 自訂卡片 ─────────────────────────────────────────────────────────────
+
+class _ProCustomCard extends StatelessWidget {
+  final bool isPro;
+  final TextEditingController controller;
+  final String hint;
+  final VoidCallback onLockedTap;
+
+  const _ProCustomCard({
+    required this.isPro,
+    required this.controller,
+    required this.hint,
+    required this.onLockedTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isPro ? null : onLockedTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        decoration: BoxDecoration(
+          color: isPro
+              ? const Color(0xFFFFFDE7)
+              : AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isPro
+                ? const Color(0xFFFFD700)
+                : Colors.black12,
+            width: isPro ? 1.5 : 1,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            // 皇冠圖示
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: isPro
+                    ? const LinearGradient(
+                        colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: isPro ? null : const Color(0xFFE0E0E0),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.workspace_premium_rounded,
+                size: 20,
+                color: isPro ? Colors.white : Colors.black38,
+              ),
+            ),
+            const SizedBox(width: 12),
+            // 輸入框或鎖定提示
+            Expanded(
+              child: isPro
+                  ? TextField(
+                      controller: controller,
+                      maxLength: 15,
+                      maxLines: 1,
+                      decoration: InputDecoration(
+                        hintText: hint,
+                        hintStyle: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black38,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                        counterText: '',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pro 自訂風格',
+                          style: GoogleFonts.notoSansTc(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black45,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          '點擊解鎖，NT\$49 · 一次性永久使用',
+                          style: TextStyle(fontSize: 11, color: Colors.black38),
+                        ),
+                      ],
+                    ),
+            ),
+            // 鎖/字數
+            if (isPro)
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (_, val, __) => Text(
+                  '${val.text.length}/15',
+                  style: const TextStyle(fontSize: 11, color: Colors.black38),
+                ),
+              )
+            else
+              const Icon(Icons.lock_outline_rounded,
+                  size: 18, color: Colors.black38),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── 分隔標籤 ─────────────────────────────────────────────────────────────────
+
+class _Divider extends StatelessWidget {
+  final String label;
+  const _Divider({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(child: Divider(color: Colors.black12)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Colors.black38),
+          ),
+        ),
+        const Expanded(child: Divider(color: Colors.black12)),
+      ],
     );
   }
 }

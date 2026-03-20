@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.6.14+299 |
+| 目前版本 | v3.8.4+305 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -104,6 +104,100 @@
 ### 2.6 AI 等待動畫
 - **全畫面等待**（去背/生成文案階段）：🐱 貓追 🐭 老鼠橫向動畫 + 輪播趣味文案
 - **每張卡片生成中**：迷你 🐱🐭 彈跳 Badge 取代靜態 Spinner
+
+### 2.8 Pro 自訂輸入功能（v3.8.0）
+
+讓使用者在選擇風格與情緒時，可自行輸入最多 **15 字**的描述文字，讓 AI 依此產圖，取代預設選項。
+
+#### 解鎖方式
+- **一次性購買**：NT$49（Google Play Billing `pro_custom_input`，non-consumable）
+- 解鎖後跨裝置、跨重裝永久有效（Firestore 存儲）
+- iOS IAP 延至 Phase 2（iOS CI/CD 就緒後）
+
+#### UI 設計
+
+**風格選擇頁（`StyleSelectionScreen`）頂部**
+```
+┌─────────────────────────────────────┐
+│ 👑 Pro 自訂風格           🔒 解鎖   │  ← 未購買：淡化遮罩，點擊觸發購買 Sheet
+│  ░░░░░░░░░░░░░░░░░░░░░░░░░░         │
+│  點擊解鎖，NT$49 · 一次性永久使用   │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│ 👑 Pro 自訂風格                      │  ← 已購買：可輸入文字
+│  仿油畫厚塗、色彩鮮豔飽和            │
+│                             0 / 15  │
+└─────────────────────────────────────┘
+── 或從 12 種預設風格中選擇 ──
+[Q版卡通] [普普風] ...（現有 Grid 完整保留）
+```
+
+**情緒選擇頁（`EmotionSelectionScreen`）頂部**（同上結構，文字替換為「Pro 自訂情緒」）
+
+#### 互動規則
+
+| 情境 | 行為 |
+|---|---|
+| 未購買，點擊 Pro 卡片 | 觸發 `ProUnlockSheet`（NT$49 說明 + CTA）|
+| 購買後，Pro 框輸入文字 | 傳入 `customStyleDesc` / `customEmotionDesc`，覆蓋預設選項 |
+| 購買後，Pro 框**留空** | 沿用下方預設選項，行為與未購買相同 |
+| Pro 輸入 + 預設同時有值 | Pro 輸入優先，預設選項忽略 |
+
+#### 購買驗證流程
+```
+使用者點「立即解鎖 NT$49」
+  → Google Play Billing（in_app_purchase）發起購買
+  → 收到 PurchaseDetails（含 purchaseToken）
+  → 呼叫 Cloud Function: verifyProPurchase
+      ├── 驗證 App Check（enforceAppCheck: true）
+      ├── 驗證 Firebase Auth
+      ├── 呼叫 Google Play Developer API 驗證 purchaseToken
+      └── 驗證成功 → 寫入 Firestore: users/{uid}/purchases/pro_custom_input
+  → Flutter isPurchasedProvider 即時解鎖 UI
+```
+
+#### Firestore 資料結構
+```
+users/{uid}/purchases/pro_custom_input: {
+  purchased_at: Timestamp,
+  platform: "android",
+  order_id: "GPA.xxxx",
+  product_id: "pro_custom_input",
+  purchase_token: "xxxx",
+  verified: true
+}
+```
+
+#### 傳入 Prompt 方式
+
+`generateStickerSpecs` Cloud Function 新增可選參數：
+- `customStyleDesc?: string`（≤15字）
+- `customEmotionDesc?: string`（≤15字）
+
+有自訂描述時，Prompt 以自訂文字取代對應風格/情緒的預設敘述。
+
+#### 新增 Cloud Function
+
+| Function | 說明 |
+|---|---|
+| `verifyProPurchase` | 512 MiB / 60s，驗證 Play purchaseToken + 寫入 purchases |
+| `fulfillCreditPurchase` | 256 MiB / 30s，驗證 Play purchaseToken + 冪等性入帳點數 |
+
+#### 新增/修改檔案
+
+| 檔案 | 動作 |
+|---|---|
+| `features/home/screens/style_selection_screen.dart` | 新增頂部 `_ProCustomCard` + 分隔標籤 |
+| `features/home/screens/emotion_selection_screen.dart` | 同上 |
+| `shared/widgets/pro_unlock_sheet.dart` | 新建：解鎖 Bottom Sheet |
+| `features/billing/providers/pro_purchase_provider.dart` | 新建：Riverpod provider（Firestore 解鎖狀態）|
+| `features/billing/services/iap_service.dart` | 新建：Google Play Billing 封裝 |
+| `core/services/gemini_service.dart` | `generateStickerSpecs()` 新增兩個可選參數 |
+| `functions/src/index.ts` | 新增 `verifyProPurchase`；`generateStickerSpecs` 新增 custom 參數 |
+| `firestore.rules` | `purchases` 子集合只讀規則（寫入僅 Cloud Functions）|
+
+---
 
 ### 2.7 Fallback 機制
 - Gemini 圖片生成失敗 → Flutter 端顯示彩色圓形背景 + outline 文字疊加
@@ -220,6 +314,12 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.8.4 | 2026-03-20 | **ci(deploy)**：修正 CI 部署安全漏洞 — ① 移除 Firestore rules 部署的 `continue-on-error: true`（防止 rules 更新失敗被靜默忽略）；② Cloud Run IAM 設定改以 loop 涵蓋全部 5 個 functions（新增 `verifypropurchase`、`fulfillcreditpurchase`、`getconfig`），防止新函式部署後因缺少 IAM binding 造成 403。 |
+| v3.8.3 | 2026-03-20 | **security(billing)**：補強購買安全性 — ① CF `verifyProPurchase` / `fulfillCreditPurchase` 改為強制 Play API 驗證，GoogleAuth 失敗時直接 throw（移除 skip 邏輯），防止假 token 免費取得 Pro/點數；② Firestore rules 禁止 client 直接寫 `credits` / `updatedAt` 欄位（只允許 CF via Admin SDK），移除 `creditHistory` 的 client create 權限；③ `IAPService._fulfill()` 改為 CF 成功後才呼叫 `completePurchase`，CF 失敗時保持 purchase pending，讓 Google Play 重新送達。 |
+| v3.8.2 | 2026-03-20 | **security(billing)**：點數包購買補上 server 端收據驗證 — 新增 Cloud Function `fulfillCreditPurchase`（Google Play Developer API 驗證 purchaseToken + Firestore `purchaseTokens/{token}` 冪等性防重複入帳 + 原子性新增點數 + 寫 creditHistory）；`IAPService._fulfill()` 改呼叫 CF 取代本機直接入帳，防止偽造收據攻擊。 |
+| v3.8.1 | 2026-03-20 | **feat(pro)**：Pro 自訂輸入功能全面實作 — Flutter：新增 `isProUnlockedProvider`（Firestore `purchases` 串流）、擴充 `IAPService` 加入 `buyProCustomInput()` + `ProUnlockResult`、新建 `ProUnlockSheet`（NT$49 解鎖 UI）、`StyleSelectionScreen`/`EmotionSelectionScreen` 頂部加 Pro 卡片（鎖定/解鎖兩態）、`app.dart` `EmotionSelectArgs`/`EditorArgs` 新增 `customStyleDesc`/`customEmotionDesc`、`GeminiService.generateStickerSpecs()` 傳遞 custom desc 至 CF；Cloud Functions：新增 `verifyProPurchase`（Google Play Developer API 驗證 + Firestore 寫入）、`generateStickerSpecs` 加入 Pro hint section；`firestore.rules` 新增 `purchases` 只讀規則；`functions/package.json` 加入 `google-auth-library`。 |
+| v3.8.0 | 2026-03-20 | **docs(prd)**：整理 Phase Pro 開發計劃 — 新增第 2.8 節「Pro 自訂輸入功能」完整規格：UI 設計（風格/情緒頁頂部 Pro 卡片）、NT$49 一次性 IAP（Google Play Billing `pro_custom_input`）、Firestore `purchases` 子集合購買紀錄、`verifyProPurchase` Cloud Function 流程、`generateStickerSpecs` 新增 `customStyleDesc`/`customEmotionDesc` 可選參數、互動規則與驗收標準。 |
+| v3.7.0 | 2026-03-20 | **ci(ios)**：Phase 2 iOS CI/CD 啟動 — `main_build.yml` 新增 `ios-build` job（`macos-latest` runner，免費 for public repo）；自動初始化 ios/ 目錄、設定 Bundle ID `com.magicsticker.magic_sticker`、iOS 15.0+ 部署目標、匯入 Distribution Certificate + Provisioning Profile、產生 ExportOptions.plist、`flutter build ipa`、上傳至 TestFlight（`apple-actions/upload-testflight-build@v3`）；`pubspec.yaml` 啟用 `flutter_launcher_icons` iOS 圖示生成。 |
 | v3.6.12 | 2026-03-20 | **docs(readme)**：更新 README 反映最新 App 狀態 — 風格 6→12 種、情緒 16→24 種、選擇門檻 4→1 種、延遲分析架構、點數商店、App Check 安全性、768px Resize、GIF loading、背景色功能。 |
 | v3.6.11 | 2026-03-20 | **fix(ci)**：`generate_style_previews_ci.py` 補入缺少的 8 種情感（sleepy/beg/worried/hungry/celebrate/no/encourage/pain），修正產圖數量 192 → 288（12 × 24），與 workflow yml 及 `kEmotionCategories` 一致。 |
 | v3.6.10 | 2026-03-20 | **fix(ci)**：`generate_previews.yml` 修正 header comment 與 PR body 中情感數量錯誤（16 種 → 24 種、192 張 → 288 張），與 `kEmotionCategories` 實際定義一致。 |

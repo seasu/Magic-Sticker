@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 import {onCall, HttpsError, CallableRequest} from "firebase-functions/v2/https";
 import {defineSecret, defineString} from "firebase-functions/params";
 import {log, warn} from "firebase-functions/logger";
+import {GoogleAuth} from "google-auth-library";
 
 admin.initializeApp();
 
@@ -109,9 +110,16 @@ export const generateStickerSpecs = onCall(
     const uid = await resolveUid(request);
     log("generateStickerSpecs: auth OK", {uid});
 
-    const {photoBase64, categoryIds: rawCategoryIds} = request.data as {
+    const {
+      photoBase64,
+      categoryIds: rawCategoryIds,
+      customStyleDesc,
+      customEmotionDesc,
+    } = request.data as {
       photoBase64: string;
       categoryIds?: string[];
+      customStyleDesc?: string;
+      customEmotionDesc?: string;
     };
 
     if (!photoBase64) {
@@ -161,6 +169,24 @@ export const generateStickerSpecs = onCall(
       "https://generativelanguage.googleapis.com/v1beta" +
       `/models/${textModel}:generateContent?key=${apiKey}`;
 
+    // Pro 自訂描述提示（若有）
+    const proHints: string[] = [];
+    if (customStyleDesc && customStyleDesc.trim().length > 0) {
+      proHints.push(
+        `🎨 使用者指定視覺風格：「${customStyleDesc.trim()}」` +
+        `（請將此風格融入 emotion 描述與 bgColor 搭配，體現在每張貼圖設計中）`
+      );
+    }
+    if (customEmotionDesc && customEmotionDesc.trim().length > 0) {
+      proHints.push(
+        `🎭 使用者指定情緒氛圍：「${customEmotionDesc.trim()}」` +
+        `（請讓此情緒氛圍貫穿所有貼圖設計，但各類別仍保有各自的個性變化）`
+      );
+    }
+    const proHintSection = proHints.length > 0
+      ? `\n\n✨ 使用者特別指定（優先遵循）：\n${proHints.join("\n")}\n`
+      : "";
+
     const body = {
       contents: [
         {
@@ -170,7 +196,8 @@ export const generateStickerSpecs = onCall(
                 "你是一位創意 LINE 貼圖設計師，擅長根據照片人物的個性與氛圍，" +
                 "設計出最適合的貼圖情感組合。\n\n" +
                 "請仔細觀察照片中人物的外型、氣質、表情與場景，" +
-                "依照以下情感類別清單（按順序），為他們設計專屬的 LINE 貼圖規格。\n\n" +
+                "依照以下情感類別清單（按順序），為他們設計專屬的 LINE 貼圖規格。" +
+                proHintSection + "\n\n" +
                 `情感類別清單：[${categoryList}]\n\n` +
                 "每個類別設計一張貼圖，輸出格式：僅回傳 JSON 陣列" +
                 `（${ids.length} 個物件，順序與清單一致），每個物件包含：\n` +
@@ -401,6 +428,289 @@ export const generateStickerImage = onCall(
       });
     });
     throw new HttpsError("internal", "No image returned by Gemini.");
+  }
+);
+
+// ── verifyProPurchase ─────────────────────────────────────────────────────────
+//
+// 1. 驗證 Firebase Auth
+// 2. 呼叫 Google Play Developer API 驗證 purchaseToken
+// 3. 寫入 Firestore: users/{uid}/purchases/pro_custom_input
+
+const kPackageName = "com.magicsticker.magic_sticker";
+const kProProductId = "pro_custom_input";
+
+export const verifyProPurchase = onCall(
+  {
+    region: "asia-east1",
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    invoker: "public",
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    log("verifyProPurchase: invoked", {
+      hasAuth: !!request.auth,
+      hasAppCheck: !!request.app,
+    });
+    const uid = await resolveUid(request);
+    log("verifyProPurchase: auth OK", {uid});
+
+    const {purchaseToken, orderId} = request.data as {
+      purchaseToken: string;
+      orderId?: string;
+    };
+
+    if (!purchaseToken) {
+      throw new HttpsError("invalid-argument", "purchaseToken is required.");
+    }
+
+    // ── 呼叫 Google Play Developer API ──────────────────────────────────────
+    // 需要服務帳戶具備 Android Publisher API 存取權限
+    // 設定方式：Google Play Console → 設定 → API 存取 → 連結服務帳戶
+    let accessToken: string;
+    try {
+      const auth = new GoogleAuth({
+        scopes: ["https://www.googleapis.com/auth/androidpublisher"],
+      });
+      const client = await auth.getClient();
+      const tokenResponse = await client.getAccessToken();
+      if (!tokenResponse.token) {
+        throw new Error("getAccessToken returned empty token");
+      }
+      accessToken = tokenResponse.token;
+    } catch (e) {
+      warn("verifyProPurchase: GoogleAuth failed", {error: String(e)});
+      throw new HttpsError(
+        "internal",
+        "Play API authentication unavailable. Please try again later."
+      );
+    }
+
+    const verifyUrl =
+      `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
+      `${kPackageName}/purchases/products/${kProProductId}/tokens/${purchaseToken}`;
+
+    const verifyRes = await fetch(verifyUrl, {
+      headers: {Authorization: `Bearer ${accessToken}`},
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!verifyRes.ok) {
+      const errText = await verifyRes.text();
+      warn("verifyProPurchase: Play API error", {
+        status: verifyRes.status,
+        body: errText.slice(0, 500),
+        uid,
+      });
+      throw new HttpsError(
+        "failed-precondition",
+        `Play API returned ${verifyRes.status}`
+      );
+    }
+
+    const playData = (await verifyRes.json()) as {
+      purchaseState?: number; // 0=Purchased, 1=Canceled, 2=Pending
+      acknowledgementState?: number; // 0=Yet to acknowledge, 1=Acknowledged
+      orderId?: string;
+    };
+
+    if (playData.purchaseState !== 0) {
+      throw new HttpsError(
+        "failed-precondition",
+        `Purchase not valid. state=${playData.purchaseState}`
+      );
+    }
+
+    // Acknowledge if needed（防止 Google 自動退款）
+    if (playData.acknowledgementState === 0) {
+      const ackUrl = verifyUrl + ":acknowledge";
+      await fetch(ackUrl, {
+        method: "POST",
+        headers: {Authorization: `Bearer ${accessToken}`},
+        signal: AbortSignal.timeout(10000),
+      }).catch((e) => warn("verifyProPurchase: acknowledge failed (non-fatal)", {error: String(e)}));
+    }
+
+    log("verifyProPurchase: Play API verified OK", {uid, orderId});
+
+    // ── 寫入 Firestore ────────────────────────────────────────────────────────
+    await db
+      .collection("users")
+      .doc(uid)
+      .collection("purchases")
+      .doc(kProProductId)
+      .set({
+        purchased_at: admin.firestore.FieldValue.serverTimestamp(),
+        platform: "android",
+        order_id: orderId ?? "",
+        product_id: kProProductId,
+        purchase_token: purchaseToken,
+        verified: true,
+      });
+
+    log("verifyProPurchase: Firestore written OK", {uid});
+    return {success: true};
+  }
+);
+
+// ── fulfillCreditPurchase ─────────────────────────────────────────────────────
+//
+// 1. 驗證 Firebase Auth
+// 2. 呼叫 Google Play Developer API 驗證 purchaseToken
+// 3. 冪等性檢查（防止重複入帳）
+// 4. Firestore Transaction 原子性新增點數 + 寫 creditHistory
+
+const kCreditProducts: Record<string, number> = {
+  credits_08: 8,
+  credits_24: 24,
+  credits_80: 80,
+};
+
+export const fulfillCreditPurchase = onCall(
+  {
+    region: "asia-east1",
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    invoker: "public",
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    log("fulfillCreditPurchase: invoked", {
+      hasAuth: !!request.auth,
+      hasAppCheck: !!request.app,
+    });
+    const uid = await resolveUid(request);
+    log("fulfillCreditPurchase: auth OK", {uid});
+
+    const {purchaseToken, productId} = request.data as {
+      purchaseToken: string;
+      productId: string;
+    };
+
+    if (!purchaseToken || !productId) {
+      throw new HttpsError(
+        "invalid-argument",
+        "purchaseToken and productId are required."
+      );
+    }
+
+    const credits = kCreditProducts[productId];
+    if (credits === undefined) {
+      throw new HttpsError(
+        "invalid-argument",
+        `Unknown productId: ${productId}`
+      );
+    }
+
+    // ── 呼叫 Google Play Developer API ──────────────────────────────────────
+    let accessToken: string;
+    try {
+      const auth = new GoogleAuth({
+        scopes: ["https://www.googleapis.com/auth/androidpublisher"],
+      });
+      const client = await auth.getClient();
+      const tokenResponse = await client.getAccessToken();
+      if (!tokenResponse.token) {
+        throw new Error("getAccessToken returned empty token");
+      }
+      accessToken = tokenResponse.token;
+    } catch (e) {
+      warn("fulfillCreditPurchase: GoogleAuth failed", {error: String(e)});
+      throw new HttpsError(
+        "internal",
+        "Play API authentication unavailable. Please try again later."
+      );
+    }
+
+    const verifyUrl =
+      `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
+      `${kPackageName}/purchases/products/${productId}/tokens/${purchaseToken}`;
+
+    const verifyRes = await fetch(verifyUrl, {
+      headers: {Authorization: `Bearer ${accessToken}`},
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!verifyRes.ok) {
+      const errText = await verifyRes.text();
+      warn("fulfillCreditPurchase: Play API error", {
+        status: verifyRes.status,
+        body: errText.slice(0, 500),
+        uid,
+        productId,
+      });
+      throw new HttpsError(
+        "failed-precondition",
+        `Play API returned ${verifyRes.status}`
+      );
+    }
+
+    const playData = (await verifyRes.json()) as {
+      purchaseState?: number; // 0=Purchased, 1=Canceled, 2=Pending
+      acknowledgementState?: number;
+      consumptionState?: number; // 0=Yet to consume, 1=Consumed
+    };
+
+    if (playData.purchaseState !== 0) {
+      throw new HttpsError(
+        "failed-precondition",
+        `Purchase not valid. state=${playData.purchaseState}`
+      );
+    }
+
+    log("fulfillCreditPurchase: Play API verified OK", {uid, productId});
+
+    // ── 冪等性檢查 + 原子性入帳 ──────────────────────────────────────────────
+    // purchaseTokens/{token} 作為已處理紀錄，防止重複入帳
+    const tokenRef = db.collection("purchaseTokens").doc(purchaseToken);
+    const userRef = db.collection("users").doc(uid);
+
+    let remainingCredits = 0;
+    let alreadyFulfilled = false;
+
+    await db.runTransaction(async (tx) => {
+      const tokenDoc = await tx.get(tokenRef);
+      if (tokenDoc.exists) {
+        // 已處理過，直接取目前點數回傳（冪等）
+        const userDoc = await tx.get(userRef);
+        remainingCredits = (userDoc.data()?.credits as number) ?? 0;
+        alreadyFulfilled = true;
+        return;
+      }
+
+      const userDoc = await tx.get(userRef);
+      const currentCredits = (userDoc.data()?.credits as number) ?? 0;
+      remainingCredits = currentCredits + credits;
+
+      // 標記 token 已處理
+      tx.set(tokenRef, {
+        uid,
+        productId,
+        credits,
+        fulfilledAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // 新增點數
+      tx.update(userRef, {
+        credits: remainingCredits,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      writeCreditHistory(tx, uid, {
+        type: "earned",
+        amount: credits,
+        reason: "purchase",
+      });
+    });
+
+    if (alreadyFulfilled) {
+      log("fulfillCreditPurchase: already fulfilled (idempotent)", {uid, purchaseToken});
+    } else {
+      log("fulfillCreditPurchase: credits added", {uid, productId, credits, remainingCredits});
+    }
+
+    return {credits, remainingCredits};
   }
 );
 
