@@ -747,6 +747,126 @@ export const fulfillCreditPurchase = onCall(
   }
 );
 
+// ── rewardAdCredit ────────────────────────────────────────────────────────────
+//
+// 看廣告後由 App 呼叫，Server 端原子性加 1 點並寫入 creditHistory。
+// App 端無法直接寫 Firestore（Security Rules 封鎖），一律透過此 CF。
+//
+// 1. 驗證 Firebase Auth
+// 2. Firestore Transaction 原子性加 1 點 + 寫 creditHistory
+// 3. 回傳最新點數
+
+export const rewardAdCredit = onCall(
+  {
+    region: "asia-east1",
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    invoker: "public",
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    log("rewardAdCredit: invoked", {
+      hasAuth: !!request.auth,
+      hasAppCheck: !!request.app,
+    });
+    const uid = await resolveUid(request);
+    log("rewardAdCredit: auth OK", {uid});
+
+    const userRef = db.collection("users").doc(uid);
+    let remainingCredits = 0;
+
+    await db.runTransaction(async (tx) => {
+      const doc = await tx.get(userRef);
+      const current = (doc.data()?.credits as number) ?? 0;
+      remainingCredits = current + 1;
+      tx.set(
+        userRef,
+        {
+          credits: remainingCredits,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        {merge: true}
+      );
+      writeCreditHistory(tx, uid, {
+        type: "earned",
+        amount: 1,
+        reason: "rewarded_ad",
+      });
+    });
+
+    log("rewardAdCredit: +1 credit OK", {uid, remainingCredits});
+    return {credits: remainingCredits};
+  }
+);
+
+// ── initUserSession ───────────────────────────────────────────────────────────
+//
+// App 啟動登入（含匿名）後呼叫，確保 Firestore users/{uid} 文件存在並回傳點數。
+// 首次建立時分配初始點數（訪客 1 點 / 正式帳號 5 點）。
+// 若文件已存在則直接回傳目前點數（冪等）。
+//
+// 1. 驗證 Firebase Auth
+// 2. 若 users/{uid} 不存在，建立並給初始點數
+// 3. 回傳 {credits, created}
+
+const kGuestInitialCredits = 1;
+const kNewAccountCredits = 5;
+
+export const initUserSession = onCall(
+  {
+    region: "asia-east1",
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    invoker: "public",
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    log("initUserSession: invoked", {
+      hasAuth: !!request.auth,
+      hasAppCheck: !!request.app,
+    });
+    const uid = await resolveUid(request);
+    log("initUserSession: auth OK", {uid});
+
+    const userRef = db.collection("users").doc(uid);
+    let credits = 0;
+    let created = false;
+
+    await db.runTransaction(async (tx) => {
+      const doc = await tx.get(userRef);
+      if (doc.exists) {
+        credits = (doc.data()?.credits as number) ?? 0;
+        return;
+      }
+
+      // 判斷是否為匿名用戶（無 email、無 phone、無 provider）
+      const userRecord = await admin.auth().getUser(uid);
+      const isAnonymous =
+        !userRecord.email &&
+        !userRecord.phoneNumber &&
+        (!userRecord.providerData || userRecord.providerData.length === 0);
+
+      credits = isAnonymous ? kGuestInitialCredits : kNewAccountCredits;
+      created = true;
+
+      tx.set(userRef, {
+        credits,
+        isAnonymous,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      writeCreditHistory(tx, uid, {
+        type: "earned",
+        amount: credits,
+        reason: "new_account",
+      });
+    });
+
+    log("initUserSession: done", {uid, credits, created});
+    return {credits, created};
+  }
+);
+
 // ── getConfig ────────────────────────────────────────────────────────────────
 //
 // Debug 用：回傳目前部署的 model 設定（不需 Auth）

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -24,6 +25,8 @@ class AuthService {
 
   // ── 匿名登入（訪客模式）──────────────────────────────────────────────────
 
+  static final _fn = FirebaseFunctions.instanceFor(region: 'asia-east1');
+
   /// App 啟動時呼叫：若沒有任何登入狀態，自動建立匿名帳號
   static Future<void> signInAnonymouslyIfNeeded() async {
     if (_auth.currentUser != null) return; // 已有帳號（匿名或真實）
@@ -39,10 +42,27 @@ class AuthService {
     }
 
     try {
-      await _ensureUserDoc(uid, isGuest: true);
+      // 透過 Cloud Function 建立 users/{uid} 文件並分配初始點數，
+      // 避免 App 端直接寫 Firestore 被 Security Rules 封鎖。
+      await _callInitUserSession(uid);
     } catch (e, stack) {
-      await FirebaseService.recordError(e, stack, reason: 'ensure_user_doc_failed');
+      await FirebaseService.recordError(e, stack, reason: 'init_user_session_failed');
     }
+  }
+
+  /// 呼叫 initUserSession Cloud Function，確保用戶文件存在並取得點數。
+  static Future<int?> _callInitUserSession(String uid) async {
+    final result = await _fn
+        .httpsCallable(
+          'initUserSession',
+          options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
+        )
+        .call<Map<String, dynamic>>();
+    final credits = (result.data['credits'] as num?)?.toInt();
+    FirebaseService.log(
+      'AuthService: initUserSession uid=$uid credits=$credits created=${result.data['created']}',
+    );
+    return credits;
   }
 
   // ── Token 刷新 ─────────────────────────────────────────────────────────
@@ -255,9 +275,8 @@ class AuthService {
         await _auth.currentUser?.getIdToken(true);
 
         final newUid = _auth.currentUser!.uid;
-        // Wrap Firestore operations: auth is done even if these fail.
         try {
-          await _ensureUserDoc(newUid, isGuest: false);
+          await _callInitUserSession(newUid);
           if (anonCredits > 0) {
             await addCredits(newUid, anonCredits);
             FirebaseService.log(
@@ -267,7 +286,6 @@ class AuthService {
         } catch (firestoreErr, stack) {
           await FirebaseService.recordError(firestoreErr, stack,
               reason: 'post_signin_firestore_failed');
-          // Auth succeeded; Firestore doc will be created on next load.
         }
         FirebaseService.log('AuthService: switched to existing uid=$newUid');
         return AuthResult.success;
@@ -279,7 +297,7 @@ class AuthService {
     // Force token refresh before Firestore operations.
     await _auth.currentUser?.getIdToken(true);
     try {
-      await _ensureUserDoc(result.user!.uid, isGuest: false);
+      await _callInitUserSession(result.user!.uid);
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack,
           reason: 'post_signin_ensure_doc_failed');

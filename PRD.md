@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.8.10+311 |
+| 目前版本 | v3.8.11+312 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -314,6 +314,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.8.11 | 2026-03-21 | **fix(billing/iap)**：修正三個線上 bug — ① 看廣告加點數改走 CF：新增 `rewardAdCredit` Cloud Function（原子性加 1 點 + 寫 creditHistory），`CreditPaywallDialog._watchAd` 廣告結束後呼叫 CF 取代直接寫 Firestore，解決 `add_credits_failed permission-denied`；② 匿名登入建 User Doc 改走 CF：新增 `initUserSession` Cloud Function（首次建立分配初始點數：訪客 1 點 / 正式 5 點，冪等），`AuthService.signInAnonymouslyIfNeeded` / `_signInWithCredential` 改呼叫 CF，解決 `ensure_user_doc_failed permission-denied`；③ IAP type cast crash：`IAPService._handlePurchase` 在 error / canceled 狀態加 `pendingCompletePurchase` guard，防止 `BillingResponse.itemAlreadyOwned` 場景下 plugin 內部 cast `GooglePlayPurchaseDetails` 失敗 crash。 |
 | v3.8.10 | 2026-03-21 | **fix(iap)**：修正點數購買成功後未入帳問題（Play API 401）— `fulfillCreditPurchase` / `verifyProPurchase` 抽出 `getPlayAccessToken()` helper，支援 `PLAY_SERVICE_ACCOUNT_JSON` Secret（優先使用已在 Play Console 授權的服務帳戶）並回退至 ADC；解決 Cloud Run 預設服務帳戶缺少 Android Publisher API 授權導致的 401 錯誤。 |
 | v3.8.8 | 2026-03-20 | **ci(play-store)**：修正 Google Play upload 失敗 — App 仍為 draft 狀態時不允許 `status: completed`，改為 `status: draft`，解決 "Only releases with status draft may be created on draft app" 錯誤。 |
 | v3.8.9 | 2026-03-21 | **fix(billing)**：修正 Pro 購買後功能未解鎖 bug — `_fulfillPro` 的 `completePurchase` 從 `finally`（無論成敗都 acknowledge）移至 `try` 成功路徑（與 `_fulfill` 點數邏輯一致）；CF 失敗（例如 Play API 401）時不 acknowledge，保留 purchase pending，讓 Google Play 重新送達重試；同步說明 Play Console 需授權服務帳號存取 Android Publisher API。 |
