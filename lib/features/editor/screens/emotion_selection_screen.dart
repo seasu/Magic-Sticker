@@ -279,7 +279,7 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
   Widget _buildBottomBar(
       int count, bool canConfirm, bool hasCustomEmotion, double bottomPadding) {
     final btnLabel = hasCustomEmotion
-        ? '確認描述，開始 AI →'
+        ? '開始 →'
         : '開始製作 $count 款貼圖 ✨';
 
     return Container(
