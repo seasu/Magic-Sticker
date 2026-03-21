@@ -1420,23 +1420,6 @@ class _DirectGenerateConfirmCardState extends State<_DirectGenerateConfirmCard>
               // 情緒
               _DescRow(icon: '✦', label: '情緒', value: widget.emotionDesc),
               const SizedBox(height: 20),
-              // 費用提示
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFC9A84C).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  '將消耗 1 點數',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF7B5215),
-                  ),
-                ),
-              ),
               const SizedBox(height: 28),
               // 確認按鈕
               GestureDetector(
@@ -1463,7 +1446,7 @@ class _DirectGenerateConfirmCardState extends State<_DirectGenerateConfirmCard>
                     ],
                   ),
                   child: const Text(
-                    '確認，開始生成 →',
+                    '消耗 1 點產生 →',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,
