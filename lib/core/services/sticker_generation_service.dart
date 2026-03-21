@@ -28,6 +28,8 @@ class StickerGenerationService {
     int index = 0,
     int styleIndex = 0,
     StickerShape shape = StickerShape.circle,
+    String? customStyleDesc,
+    String? customEmotionDesc,
   }) async {
     final style =
         StickerStyle.values[styleIndex.clamp(0, StickerStyle.values.length - 1)];
@@ -51,7 +53,11 @@ class StickerGenerationService {
           options: HttpsCallableOptions(timeout: const Duration(seconds: 125)),
         );
 
-        final prompt = _buildSinglePrompt(spec, style, shape);
+        final prompt = _buildSinglePrompt(
+          spec, style, shape,
+          customStyleDesc: customStyleDesc,
+          customEmotionDesc: customEmotionDesc,
+        );
 
         if (kDebugMode) {
           debugPrint(
@@ -204,7 +210,15 @@ class StickerGenerationService {
   // ─── private ────────────────────────────────────────────────────────────
 
   String _buildSinglePrompt(
-      StickerSpec spec, StickerStyle style, StickerShape shape) {
+    StickerSpec spec,
+    StickerStyle style,
+    StickerShape shape, {
+    String? customStyleDesc,
+    String? customEmotionDesc,
+  }) {
+    // Pro 自訂描述注入段落（最高優先級）
+    final proSection = _buildProSection(customStyleDesc, customEmotionDesc);
+
     if (shape == StickerShape.circle) {
       if (kStickerBgChromaKey) {
         return '''
@@ -228,7 +242,7 @@ class StickerGenerationService {
 - 禁止出現任何文字、英文字母或數字
 
 【裝飾】在角色周圍點綴 2–4 個小閃光或星星（集中在角色周邊，不接觸背景邊緣）
-
+$proSection
 【輸出】單一正方形 PNG，背景為純平塗 #FFFFFF，無任何光影處理。
 風格：${style.promptSuffix}
 ''';
@@ -253,7 +267,7 @@ class StickerGenerationService {
 【裝飾】在角色周圍點綴 2–4 個小閃光或星星（集中在畫布中央區域）
 
 【配色】背景色：${spec.bgColor}
-
+$proSection
 【輸出】單一正方形 PNG，背景完全不透明。
 風格：${style.promptSuffix}
 ''';
@@ -278,7 +292,7 @@ class StickerGenerationService {
 - 嚴禁角色的任何部位（頭頂、耳朵、手臂、腳等）被畫布邊緣截斷
 - 畫面內禁止出現任何文字或英文字母
 - 角色周圍點綴 3–5 個小閃光或星星（集中在角色周邊，不接觸背景邊緣）
-
+$proSection
 【輸出】單一正方形 PNG，背景為純平塗 #FFFFFF，無任何光影處理。
 風格：${style.promptSuffix}
 ''';
@@ -295,12 +309,29 @@ class StickerGenerationService {
 - 畫面內禁止出現任何文字或英文字母
 - 背景中點綴 3–5 個小閃光或星星
 - 禁止出現任何白色邊框或白色描邊
-
+$proSection
 【輸出】單一正方形 PNG，無白色背景。
 風格：${style.promptSuffix}
 ''';
       }
     }
+  }
+
+  /// Pro 自訂描述注入段落，空字串則回傳空字串（不影響非 Pro 流程）。
+  String _buildProSection(String? customStyleDesc, String? customEmotionDesc) {
+    final hints = <String>[];
+    if (customStyleDesc != null && customStyleDesc.trim().isNotEmpty) {
+      hints.add(
+        '🎨 視覺風格（最高優先，取代預設風格）：「${customStyleDesc.trim()}」',
+      );
+    }
+    if (customEmotionDesc != null && customEmotionDesc.trim().isNotEmpty) {
+      hints.add(
+        '🎭 情緒氛圍（最高優先，貫穿整張貼圖）：「${customEmotionDesc.trim()}」',
+      );
+    }
+    if (hints.isEmpty) return '';
+    return '\n【✨ Pro 使用者指定（最高優先級，務必遵循）】\n${hints.join("\n")}\n';
   }
 
   /// 基礎設施層拒絕的特徵：錯誤碼 unauthenticated，且訊息不含 function 層自訂文字。

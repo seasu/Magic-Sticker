@@ -261,6 +261,8 @@ class _EditorFamilyNotifier
         index: index,
         styleIndex: styleIdx,
         shape: state.stickerShape,
+        customStyleDesc: _customStyleDesc,
+        customEmotionDesc: _customEmotionDesc,
       );
 
       // 更新 credit（Cloud Function 回傳剩餘點數）
