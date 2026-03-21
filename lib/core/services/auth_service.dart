@@ -305,33 +305,6 @@ class AuthService {
     return AuthResult.success;
   }
 
-  /// 確保 Firestore 有該用戶文件；首次建立時分配點數
-  static Future<void> _ensureUserDoc(String uid, {required bool isGuest}) async {
-    final ref = _userDoc(uid);
-    bool created = false;
-    final credits = isGuest ? kGuestInitialCredits : kNewAccountCredits;
-    await _db.runTransaction((tx) async {
-      final doc = await tx.get(ref);
-      if (doc.exists) return; // 已存在，不覆蓋
-      created = true;
-      tx.set(ref, {
-        'credits': credits,
-        'isAnonymous': isGuest,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    });
-    if (created) {
-      FirebaseService.log(
-        'AuthService: user doc created uid=$uid isGuest=$isGuest',
-      );
-      await _writeHistoryEntry(uid,
-          type: 'earned',
-          amount: credits,
-          reason: CreditHistoryReason.newAccount);
-    }
-  }
-
   /// 訪客升級：標記為非匿名，補發登入獎勵點數
   /// 回傳 true = 本次實際升級並給點；false = 已升級過（不重複給）
   static Future<bool> _promoteUser(String uid, {required int previousCredits}) async {
