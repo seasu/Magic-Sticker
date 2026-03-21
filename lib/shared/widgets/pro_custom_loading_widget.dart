@@ -7,7 +7,7 @@ import 'cat_loading_widget.dart';
 const _kProTitle    = Color(0xFF7B5215); // 深暖棕主標
 const _kProCardBg   = Color(0xFFC9A84C); // 香檳金邊框 / 強調色
 const _kProCardText = Color(0xFF7B5215); // 卡片文字
-const _kProSubtitle = Color(0xFFFF5864); // 底部小字（品牌色橋接）
+const _kProSubtitle = Color(0xFFA07828); // 底部小字（暖金棕，弱化）
 
 /// 全畫面 Loading 動畫：Pro 客製情緒 / 全客製模式專用
 ///
