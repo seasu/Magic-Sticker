@@ -271,21 +271,23 @@ class _ProUnlockSheetState extends ConsumerState<ProUnlockSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 4),
 
           // ── 還原購買 ──
-          GestureDetector(
-            onTap: _loading ? null : _onRestorePressed,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 6),
-              child: Text(
-                '已購買？點此還原',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.black38,
-                  decoration: TextDecoration.underline,
-                  decorationColor: Colors.black26,
-                ),
+          TextButton(
+            onPressed: _loading ? null : _onRestorePressed,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              '已購買？點此還原',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.black38,
+                decoration: TextDecoration.underline,
+                decorationColor: Colors.black26,
               ),
             ),
           ),
