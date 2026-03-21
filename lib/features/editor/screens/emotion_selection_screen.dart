@@ -52,10 +52,15 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
       vsync: this,
       duration: const Duration(milliseconds: 500),
     )..forward();
+    // 讓自訂情緒輸入也能驅動底部列重建
+    _proEmotionCtrl.addListener(_onEmotionChanged);
   }
+
+  void _onEmotionChanged() => setState(() {});
 
   @override
   void dispose() {
+    _proEmotionCtrl.removeListener(_onEmotionChanged);
     _entryCtrl.dispose();
     _proEmotionCtrl.dispose();
     super.dispose();
@@ -107,7 +112,9 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
   @override
   Widget build(BuildContext context) {
     final count = _selected.length;
-    final canConfirm = count >= _kMin && count <= _kMax;
+    final hasCustomEmotion = _proEmotionCtrl.text.trim().isNotEmpty;
+    // 有自訂情緒輸入時也視為可確認（即使卡片數在邊界外，但實際上 min=1 保證 count≥1）
+    final canConfirm = (count >= _kMin && count <= _kMax) || hasCustomEmotion;
     final bottom = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
@@ -130,7 +137,7 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
                 child: _buildGrid(),
               ),
             ),
-            _buildBottomBar(count, canConfirm, bottom),
+            _buildBottomBar(count, canConfirm, hasCustomEmotion, bottom),
           ],
         ),
       ),
@@ -254,7 +261,13 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
 
   // ── 底部確認列 ────────────────────────────────────────────────────────────────
 
-  Widget _buildBottomBar(int count, bool canConfirm, double bottomPadding) {
+  Widget _buildBottomBar(
+      int count, bool canConfirm, bool hasCustomEmotion, double bottomPadding) {
+    // 按鈕文字：有自訂情緒時加「+ 客製」提示
+    final btnLabel = hasCustomEmotion
+        ? '開始製作 $count 款 + 客製情緒 ✨'
+        : '開始製作 $count 款貼圖 ✨';
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.background,
@@ -284,7 +297,7 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
                       ),
                     ),
                     TextSpan(
-                      text: ' 種情緒',
+                      text: hasCustomEmotion ? ' 種 + 客製' : ' 種情緒',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -333,10 +346,10 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
                         : null,
                   ),
                   child: Text(
-                    '開始製作 $count 款貼圖 ✨',
+                    btnLabel,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: hasCustomEmotion ? 13 : 16,
                       fontWeight: FontWeight.w700,
                       color: canConfirm ? Colors.white : Colors.black38,
                     ),

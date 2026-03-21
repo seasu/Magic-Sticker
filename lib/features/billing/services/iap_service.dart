@@ -207,10 +207,33 @@ class IAPService {
 
     if (purchase.status == PurchaseStatus.error) {
       final msg = purchase.error?.message ?? 'unknown error';
-      FirebaseService.log('IAPService: purchase error: $msg');
+      final code = purchase.error?.code ?? '';
+      FirebaseService.log('IAPService: purchase error: $msg code=$code');
+
       if (purchase.productID == kProCustomInputProductId) {
-        _proPendingCompleter?.complete(ProUnlockResult.error);
-        _proPendingCompleter = null;
+        // itemAlreadyOwned（BillingResponseCode=7）：使用者已在 Google Play 購買過，
+        // 靜默觸發還原讓 purchaseStream 以 restored 狀態重新送達 → _fulfillPro。
+        // _proPendingCompleter 保持 pending，15 秒無回應則 fallback 為 verifyFailed。
+        if (_isItemAlreadyOwned(code, msg)) {
+          FirebaseService.log(
+            'IAPService: itemAlreadyOwned — triggering silent restore',
+          );
+          unawaited(restorePurchases());
+          final pendingCompleter = _proPendingCompleter;
+          if (pendingCompleter != null) {
+            Future.delayed(const Duration(seconds: 15), () {
+              if (!pendingCompleter.isCompleted) {
+                pendingCompleter.complete(ProUnlockResult.verifyFailed);
+                if (_proPendingCompleter == pendingCompleter) {
+                  _proPendingCompleter = null;
+                }
+              }
+            });
+          }
+        } else {
+          _proPendingCompleter?.complete(ProUnlockResult.error);
+          _proPendingCompleter = null;
+        }
       } else {
         _resultController.add(IapPurchaseResult.failure(msg));
       }
@@ -334,6 +357,17 @@ class IAPService {
     } finally {
       _proPendingCompleter = null;
     }
+  }
+
+  // ── 工具 ─────────────────────────────────────────────────────────────────────
+
+  /// Google Play BillingResponseCode.ITEM_ALREADY_OWNED = 7
+  bool _isItemAlreadyOwned(String code, String message) {
+    if (code == '7') return true;
+    final lower = message.toLowerCase();
+    return lower.contains('already_owned') ||
+        lower.contains('already owned') ||
+        lower.contains('itemalreadyowned');
   }
 
   // ── 釋放 ────────────────────────────────────────────────────────────────────
