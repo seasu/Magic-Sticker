@@ -69,6 +69,12 @@ class StickerCanvas extends StatefulWidget {
   /// 空字串時退而使用純風格示意圖（preview_{style}.png）
   final String categoryId;
 
+  /// Pro 客製風格描述（非 null 時 fallback 改顯示黃金佔位，不嘗試載入 asset）
+  final String? customStyleDesc;
+
+  /// Pro 客製情緒描述（非 null 時 fallback 改顯示黃金佔位）
+  final String? customEmotionDesc;
+
   /// 背景填色（null = 透明）
   final Color? backgroundColor;
 
@@ -116,6 +122,8 @@ class StickerCanvas extends StatefulWidget {
     this.textAngle = 0.0,
     this.styleIndex = 0,
     this.categoryId = '',
+    this.customStyleDesc,
+    this.customEmotionDesc,
     this.backgroundColor,
     this.enableTextGestures = false,
     this.interactive = true,
@@ -541,6 +549,11 @@ class _StickerCanvasState extends State<StickerCanvas> {
   }
 
   Widget _buildFallback() {
+    // 有客製描述時改用黃金佔位，不嘗試載入預設 asset
+    if (widget.customStyleDesc != null || widget.customEmotionDesc != null) {
+      return _buildCustomPlaceholder();
+    }
+
     final style = StickerStyle.values[
         widget.styleIndex.clamp(0, StickerStyle.values.length - 1)];
     // 依 style × emotion 組合選擇示意圖；categoryId 為空時退回 greeting
@@ -603,6 +616,101 @@ class _StickerCanvasState extends State<StickerCanvas> {
               ),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  /// 客製模式佔位圖：黃金漸層 + 描述文字
+  Widget _buildCustomPlaceholder() {
+    final desc = widget.customEmotionDesc ?? widget.customStyleDesc!;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.maxWidth;
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFFFFBE7), Color(0xFFFFF3CD)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 文字示意（AI 已生成文案時顯示）
+              if (widget.text.isNotEmpty)
+                Align(
+                  alignment: Alignment(_textXAlign, _textYAlign),
+                  child: Transform.rotate(
+                    angle: _textAngle,
+                    child: _TextSelectionWidget(
+                      text: widget.text,
+                      config: widget.config,
+                      fontIndex: widget.fontIndex,
+                      fontSizeScale: _textSizeScale,
+                      isSelected: false,
+                    ),
+                  ),
+                ),
+              // 尚未生成文案時：中央描述
+              if (widget.text.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('✨', style: TextStyle(fontSize: 44)),
+                        const SizedBox(height: 10),
+                        Text(
+                          desc,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: size * 0.09,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF8B6914),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'AI 生成後將顯示於此',
+                          style: TextStyle(
+                            fontSize: size * 0.055,
+                            color: const Color(0xFFB8860B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              // 客製中標籤（取代「示意圖」）
+              Positioned(
+                top: size * 0.04,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.80),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '客製中',
+                      style: TextStyle(
+                        color: const Color(0xFF8B6914),
+                        fontSize: size * 0.07,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );

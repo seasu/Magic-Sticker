@@ -27,6 +27,7 @@ import '../widgets/sticker_canvas_frame.dart';
 import '../widgets/sticker_edit_sheet.dart';
 import '../widgets/sticker_swipe_card.dart';
 import '../../../shared/widgets/cat_loading_widget.dart';
+import '../../../shared/widgets/pro_custom_loading_widget.dart';
 
 // ── 顏色常數 ──────────────────────────────────────────────────────────────────
 
@@ -373,6 +374,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final totalCount = state.stickerTexts.length;
     final isDone = isReady && _currentIndex >= totalCount;
 
+    // 客製模式旗標
+    final isCustomEmotionMode = widget.customEmotionDesc != null;
+    final isDirectGenerateMode =
+        widget.customStyleDesc != null && widget.customEmotionDesc != null;
+    // 全客製確認頁：state=ready，圖片仍是 sentinel（使用者尚未按確認）
+    final isDirectConfirmPending = isDirectGenerateMode &&
+        isReady &&
+        state.generatedImages.isNotEmpty &&
+        isNotGeneratedSentinel(state.generatedImages[0]);
+
     // regenerateTexts 完成時，提示使用者新概念就緒
     ref.listen<EditorState>(editorStateProvider(widget.imagePath), (prev, next) {
       if (prev?.status == EditorStatus.generatingTexts &&
@@ -422,23 +433,41 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 _TopBar(onBack: () => context.go('/')),
 
                 if (isLoading)
-                  const Expanded(child: CatLoadingWidget(
-                    title: 'AI 重新分析中',
-                    subtitle: '✦ 免費分析 · 重新產生貼圖概念，約 5~10 秒',
-                  ))
+                  Expanded(
+                    child: isCustomEmotionMode
+                        ? ProCustomLoadingWidget(
+                            emotionDesc: widget.customEmotionDesc,
+                            styleDesc: widget.customStyleDesc,
+                          )
+                        : const CatLoadingWidget(
+                            title: 'AI 重新分析中',
+                            subtitle: '✦ 免費分析 · 重新產生貼圖概念，約 5~10 秒',
+                          ),
+                  )
                 else if (state.errorMessage != null)
                   Expanded(child: _ErrorView(message: state.errorMessage!))
+                else if (isDirectConfirmPending)
+                  // 全客製確認頁
+                  Expanded(
+                    child: _DirectGenerateConfirmCard(
+                      styleDesc: widget.customStyleDesc!,
+                      emotionDesc: widget.customEmotionDesc!,
+                      onConfirm: () => _generateImage(0),
+                      onBack: () => context.pop(),
+                    ),
+                  )
                 else if (isDone)
                   Expanded(
                     child: _CompletionView(
                       keptCount: _keptCount,
-                      onRegenerate: _regenerate,
+                      onRegenerate: isCustomEmotionMode ? null : _regenerate,
                       onFinish: () => context.go('/'),
                     ),
                   )
                 else if (isReady) ...[
-                  // ── 情緒標頭（顯示在卡片上方） ─────────────────────
-                  if (_currentIndex < state.selectedCategoryIds.length)
+                  // ── 情緒標頭（顯示在卡片上方，客製情緒模式跳過） ────
+                  if (!isCustomEmotionMode &&
+                      _currentIndex < state.selectedCategoryIds.length)
                     _EmotionHeader(
                       categoryId: (state.categoryIds.isNotEmpty &&
                               _currentIndex < state.categoryIds.length &&
@@ -467,6 +496,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                         onEdit: _openEditSheet,
                         onRetry: () => _generateImage(_currentIndex),
                         stickerShape: state.stickerShape,
+                        customStyleDesc: widget.customStyleDesc,
+                        customEmotionDesc: widget.customEmotionDesc,
                       ),
                     ),
                   ),
@@ -480,13 +511,19 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               ],
             ),
 
-            // ── 圖片生成中：全畫面貓咪遮罩（鎖定操作）────────────────────
+            // ── 圖片生成中：全畫面遮罩（鎖定操作）──────────────────────
             if (isCurrentImageLoading)
               AbsorbPointer(
-                child: CatLoadingWidget(
-                  title: 'AI 努力製作中',
-                  subtitle: '✦ 第 ${_currentIndex + 1} 張 · 已扣 1 點，約 20~40 秒',
-                ),
+                child: isCustomEmotionMode
+                    ? ProCustomLoadingWidget(
+                        emotionDesc: widget.customEmotionDesc,
+                        styleDesc: widget.customStyleDesc,
+                      )
+                    : CatLoadingWidget(
+                        title: 'AI 努力製作中',
+                        subtitle:
+                            '✦ 第 ${_currentIndex + 1} 張 · 已扣 1 點，約 20~40 秒',
+                      ),
               ),
           ],
         ),
@@ -625,6 +662,8 @@ class _CardStack extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback? onRetry;
   final StickerShape stickerShape;
+  final String? customStyleDesc;
+  final String? customEmotionDesc;
 
   const _CardStack({
     required this.state,
@@ -636,6 +675,8 @@ class _CardStack extends StatelessWidget {
     required this.onEdit,
     this.onRetry,
     this.stickerShape = StickerShape.circle,
+    this.customStyleDesc,
+    this.customEmotionDesc,
   });
 
   @override
@@ -676,6 +717,8 @@ class _CardStack extends StatelessWidget {
                 styleIndex: state.styleIndices[currentIndex],
                 categoryId: state.categoryIds[currentIndex],
                 backgroundColor: kBgColors[state.bgColorIndices[currentIndex]],
+                customStyleDesc: customStyleDesc,
+                customEmotionDesc: customEmotionDesc,
               ),
 
               // ── 生成中 badge ──────────────────────────────────────────
@@ -722,6 +765,8 @@ class _StickerCard extends StatelessWidget {
   final int styleIndex;
   final String categoryId;
   final Color? backgroundColor;
+  final String? customStyleDesc;
+  final String? customEmotionDesc;
 
   const _StickerCard({
     this.repaintKey,
@@ -742,6 +787,8 @@ class _StickerCard extends StatelessWidget {
     this.styleIndex = 0,
     this.categoryId = '',
     this.backgroundColor,
+    this.customStyleDesc,
+    this.customEmotionDesc,
   });
 
   @override
@@ -764,6 +811,8 @@ class _StickerCard extends StatelessWidget {
       styleIndex: styleIndex,
       categoryId: categoryId,
       backgroundColor: backgroundColor,
+      customStyleDesc: customStyleDesc,
+      customEmotionDesc: customEmotionDesc,
     );
 
     // Chroma Key 模式：RepaintBoundary **外層**疊加 checkerboard，
@@ -1094,12 +1143,12 @@ class _SaveButton extends StatelessWidget {
 
 class _CompletionView extends StatefulWidget {
   final int keptCount;
-  final VoidCallback onRegenerate;
+  final VoidCallback? onRegenerate; // null = 客製情緒模式，隱藏重新生成
   final VoidCallback onFinish;
 
   const _CompletionView({
     required this.keptCount,
-    required this.onRegenerate,
+    this.onRegenerate,
     required this.onFinish,
   });
 
@@ -1204,43 +1253,45 @@ class _CompletionViewState extends State<_CompletionView>
               ),
             ],
             const SizedBox(height: 40),
-            GestureDetector(
-              onTap: widget.onRegenerate,
-              child: Container(
-                width: double.infinity,
-                height: 56,
-                decoration: BoxDecoration(
-                  gradient: AppColors.gradient,
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFF5864).withValues(alpha: 0.30),
-                      blurRadius: 22,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.refresh_rounded,
-                          color: Colors.white, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        '重新生成',
-                        style: GoogleFonts.notoSansTc(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
+            if (widget.onRegenerate != null) ...[
+              GestureDetector(
+                onTap: widget.onRegenerate,
+                child: Container(
+                  width: double.infinity,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.gradient,
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFF5864).withValues(alpha: 0.30),
+                        blurRadius: 22,
+                        offset: const Offset(0, 8),
                       ),
                     ],
                   ),
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.refresh_rounded,
+                            color: Colors.white, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          '重新生成',
+                          style: GoogleFonts.notoSansTc(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
+            ],
             TextButton(
               onPressed: widget.onFinish,
               child: Text(
@@ -1260,6 +1311,178 @@ class _CompletionViewState extends State<_CompletionView>
 }
 
 // _FunLoadingView 已由 CatLoadingWidget（lib/shared/widgets/cat_loading_widget.dart）取代。
+
+// ─── 全客製確認頁 ─────────────────────────────────────────────────────────────
+
+class _DirectGenerateConfirmCard extends StatelessWidget {
+  final String styleDesc;
+  final String emotionDesc;
+  final VoidCallback onConfirm;
+  final VoidCallback onBack;
+
+  const _DirectGenerateConfirmCard({
+    required this.styleDesc,
+    required this.emotionDesc,
+    required this.onConfirm,
+    required this.onBack,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Container(
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFFBE7), Color(0xFFFFF3CD)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: const Color(0xFFFFD700), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFFD700).withValues(alpha: 0.25),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('✨', style: TextStyle(fontSize: 48)),
+              const SizedBox(height: 16),
+              const Text(
+                '即將生成您的專屬貼圖',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF8B6914),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // 風格
+              _DescRow(icon: '🎨', label: '風格', value: styleDesc),
+              const SizedBox(height: 10),
+              // 情緒
+              _DescRow(icon: '✦', label: '情緒', value: emotionDesc),
+              const SizedBox(height: 20),
+              // 費用提示
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.20),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  '將消耗 1 點數',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF8B6914),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+              // 確認按鈕
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  onConfirm();
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.circular(32),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFFD700).withValues(alpha: 0.45),
+                        blurRadius: 16,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    '確認，開始生成 →',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF8B6914),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // 返回
+              TextButton(
+                onPressed: onBack,
+                child: const Text(
+                  '← 返回',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFFB8860B),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DescRow extends StatelessWidget {
+  final String icon;
+  final String label;
+  final String value;
+
+  const _DescRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(icon, style: const TextStyle(fontSize: 18)),
+        const SizedBox(width: 8),
+        Text(
+          '$label：',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFFB8860B),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF8B6914),
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 // ─── 錯誤畫面 ─────────────────────────────────────────────────────────────────
 
