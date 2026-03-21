@@ -484,6 +484,22 @@ export const verifyProPurchase = onCall(
       throw new HttpsError("invalid-argument", "purchaseToken is required.");
     }
 
+    // ── 冪等性快捷路徑：若同一 purchaseToken 已驗證，直接回傳成功 ────────────
+    // 解決 PurchaseStatus.restored 重複觸發導致的無限重試問題
+    const existingPurchase = await db
+      .collection("users")
+      .doc(uid)
+      .collection("purchases")
+      .doc(kProProductId)
+      .get();
+    if (existingPurchase.exists) {
+      const d = existingPurchase.data();
+      if (d?.verified === true && d?.purchase_token === purchaseToken) {
+        log("verifyProPurchase: already verified in Firestore, fast-path return", {uid});
+        return {success: true};
+      }
+    }
+
     // ── 呼叫 Google Play Developer API ──────────────────────────────────────
     let accessToken: string;
     try {
@@ -500,10 +516,16 @@ export const verifyProPurchase = onCall(
       `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
       `${kPackageName}/purchases/products/${kProProductId}/tokens/${purchaseToken}`;
 
-    const verifyRes = await fetch(verifyUrl, {
-      headers: {Authorization: `Bearer ${accessToken}`},
-      signal: AbortSignal.timeout(15000),
-    });
+    let verifyRes: Response;
+    try {
+      verifyRes = await fetch(verifyUrl, {
+        headers: {Authorization: `Bearer ${accessToken}`},
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch (e) {
+      warn("verifyProPurchase: Play API fetch failed", {error: String(e)});
+      throw new HttpsError("unavailable", "Unable to reach Play API. Please try again.");
+    }
 
     if (!verifyRes.ok) {
       const errText = await verifyRes.text();
@@ -629,10 +651,16 @@ export const fulfillCreditPurchase = onCall(
       `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
       `${kPackageName}/purchases/products/${productId}/tokens/${purchaseToken}`;
 
-    const verifyRes = await fetch(verifyUrl, {
-      headers: {Authorization: `Bearer ${accessToken}`},
-      signal: AbortSignal.timeout(15000),
-    });
+    let verifyRes: Response;
+    try {
+      verifyRes = await fetch(verifyUrl, {
+        headers: {Authorization: `Bearer ${accessToken}`},
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch (e) {
+      warn("fulfillCreditPurchase: Play API fetch failed", {error: String(e)});
+      throw new HttpsError("unavailable", "Unable to reach Play API. Please try again.");
+    }
 
     if (!verifyRes.ok) {
       const errText = await verifyRes.text();
