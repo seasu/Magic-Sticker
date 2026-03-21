@@ -311,16 +311,20 @@ class IAPService {
         'orderId': purchase.purchaseID ?? '',
       });
       FirebaseService.log('IAPService: Pro unlock verified OK');
+      // completePurchase 只在 CF 確認成功後才呼叫。
+      // 若 CF 失敗（網路逾時、Play API 錯誤等），保留 purchase pending 狀態，
+      // Google Play 下次啟動 App 時會重新透過 purchaseStream 送達，可再次觸發驗證。
+      if (purchase.pendingCompletePurchase) {
+        await _iap.completePurchase(purchase);
+      }
       _proPendingCompleter?.complete(ProUnlockResult.success);
     } catch (e, stack) {
       FirebaseService.log('IAPService: verifyProPurchase failed: $e');
       await FirebaseService.recordError(e, stack, reason: 'iap_pro_verify_failed');
+      // 不呼叫 completePurchase，讓 Google Play 在下次啟動時重試
       _proPendingCompleter?.complete(ProUnlockResult.verifyFailed);
     } finally {
       _proPendingCompleter = null;
-      if (purchase.pendingCompletePurchase) {
-        await _iap.completePurchase(purchase);
-      }
     }
   }
 
