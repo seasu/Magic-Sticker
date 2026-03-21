@@ -27,7 +27,9 @@ import '../widgets/sticker_canvas_frame.dart';
 import '../widgets/sticker_edit_sheet.dart';
 import '../widgets/sticker_swipe_card.dart';
 import '../../../shared/widgets/cat_loading_widget.dart';
+import '../../../shared/widgets/original_compare_overlay.dart';
 import '../../../shared/widgets/pro_custom_loading_widget.dart';
+import '../../../features/sticker_history/services/sticker_archive_service.dart';
 
 // ── 顏色常數 ──────────────────────────────────────────────────────────────────
 
@@ -160,6 +162,24 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       await tmpFile.writeAsBytes(bytes);
       await Gal.putImage(tmpFile.path);
       await tmpFile.delete();
+
+      // 存入歷史紀錄（用 RepaintBoundary 截圖，確保與相簿版本一致）
+      unawaited(
+        StickerArchiveService.instance
+            .archive(
+              pngBytes: bytes,
+              stickerText:
+                  ref.read(editorStateProvider(widget.imagePath)).stickerTexts[_currentIndex],
+              styleIndex: widget.styleIndex,
+              shape: widget.stickerShape,
+              originalImagePath: widget.imagePath,
+            )
+            .catchError((Object e, StackTrace s) {
+              FirebaseService.recordError(e, s, reason: 'sticker_archive_failed');
+              return null;
+            }),
+      );
+
       await FirebaseAnalytics.instance.logEvent(name: 'sticker_generated');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -510,6 +530,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                         stickerShape: state.stickerShape,
                         customStyleDesc: widget.customStyleDesc,
                         customEmotionDesc: widget.customEmotionDesc,
+                        imagePath: widget.imagePath,
                       ),
                     ),
                   ),
@@ -680,6 +701,7 @@ class _CardStack extends StatelessWidget {
   final StickerShape stickerShape;
   final String? customStyleDesc;
   final String? customEmotionDesc;
+  final String imagePath;
 
   const _CardStack({
     required this.state,
@@ -689,6 +711,7 @@ class _CardStack extends StatelessWidget {
     required this.onAccepted,
     required this.onRejected,
     required this.onEdit,
+    required this.imagePath,
     this.onRetry,
     this.stickerShape = StickerShape.circle,
     this.customStyleDesc,
@@ -750,6 +773,16 @@ class _CardStack extends StatelessWidget {
                   child: _FailedOverlay(
                     reason: state.imageErrors[currentIndex],
                     onRetry: onRetry,
+                  ),
+                ),
+
+              // ── 比對原圖 Overlay ──────────────────────────────────────
+              if (isGenerated)
+                Positioned.fill(
+                  child: OriginalCompareOverlay(
+                    originalImagePath: imagePath,
+                    stickerBytes: state.generatedImages[currentIndex],
+                    shape: stickerShape,
                   ),
                 ),
             ],
@@ -1414,30 +1447,32 @@ class _DirectGenerateConfirmCardState extends State<_DirectGenerateConfirmCard>
                 ),
               ),
               const SizedBox(height: 20),
-              // 風格
-              _DescRow(icon: '🎨', label: '風格', value: widget.styleDesc),
-              const SizedBox(height: 10),
-              // 情緒
-              _DescRow(icon: '✦', label: '情緒', value: widget.emotionDesc),
-              const SizedBox(height: 20),
-              // 費用提示
+              // 風格 & 情緒
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFC9A84C).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0xFFC9A84C).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Text(
-                  '將消耗 1 點數',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF7B5215),
-                  ),
+                child: Column(
+                  children: [
+                    _DescRow(icon: '🎨', label: '風格', value: widget.styleDesc),
+                    const SizedBox(height: 10),
+                    _DescRow(icon: '✨', label: '情緒', value: widget.emotionDesc),
+                  ],
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
+              // 費用提示
+              const Text(
+                '將消耗 1 點數',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFFA07828),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
               // 確認按鈕
               GestureDetector(
                 onTap: () {
@@ -1463,7 +1498,7 @@ class _DirectGenerateConfirmCardState extends State<_DirectGenerateConfirmCard>
                     ],
                   ),
                   child: const Text(
-                    '確認，開始生成 →',
+                    '生成貼圖',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,

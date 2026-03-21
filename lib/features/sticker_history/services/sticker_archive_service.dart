@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:gal/gal.dart';
+import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,19 +19,38 @@ class StickerArchiveService {
 
   // ── Public API ──────────────────────────────────────────────────────────────
 
-  /// 將 AI 生成的 PNG bytes 存入本地檔案系統，並更新 SharedPreferences 元資料。
-  /// 靜默執行，呼叫端應以 fire-and-forget 方式使用。
+  /// 將貼圖 PNG bytes 存入本地，並更新 SharedPreferences 元資料。
+  /// [originalImagePath] 若提供，會額外儲存 300px 縮圖用於比對原圖功能。
   Future<StickerRecord?> archive({
     required List<int> pngBytes,
     required String stickerText,
     required int styleIndex,
     required StickerShape shape,
+    String? originalImagePath,
   }) async {
     final dir = await _archiveDir();
     final ts = DateTime.now().millisecondsSinceEpoch;
     final id = '${ts}_$styleIndex';
     final file = File('${dir.path}/$id.png');
     await file.writeAsBytes(pngBytes);
+
+    // 存原圖縮圖（300px JPEG，供比對原圖功能使用）
+    String? thumbnailPath;
+    if (originalImagePath != null) {
+      try {
+        final origBytes = await File(originalImagePath).readAsBytes();
+        final decoded = img.decodeImage(origBytes);
+        if (decoded != null) {
+          final resized = img.copyResize(decoded, width: 300);
+          final jpegBytes = img.encodeJpg(resized, quality: 75);
+          final thumbFile = File('${dir.path}/${id}_orig.jpg');
+          await thumbFile.writeAsBytes(jpegBytes);
+          thumbnailPath = thumbFile.path;
+        }
+      } catch (_) {
+        // 縮圖失敗不影響主流程
+      }
+    }
 
     final record = StickerRecord(
       id: id,
@@ -39,6 +59,7 @@ class StickerArchiveService {
       stickerText: stickerText,
       styleIndex: styleIndex,
       shapeStr: shape.name,
+      originalThumbnailPath: thumbnailPath,
     );
 
     final prefs = await SharedPreferences.getInstance();
@@ -49,8 +70,7 @@ class StickerArchiveService {
     if (existing.length > _maxRecords) {
       final toRemove = existing.sublist(_maxRecords);
       for (final old in toRemove) {
-        final oldFile = File(old.filePath);
-        if (oldFile.existsSync()) await oldFile.delete();
+        _deleteRecordFiles(old);
       }
       existing.removeRange(_maxRecords, existing.length);
     }
@@ -75,14 +95,13 @@ class StickerArchiveService {
     return valid;
   }
 
-  /// 刪除單筆紀錄（刪除本地 PNG 檔 + 更新 metadata）。
+  /// 刪除單筆紀錄（刪除本地 PNG 檔、縮圖 + 更新 metadata）。
   Future<void> delete(String id) async {
     final prefs = await SharedPreferences.getInstance();
     final records = _decodeList(prefs.getStringList(_prefKey) ?? []);
     final target = records.where((r) => r.id == id).toList();
     for (final r in target) {
-      final file = File(r.filePath);
-      if (file.existsSync()) await file.delete();
+      _deleteRecordFiles(r);
     }
     records.removeWhere((r) => r.id == id);
     await prefs.setStringList(_prefKey, _encodeList(records));
@@ -94,6 +113,15 @@ class StickerArchiveService {
   }
 
   // ── Private ─────────────────────────────────────────────────────────────────
+
+  void _deleteRecordFiles(StickerRecord record) {
+    final stickerFile = File(record.filePath);
+    if (stickerFile.existsSync()) stickerFile.deleteSync();
+    if (record.originalThumbnailPath != null) {
+      final thumbFile = File(record.originalThumbnailPath!);
+      if (thumbFile.existsSync()) thumbFile.deleteSync();
+    }
+  }
 
   Future<Directory> _archiveDir() async {
     final base = await getApplicationDocumentsDirectory();

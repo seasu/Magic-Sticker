@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gal/gal.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -77,6 +78,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: source, imageQuality: 95);
     if (picked == null || !context.mounted) return;
+
+    // 拍照時提示是否存到相簿，方便日後重複使用
+    if (source == ImageSource.camera) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('要把這張照片存到相簿嗎？下次可直接重複使用'),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: '存',
+            onPressed: () async {
+              try {
+                if (!await Gal.hasAccess()) await Gal.requestAccess();
+                await Gal.putImage(picked.path);
+              } catch (_) {}
+            },
+          ),
+        ),
+      );
+    }
 
     // 進入步驟 2：選擇風格
     context.push(

@@ -5,6 +5,7 @@ class StickerRecord {
   final String stickerText;
   final int styleIndex;
   final String shapeStr; // 'circle' or 'square'
+  final String? originalThumbnailPath; // 原圖縮圖路徑（新紀錄才有，舊紀錄為 null）
 
   const StickerRecord({
     required this.id,
@@ -13,6 +14,7 @@ class StickerRecord {
     required this.stickerText,
     required this.styleIndex,
     required this.shapeStr,
+    this.originalThumbnailPath,
   });
 
   factory StickerRecord.fromJson(Map<String, dynamic> json) => StickerRecord(
@@ -22,6 +24,7 @@ class StickerRecord {
         stickerText: json['stickerText'] as String,
         styleIndex: json['styleIndex'] as int,
         shapeStr: json['shapeStr'] as String,
+        originalThumbnailPath: json['originalThumbnailPath'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -31,5 +34,7 @@ class StickerRecord {
         'stickerText': stickerText,
         'styleIndex': styleIndex,
         'shapeStr': shapeStr,
+        if (originalThumbnailPath != null)
+          'originalThumbnailPath': originalThumbnailPath,
       };
 }
