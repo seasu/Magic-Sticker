@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/services/firebase_service.dart';
 import '../../core/theme/app_colors.dart';
+import '../../features/auth/providers/auth_provider.dart';
+import '../../features/auth/widgets/login_bottom_sheet.dart';
 import '../../features/billing/providers/pro_purchase_provider.dart';
 import '../../features/billing/services/iap_service.dart';
 
@@ -77,6 +79,13 @@ class _ProUnlockSheetState extends ConsumerState<ProUnlockSheet> {
   }
 
   Future<void> _onRestorePressed() async {
+    // 匿名用戶無法還原購買（沒有帳號無法對應到歷史交易），先引導登入
+    final isGuest = ref.read(isGuestProvider);
+    if (isGuest) {
+      final loggedIn = await LoginBottomSheet.show(context);
+      if (loggedIn != true || !mounted) return;
+    }
+
     setState(() {
       _loading = true;
       _errorMsg = null;
