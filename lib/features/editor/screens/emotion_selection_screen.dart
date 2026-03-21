@@ -52,10 +52,15 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
       vsync: this,
       duration: const Duration(milliseconds: 500),
     )..forward();
+    // 讓自訂情緒輸入也能驅動底部列重建
+    _proEmotionCtrl.addListener(_onEmotionChanged);
   }
+
+  void _onEmotionChanged() => setState(() {});
 
   @override
   void dispose() {
+    _proEmotionCtrl.removeListener(_onEmotionChanged);
     _entryCtrl.dispose();
     _proEmotionCtrl.dispose();
     super.dispose();
@@ -91,15 +96,19 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
   void _confirm() {
     HapticFeedback.mediumImpact();
     final customEmotionDesc = _proEmotionCtrl.text.trim();
+    final hasCustomEmotion = customEmotionDesc.isNotEmpty;
     context.pushReplacement(
       '/editor',
       extra: EditorArgs(
         imagePath: widget.imagePath,
         styleIndex: widget.styleIndex,
         stickerShape: widget.stickerShape,
-        categoryIds: List<String>.from(_selected),
+        // 有客製情緒時傳預設 categoryIds（CF 要求 ≥4 個，provider 只取第 1 個 spec）
+        categoryIds: hasCustomEmotion
+            ? List<String>.from(kDefaultCategoryIds)
+            : List<String>.from(_selected),
         customStyleDesc: widget.customStyleDesc,
-        customEmotionDesc: customEmotionDesc.isNotEmpty ? customEmotionDesc : null,
+        customEmotionDesc: hasCustomEmotion ? customEmotionDesc : null,
       ),
     );
   }
@@ -107,7 +116,9 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
   @override
   Widget build(BuildContext context) {
     final count = _selected.length;
-    final canConfirm = count >= _kMin && count <= _kMax;
+    final hasCustomEmotion = _proEmotionCtrl.text.trim().isNotEmpty;
+    // 有自訂情緒輸入時也視為可確認（即使卡片數在邊界外，但實際上 min=1 保證 count≥1）
+    final canConfirm = (count >= _kMin && count <= _kMax) || hasCustomEmotion;
     final bottom = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
@@ -127,10 +138,10 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
                     child: child,
                   ),
                 ),
-                child: _buildGrid(),
+                child: _buildGrid(hasCustomEmotion),
               ),
             ),
-            _buildBottomBar(count, canConfirm, bottom),
+            _buildBottomBar(count, canConfirm, hasCustomEmotion, bottom),
           ],
         ),
       ),
@@ -196,7 +207,7 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
 
   // ── 情緒格子 ─────────────────────────────────────────────────────────────────
 
-  Widget _buildGrid() {
+  Widget _buildGrid(bool hasCustomEmotion) {
     final isPro = ref.watch(isProUnlockedProvider).valueOrNull ?? false;
 
     return CustomScrollView(
@@ -214,39 +225,47 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
                 onLockedTap: () => ProUnlockSheet.show(context),
               ),
               const SizedBox(height: 12),
-              // 分隔標籤
-              _Divider(
-                label: isPro ? '或從 24 種情緒中選（可多選）' : '從 24 種情緒中選（可多選）',
-              ),
-              const SizedBox(height: 12),
+              // 有客製情緒時：隱藏 24 張卡格，改顯示說明卡
+              if (hasCustomEmotion) ...[
+                _CustomEmotionInfoCard(desc: _proEmotionCtrl.text.trim()),
+                const SizedBox(height: 16),
+              ] else ...[
+                // 分隔標籤
+                _Divider(
+                  label: isPro ? '或從 24 種情緒中選（可多選）' : '從 24 種情緒中選（可多選）',
+                ),
+                const SizedBox(height: 12),
+              ],
             ]),
           ),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              childAspectRatio: 0.88,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-            ),
-            delegate: SliverChildBuilderDelegate(
-              (_, i) {
-                final cat = kEmotionCategories[i];
-                final isSelected = _selected.contains(cat.id);
-                final order = isSelected ? _selected.indexOf(cat.id) + 1 : null;
-                return _EmotionCard(
-                  category: cat,
-                  isSelected: isSelected,
-                  selectionOrder: order,
-                  onTap: () => _toggle(cat.id),
-                );
-              },
-              childCount: kEmotionCategories.length,
+        // 無客製情緒時才顯示 24 張情緒卡
+        if (!hasCustomEmotion)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                childAspectRatio: 0.88,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (_, i) {
+                  final cat = kEmotionCategories[i];
+                  final isSelected = _selected.contains(cat.id);
+                  final order = isSelected ? _selected.indexOf(cat.id) + 1 : null;
+                  return _EmotionCard(
+                    category: cat,
+                    isSelected: isSelected,
+                    selectionOrder: order,
+                    onTap: () => _toggle(cat.id),
+                  );
+                },
+                childCount: kEmotionCategories.length,
+              ),
             ),
           ),
-        ),
         const SliverPadding(padding: EdgeInsets.only(bottom: 16)),
       ],
     );
@@ -254,7 +273,12 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
 
   // ── 底部確認列 ────────────────────────────────────────────────────────────────
 
-  Widget _buildBottomBar(int count, bool canConfirm, double bottomPadding) {
+  Widget _buildBottomBar(
+      int count, bool canConfirm, bool hasCustomEmotion, double bottomPadding) {
+    final btnLabel = hasCustomEmotion
+        ? '確認描述，開始 AI →'
+        : '開始製作 $count 款貼圖 ✨';
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.background,
@@ -265,49 +289,69 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
       padding: EdgeInsets.fromLTRB(20, 14, 20, 14 + bottomPadding),
       child: Row(
         children: [
-          // 已選數量 + 重設預設
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RichText(
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: '$count',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: canConfirm
-                            ? const Color(0xFFFF5864)
-                            : Colors.orange,
-                      ),
-                    ),
-                    TextSpan(
-                      text: ' 種情緒',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black54,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: _resetToDefault,
-                child: const Text(
-                  '重設預設 8 種',
+          // 左側：客製情緒模式顯示標籤，否則顯示數量 + 重設
+          if (hasCustomEmotion)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '客製情緒',
                   style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.black38,
-                    decoration: TextDecoration.underline,
-                    decorationColor: Colors.black26,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFFFD700),
                   ),
                 ),
-              ),
-            ],
-          ),
+                const Text(
+                  'AI 將專為此情緒生成 1 款',
+                  style: TextStyle(fontSize: 11, color: Colors.black38),
+                ),
+              ],
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '$count',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: canConfirm
+                              ? const Color(0xFFFF5864)
+                              : Colors.orange,
+                        ),
+                      ),
+                      const TextSpan(
+                        text: ' 種情緒',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _resetToDefault,
+                  child: const Text(
+                    '重設預設 8 種',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.black38,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.black26,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(width: 16),
           // 開始製作按鈕
           Expanded(
@@ -319,13 +363,23 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
-                    gradient: canConfirm ? AppColors.gradient : null,
+                    gradient: canConfirm
+                        ? (hasCustomEmotion
+                            ? const LinearGradient(
+                                colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              )
+                            : AppColors.gradient)
+                        : null,
                     color: canConfirm ? null : Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(32),
                     boxShadow: canConfirm
                         ? [
                             BoxShadow(
-                              color: const Color(0xFFFF5864).withValues(alpha: 0.30),
+                              color: hasCustomEmotion
+                                  ? const Color(0xFFFFD700).withValues(alpha: 0.40)
+                                  : const Color(0xFFFF5864).withValues(alpha: 0.30),
                               blurRadius: 16,
                               offset: const Offset(0, 5),
                             ),
@@ -333,12 +387,16 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
                         : null,
                   ),
                   child: Text(
-                    '開始製作 $count 款貼圖 ✨',
+                    btnLabel,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: hasCustomEmotion ? 14 : 16,
                       fontWeight: FontWeight.w700,
-                      color: canConfirm ? Colors.white : Colors.black38,
+                      color: canConfirm
+                          ? (hasCustomEmotion
+                              ? const Color(0xFF8B6914)
+                              : Colors.white)
+                          : Colors.black38,
                     ),
                   ),
                 ),
@@ -459,6 +517,54 @@ class _ProCustomEmotionCard extends StatelessWidget {
                   size: 18, color: Colors.black38),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── 客製情緒說明卡 ────────────────────────────────────────────────────────────
+
+class _CustomEmotionInfoCard extends StatelessWidget {
+  final String desc;
+  const _CustomEmotionInfoCard({required this.desc});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFFBE7), Color(0xFFFFF3CD)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFFD700), width: 1.5),
+      ),
+      child: Column(
+        children: [
+          const Text('✦', style: TextStyle(fontSize: 28, color: Color(0xFFFFD700))),
+          const SizedBox(height: 10),
+          Text(
+            'AI 將以「$desc」為核心',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF8B6914),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '自由生成一款您的專屬貼圖',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: Color(0xFFB8860B),
+            ),
+          ),
+        ],
       ),
     );
   }

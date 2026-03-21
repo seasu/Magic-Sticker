@@ -58,7 +58,8 @@ class _EditorFamilyNotifier
     final categoryIds = initialCategoryIds != null
         ? List<String>.from(initialCategoryIds)
         : state.selectedCategoryIds;
-    final count = categoryIds.length;
+    // 客製情緒模式：固定只產生 1 張貼圖
+    final count = _customEmotionDesc != null ? 1 : categoryIds.length;
 
     state = state.copyWith(
       status: EditorStatus.ready,
@@ -111,14 +112,15 @@ class _EditorFamilyNotifier
         customStyleDesc: _customStyleDesc,
         customEmotionDesc: _customEmotionDesc,
       );
-      _specs = specs;
+      // 客製情緒模式：只保留第一個 spec
+      _specs = _customEmotionDesc != null ? specs.sublist(0, specs.isNotEmpty ? 1 : 0) : specs;
 
       // 更新 AI 生成的文字與情感 ID（不改變 generatedImages 狀態）
       state = state.copyWith(
-        stickerTexts: specs.map((s) => s.text).toList(),
-        categoryIds: specs.map((s) => s.categoryId).toList(),
+        stickerTexts: _specs!.map((s) => s.text).toList(),
+        categoryIds: _specs!.map((s) => s.categoryId).toList(),
       );
-      return index < specs.length;
+      return index < _specs!.length;
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack, reason: 'editor_lazy_analysis_failed');
       return false;
