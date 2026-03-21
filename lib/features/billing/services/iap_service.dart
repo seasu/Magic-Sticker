@@ -214,7 +214,13 @@ class IAPService {
       } else {
         _resultController.add(IapPurchaseResult.failure(msg));
       }
-      await _iap.completePurchase(purchase);
+      // BillingResponse.itemAlreadyOwned 等 error 狀態下，
+      // purchase 物件可能是 PurchaseDetails 基底類別而非 GooglePlayPurchaseDetails，
+      // 直接呼叫 completePurchase 會在 plugin 內部 cast 時 crash。
+      // 加 pendingCompletePurchase 判斷避免不必要的 completePurchase 呼叫。
+      if (purchase.pendingCompletePurchase) {
+        await _iap.completePurchase(purchase);
+      }
       return;
     }
 
@@ -225,7 +231,9 @@ class IAPService {
       } else {
         _resultController.add(const IapPurchaseResult.failure('canceled'));
       }
-      await _iap.completePurchase(purchase);
+      if (purchase.pendingCompletePurchase) {
+        await _iap.completePurchase(purchase);
+      }
       return;
     }
 

@@ -8,6 +8,11 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
+// Google Play Developer API 專用服務帳戶 JSON Key（base64 或 raw JSON 字串）。
+// 若設定此 Secret，Cloud Function 將以此帳戶認證 Play API，
+// 解決 ADC（Cloud Run 預設帳戶）未在 Play Console 授權導致的 401 錯誤。
+// 設定方式：firebase functions:secrets:set PLAY_SERVICE_ACCOUNT_JSON
+const playServiceAccountJson = defineSecret("PLAY_SERVICE_ACCOUNT_JSON");
 const geminiTextModel = defineString("GEMINI_TEXT_MODEL", {
   default: "gemini-2.5-flash",
   description: "Gemini model for text/specs generation",
@@ -431,6 +436,50 @@ export const generateStickerImage = onCall(
   }
 );
 
+// ── Play API auth helper ──────────────────────────────────────────────────────
+
+/**
+ * 取得 Google Play Developer API 的 OAuth2 Access Token。
+ *
+ * 優先使用 PLAY_SERVICE_ACCOUNT_JSON Secret（已在 Play Console 授權的服務帳戶），
+ * 若未設定則回退至 Application Default Credentials（ADC）。
+ *
+ * 常見失敗原因（401）：
+ *   ADC 使用的 Cloud Run 預設服務帳戶未在 Google Play Console 授權。
+ *   解法：在 Play Console → Setup → API access 連結服務帳戶，
+ *   或設定 PLAY_SERVICE_ACCOUNT_JSON Secret。
+ */
+async function getPlayAccessToken(): Promise<string> {
+  const saJson = playServiceAccountJson.value();
+  const authOptions: {
+    scopes: string[];
+    credentials?: Record<string, unknown>;
+  } = {
+    scopes: ["https://www.googleapis.com/auth/androidpublisher"],
+  };
+
+  if (saJson && saJson.trim().length > 0) {
+    try {
+      authOptions.credentials = JSON.parse(saJson) as Record<string, unknown>;
+      log("getPlayAccessToken: using PLAY_SERVICE_ACCOUNT_JSON");
+    } catch (e) {
+      warn("getPlayAccessToken: failed to parse PLAY_SERVICE_ACCOUNT_JSON, falling back to ADC", {
+        error: String(e),
+      });
+    }
+  } else {
+    log("getPlayAccessToken: PLAY_SERVICE_ACCOUNT_JSON not set, using ADC");
+  }
+
+  const auth = new GoogleAuth(authOptions);
+  const client = await auth.getClient();
+  const tokenResponse = await client.getAccessToken();
+  if (!tokenResponse.token) {
+    throw new Error("getAccessToken returned empty token");
+  }
+  return tokenResponse.token;
+}
+
 // ── verifyProPurchase ─────────────────────────────────────────────────────────
 //
 // 1. 驗證 Firebase Auth
@@ -447,6 +496,7 @@ export const verifyProPurchase = onCall(
     memory: "256MiB",
     invoker: "public",
     enforceAppCheck: false,
+    secrets: [playServiceAccountJson],
   },
   async (request) => {
     log("verifyProPurchase: invoked", {
@@ -466,21 +516,11 @@ export const verifyProPurchase = onCall(
     }
 
     // ── 呼叫 Google Play Developer API ──────────────────────────────────────
-    // 需要服務帳戶具備 Android Publisher API 存取權限
-    // 設定方式：Google Play Console → 設定 → API 存取 → 連結服務帳戶
     let accessToken: string;
     try {
-      const auth = new GoogleAuth({
-        scopes: ["https://www.googleapis.com/auth/androidpublisher"],
-      });
-      const client = await auth.getClient();
-      const tokenResponse = await client.getAccessToken();
-      if (!tokenResponse.token) {
-        throw new Error("getAccessToken returned empty token");
-      }
-      accessToken = tokenResponse.token;
+      accessToken = await getPlayAccessToken();
     } catch (e) {
-      warn("verifyProPurchase: GoogleAuth failed", {error: String(e)});
+      warn("verifyProPurchase: Play API auth failed", {error: String(e)});
       throw new HttpsError(
         "internal",
         "Play API authentication unavailable. Please try again later."
@@ -574,6 +614,7 @@ export const fulfillCreditPurchase = onCall(
     memory: "256MiB",
     invoker: "public",
     enforceAppCheck: false,
+    secrets: [playServiceAccountJson],
   },
   async (request) => {
     log("fulfillCreditPurchase: invoked", {
@@ -606,17 +647,9 @@ export const fulfillCreditPurchase = onCall(
     // ── 呼叫 Google Play Developer API ──────────────────────────────────────
     let accessToken: string;
     try {
-      const auth = new GoogleAuth({
-        scopes: ["https://www.googleapis.com/auth/androidpublisher"],
-      });
-      const client = await auth.getClient();
-      const tokenResponse = await client.getAccessToken();
-      if (!tokenResponse.token) {
-        throw new Error("getAccessToken returned empty token");
-      }
-      accessToken = tokenResponse.token;
+      accessToken = await getPlayAccessToken();
     } catch (e) {
-      warn("fulfillCreditPurchase: GoogleAuth failed", {error: String(e)});
+      warn("fulfillCreditPurchase: Play API auth failed", {error: String(e)});
       throw new HttpsError(
         "internal",
         "Play API authentication unavailable. Please try again later."
@@ -711,6 +744,126 @@ export const fulfillCreditPurchase = onCall(
     }
 
     return {credits, remainingCredits};
+  }
+);
+
+// ── rewardAdCredit ────────────────────────────────────────────────────────────
+//
+// 看廣告後由 App 呼叫，Server 端原子性加 1 點並寫入 creditHistory。
+// App 端無法直接寫 Firestore（Security Rules 封鎖），一律透過此 CF。
+//
+// 1. 驗證 Firebase Auth
+// 2. Firestore Transaction 原子性加 1 點 + 寫 creditHistory
+// 3. 回傳最新點數
+
+export const rewardAdCredit = onCall(
+  {
+    region: "asia-east1",
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    invoker: "public",
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    log("rewardAdCredit: invoked", {
+      hasAuth: !!request.auth,
+      hasAppCheck: !!request.app,
+    });
+    const uid = await resolveUid(request);
+    log("rewardAdCredit: auth OK", {uid});
+
+    const userRef = db.collection("users").doc(uid);
+    let remainingCredits = 0;
+
+    await db.runTransaction(async (tx) => {
+      const doc = await tx.get(userRef);
+      const current = (doc.data()?.credits as number) ?? 0;
+      remainingCredits = current + 1;
+      tx.set(
+        userRef,
+        {
+          credits: remainingCredits,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        {merge: true}
+      );
+      writeCreditHistory(tx, uid, {
+        type: "earned",
+        amount: 1,
+        reason: "rewarded_ad",
+      });
+    });
+
+    log("rewardAdCredit: +1 credit OK", {uid, remainingCredits});
+    return {credits: remainingCredits};
+  }
+);
+
+// ── initUserSession ───────────────────────────────────────────────────────────
+//
+// App 啟動登入（含匿名）後呼叫，確保 Firestore users/{uid} 文件存在並回傳點數。
+// 首次建立時分配初始點數（訪客 1 點 / 正式帳號 5 點）。
+// 若文件已存在則直接回傳目前點數（冪等）。
+//
+// 1. 驗證 Firebase Auth
+// 2. 若 users/{uid} 不存在，建立並給初始點數
+// 3. 回傳 {credits, created}
+
+const kGuestInitialCredits = 1;
+const kNewAccountCredits = 5;
+
+export const initUserSession = onCall(
+  {
+    region: "asia-east1",
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    invoker: "public",
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    log("initUserSession: invoked", {
+      hasAuth: !!request.auth,
+      hasAppCheck: !!request.app,
+    });
+    const uid = await resolveUid(request);
+    log("initUserSession: auth OK", {uid});
+
+    const userRef = db.collection("users").doc(uid);
+    let credits = 0;
+    let created = false;
+
+    await db.runTransaction(async (tx) => {
+      const doc = await tx.get(userRef);
+      if (doc.exists) {
+        credits = (doc.data()?.credits as number) ?? 0;
+        return;
+      }
+
+      // 判斷是否為匿名用戶（無 email、無 phone、無 provider）
+      const userRecord = await admin.auth().getUser(uid);
+      const isAnonymous =
+        !userRecord.email &&
+        !userRecord.phoneNumber &&
+        (!userRecord.providerData || userRecord.providerData.length === 0);
+
+      credits = isAnonymous ? kGuestInitialCredits : kNewAccountCredits;
+      created = true;
+
+      tx.set(userRef, {
+        credits,
+        isAnonymous,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      writeCreditHistory(tx, uid, {
+        type: "earned",
+        amount: credits,
+        reason: "new_account",
+      });
+    });
+
+    log("initUserSession: done", {uid, credits, created});
+    return {credits, created};
   }
 );
 

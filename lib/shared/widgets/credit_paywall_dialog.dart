@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -55,10 +56,10 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
 
     bool rewarded = false;
     await AdsService.instance.showRewardedAd(
-      onRewarded: () {
-        rewarded = true;
-        ref.read(creditProvider.notifier).addCredits(kCreditsPerAd);
-      },
+      // 廣告 SDK callback 為同步，只設 flag；
+      // 等廣告關閉後（showRewardedAd return）再呼叫 CF，
+      // 避免 Firestore Security Rules 封鎖 App 端直接寫入。
+      onRewarded: () => rewarded = true,
       onFailed: () {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -70,6 +71,24 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
         }
       },
     );
+
+    if (rewarded) {
+      // 透過 Cloud Function 在 Server 端原子性加點，避免直接寫 Firestore
+      try {
+        final result = await FirebaseFunctions.instanceFor(region: 'asia-east1')
+            .httpsCallable('rewardAdCredit')
+            .call<Map<String, dynamic>>();
+        final credits = (result.data['credits'] as num?)?.toInt();
+        if (credits != null && mounted) {
+          ref.read(creditProvider.notifier).updateCredits(credits);
+        }
+      } catch (e) {
+        // CF 失敗時從 Firestore 重讀，保持 UI 一致
+        if (mounted) {
+          ref.read(creditProvider.notifier).reload();
+        }
+      }
+    }
 
     if (mounted) {
       setState(() {
