@@ -1414,13 +1414,32 @@ class _DirectGenerateConfirmCardState extends State<_DirectGenerateConfirmCard>
                 ),
               ),
               const SizedBox(height: 20),
-              // 風格
-              _DescRow(icon: '🎨', label: '風格', value: widget.styleDesc),
-              const SizedBox(height: 10),
-              // 情緒
-              _DescRow(icon: '✦', label: '情緒', value: widget.emotionDesc),
+              // 風格 & 情緒
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC9A84C).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    _DescRow(icon: '🎨', label: '風格', value: widget.styleDesc),
+                    const SizedBox(height: 10),
+                    _DescRow(icon: '✨', label: '情緒', value: widget.emotionDesc),
+                  ],
+                ),
+              ),
               const SizedBox(height: 20),
-              const SizedBox(height: 28),
+              // 費用提示
+              const Text(
+                '將消耗 1 點數',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFFA07828),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
               // 確認按鈕
               GestureDetector(
                 onTap: () {
@@ -1446,7 +1465,7 @@ class _DirectGenerateConfirmCardState extends State<_DirectGenerateConfirmCard>
                     ],
                   ),
                   child: const Text(
-                    '消耗 1 點產生 →',
+                    '生成貼圖',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,
