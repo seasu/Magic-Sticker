@@ -71,7 +71,7 @@ class _StyleSelectionScreenState extends ConsumerState<StyleSelectionScreen>
     final hasCustom = customDesc.isNotEmpty;
     if (_selectedStyleIndex == null && !hasCustom) return;
     HapticFeedback.mediumImpact();
-    context.pushReplacement(
+    context.push(
       '/emotion-select',
       extra: EmotionSelectArgs(
         imagePath: widget.imagePath,

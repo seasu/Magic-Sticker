@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/original_compare_overlay.dart';
 import '../../editor/models/sticker_config.dart';
 import '../../editor/widgets/sticker_canvas.dart';
 import '../../editor/widgets/sticker_canvas_frame.dart';
@@ -246,35 +247,45 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
                     aspectRatio: 1,
                     child: _imageBytes == null
                         ? const Center(child: CircularProgressIndicator())
-                        : StickerCanvasFrame(
-                            stickerShape: _stickerShape,
-                            showBoundary: true,
-                            child: RepaintBoundary(
-                              key: _repaintKey,
-                              child: StickerCanvas(
-                                generatedImage: _imageBytes,
-                                text: _text,
-                                config: kStickerConfigs[
-                                    _schemeIndex.clamp(0, kStickerConfigs.length - 1)],
+                        : Stack(
+                            children: [
+                              StickerCanvasFrame(
                                 stickerShape: _stickerShape,
-                                initialScale: _scale,
-                                initialOffset: _offset,
-                                initialImageAngle: _imageAngle,
-                                fontIndex: _fontIndex,
-                                fontSizeScale: _fontSizeScale,
-                                textXAlign: _textXAlign,
-                                textYAlign: _textYAlign,
-                                textAngle: _textAngle,
-                                styleIndex: _styleIndex,
-                                backgroundColor: kBgColors[_bgColorIndex],
-                                onTap: _openEditSheet,
-                                onTransformChanged: (s, o, a) => setState(() {
-                                  _scale = s;
-                                  _offset = o;
-                                  _imageAngle = a;
-                                }),
+                                showBoundary: true,
+                                child: RepaintBoundary(
+                                  key: _repaintKey,
+                                  child: StickerCanvas(
+                                    generatedImage: _imageBytes,
+                                    text: _text,
+                                    config: kStickerConfigs[
+                                        _schemeIndex.clamp(0, kStickerConfigs.length - 1)],
+                                    stickerShape: _stickerShape,
+                                    initialScale: _scale,
+                                    initialOffset: _offset,
+                                    initialImageAngle: _imageAngle,
+                                    fontIndex: _fontIndex,
+                                    fontSizeScale: _fontSizeScale,
+                                    textXAlign: _textXAlign,
+                                    textYAlign: _textYAlign,
+                                    textAngle: _textAngle,
+                                    styleIndex: _styleIndex,
+                                    backgroundColor: kBgColors[_bgColorIndex],
+                                    onTap: _openEditSheet,
+                                    onTransformChanged: (s, o, a) => setState(() {
+                                      _scale = s;
+                                      _offset = o;
+                                      _imageAngle = a;
+                                    }),
+                                  ),
+                                ),
                               ),
-                            ),
+                              // 比對原圖 Overlay（舊紀錄 originalThumbnailPath 為 null 時自動隱藏）
+                              OriginalCompareOverlay(
+                                originalImagePath: widget.record.originalThumbnailPath,
+                                stickerBytes: _imageBytes,
+                                shape: _stickerShape,
+                              ),
+                            ],
                           ),
                   ),
                 ),

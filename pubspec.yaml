@@ -1,7 +1,7 @@
 name: magic_sticker
 description: AI 一鍵產 LINE 貼圖 — Magic Sticker
 publish_to: 'none'
-version: 3.9.5+324
+version: 3.10.0+325
 
 environment:
   sdk: '>=3.7.0 <4.0.0'
@@ -41,6 +41,7 @@ dependencies:
   # Storage & export
   shared_preferences: ^2.3.2
   gal: ^1.1.0
+  share_plus: ^10.0.0
 
   # Permissions
   permission_handler: ^11.3.1

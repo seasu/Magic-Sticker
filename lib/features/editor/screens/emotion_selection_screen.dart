@@ -98,7 +98,7 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
     HapticFeedback.mediumImpact();
     final customEmotionDesc = _proEmotionCtrl.text.trim();
     final hasCustomEmotion = customEmotionDesc.isNotEmpty;
-    context.pushReplacement(
+    context.push(
       '/editor',
       extra: EditorArgs(
         imagePath: widget.imagePath,
