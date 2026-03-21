@@ -443,10 +443,25 @@ async function getPlayAccessToken(): Promise<string> {
   });
   const client = await auth.getClient();
   const tokenResponse = await client.getAccessToken();
-  if (!tokenResponse.token) {
-    throw new Error("getAccessToken returned empty token");
+
+  // tokenResponse 可能是 string（部分 auth 類型）、GetAccessTokenResponse 或 null
+  const token =
+    typeof tokenResponse === "string"
+      ? tokenResponse
+      : tokenResponse?.token ?? null;
+
+  if (!token) {
+    warn("getPlayAccessToken: empty token", {
+      responseType: typeof tokenResponse,
+      responseKeys: tokenResponse && typeof tokenResponse === "object"
+        ? Object.keys(tokenResponse)
+        : [],
+    });
+    throw new Error(
+      `getAccessToken returned empty token (responseType=${typeof tokenResponse})`
+    );
   }
-  return tokenResponse.token;
+  return token;
 }
 
 // ── verifyProPurchase ─────────────────────────────────────────────────────────
@@ -504,8 +519,12 @@ export const verifyProPurchase = onCall(
     let accessToken: string;
     try {
       accessToken = await getPlayAccessToken();
+      log("verifyProPurchase: Play access token OK");
     } catch (e) {
-      warn("verifyProPurchase: Play API auth failed", {error: String(e)});
+      warn("verifyProPurchase: Play API auth failed", {
+        error: String(e),
+        errorType: e instanceof Error ? e.constructor.name : typeof e,
+      });
       throw new HttpsError(
         "internal",
         "Play API authentication unavailable. Please try again later."
