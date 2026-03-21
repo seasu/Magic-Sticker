@@ -52,33 +52,43 @@ class _StyleSelectionScreenState extends ConsumerState<StyleSelectionScreen>
       vsync: this,
       duration: const Duration(milliseconds: 500),
     )..forward();
+    // 讓自訂文字輸入也能驅動底部列重建（canConfirm / 標籤）
+    _proStyleCtrl.addListener(_onProStyleChanged);
   }
+
+  void _onProStyleChanged() => setState(() {});
 
   @override
   void dispose() {
+    _proStyleCtrl.removeListener(_onProStyleChanged);
     _entryCtrl.dispose();
     _proStyleCtrl.dispose();
     super.dispose();
   }
 
   void _confirm() {
-    if (_selectedStyleIndex == null) return;
-    HapticFeedback.mediumImpact();
     final customDesc = _proStyleCtrl.text.trim();
+    final hasCustom = customDesc.isNotEmpty;
+    if (_selectedStyleIndex == null && !hasCustom) return;
+    HapticFeedback.mediumImpact();
     context.pushReplacement(
       '/emotion-select',
       extra: EmotionSelectArgs(
         imagePath: widget.imagePath,
-        styleIndex: _selectedStyleIndex!,
+        // 只填自訂描述時以 chibi(index=0) 作為 fallback，
+        // customStyleDesc 會覆蓋 AI 風格 prompt
+        styleIndex: _selectedStyleIndex ?? 0,
         stickerShape: _shape,
-        customStyleDesc: customDesc.isNotEmpty ? customDesc : null,
+        customStyleDesc: hasCustom ? customDesc : null,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final canConfirm = _selectedStyleIndex != null;
+    final customDesc = _proStyleCtrl.text.trim();
+    final hasCustomStyle = customDesc.isNotEmpty;
+    final canConfirm = _selectedStyleIndex != null || hasCustomStyle;
     final bottom = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
@@ -101,7 +111,7 @@ class _StyleSelectionScreenState extends ConsumerState<StyleSelectionScreen>
                 child: _buildContent(),
               ),
             ),
-            _buildBottomBar(canConfirm, bottom),
+            _buildBottomBar(canConfirm, hasCustomStyle, bottom),
           ],
         ),
       ),
@@ -226,7 +236,24 @@ class _StyleSelectionScreenState extends ConsumerState<StyleSelectionScreen>
 
   // ── 底部確認列 ────────────────────────────────────────────────────────────────
 
-  Widget _buildBottomBar(bool canConfirm, double bottomPadding) {
+  Widget _buildBottomBar(bool canConfirm, bool hasCustomStyle, double bottomPadding) {
+    // 左欄顯示邏輯：
+    //   卡片已選  → 顯示卡片名稱 + 描述
+    //   只有自訂  → 顯示「客製」+ 輸入內容
+    //   都沒選    → 顯示「未選擇」+ 提示
+    final String label;
+    final String subLabel;
+    if (_selectedStyleIndex != null) {
+      label = StickerStyle.values[_selectedStyleIndex!].label;
+      subLabel = _descs[_selectedStyleIndex!];
+    } else if (hasCustomStyle) {
+      label = '客製';
+      subLabel = _proStyleCtrl.text.trim();
+    } else {
+      label = '未選擇';
+      subLabel = '點一下卡片即可選取';
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.background,
@@ -243,9 +270,7 @@ class _StyleSelectionScreenState extends ConsumerState<StyleSelectionScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                _selectedStyleIndex != null
-                    ? StickerStyle.values[_selectedStyleIndex!].label
-                    : '未選擇',
+                label,
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -255,9 +280,7 @@ class _StyleSelectionScreenState extends ConsumerState<StyleSelectionScreen>
                 ),
               ),
               Text(
-                _selectedStyleIndex != null
-                    ? _descs[_selectedStyleIndex!]
-                    : '點一下卡片即可選取',
+                subLabel,
                 style: const TextStyle(
                   fontSize: 11,
                   color: Colors.black38,
