@@ -8,11 +8,6 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
-// Google Play Developer API 專用服務帳戶 JSON Key（base64 或 raw JSON 字串）。
-// 若設定此 Secret，Cloud Function 將以此帳戶認證 Play API，
-// 解決 ADC（Cloud Run 預設帳戶）未在 Play Console 授權導致的 401 錯誤。
-// 設定方式：firebase functions:secrets:set PLAY_SERVICE_ACCOUNT_JSON
-const playServiceAccountJson = defineSecret("PLAY_SERVICE_ACCOUNT_JSON");
 const geminiTextModel = defineString("GEMINI_TEXT_MODEL", {
   default: "gemini-2.5-flash",
   description: "Gemini model for text/specs generation",
@@ -440,38 +435,12 @@ export const generateStickerImage = onCall(
 
 /**
  * 取得 Google Play Developer API 的 OAuth2 Access Token。
- *
- * 優先使用 PLAY_SERVICE_ACCOUNT_JSON Secret（已在 Play Console 授權的服務帳戶），
- * 若未設定則回退至 Application Default Credentials（ADC）。
- *
- * 常見失敗原因（401）：
- *   ADC 使用的 Cloud Run 預設服務帳戶未在 Google Play Console 授權。
- *   解法：在 Play Console → Setup → API access 連結服務帳戶，
- *   或設定 PLAY_SERVICE_ACCOUNT_JSON Secret。
+ * Cloud Run 以 github-play-store-deployer service account 執行，ADC 自動取得授權。
  */
 async function getPlayAccessToken(): Promise<string> {
-  const saJson = playServiceAccountJson.value();
-  const authOptions: {
-    scopes: string[];
-    credentials?: Record<string, unknown>;
-  } = {
+  const auth = new GoogleAuth({
     scopes: ["https://www.googleapis.com/auth/androidpublisher"],
-  };
-
-  if (saJson && saJson.trim().length > 0) {
-    try {
-      authOptions.credentials = JSON.parse(saJson) as Record<string, unknown>;
-      log("getPlayAccessToken: using PLAY_SERVICE_ACCOUNT_JSON");
-    } catch (e) {
-      warn("getPlayAccessToken: failed to parse PLAY_SERVICE_ACCOUNT_JSON, falling back to ADC", {
-        error: String(e),
-      });
-    }
-  } else {
-    log("getPlayAccessToken: PLAY_SERVICE_ACCOUNT_JSON not set, using ADC");
-  }
-
-  const auth = new GoogleAuth(authOptions);
+  });
   const client = await auth.getClient();
   const tokenResponse = await client.getAccessToken();
   if (!tokenResponse.token) {
@@ -496,7 +465,7 @@ export const verifyProPurchase = onCall(
     memory: "256MiB",
     invoker: "public",
     enforceAppCheck: false,
-    secrets: [playServiceAccountJson],
+    serviceAccount: "github-play-store-deployer@magic-sticker-8eaf4.iam.gserviceaccount.com",
   },
   async (request) => {
     log("verifyProPurchase: invoked", {
@@ -614,7 +583,7 @@ export const fulfillCreditPurchase = onCall(
     memory: "256MiB",
     invoker: "public",
     enforceAppCheck: false,
-    secrets: [playServiceAccountJson],
+    serviceAccount: "github-play-store-deployer@magic-sticker-8eaf4.iam.gserviceaccount.com",
   },
   async (request) => {
     log("fulfillCreditPurchase: invoked", {
