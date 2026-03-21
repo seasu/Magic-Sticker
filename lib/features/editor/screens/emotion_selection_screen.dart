@@ -9,6 +9,7 @@ import '../../../core/models/emotion_category.dart';
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../features/billing/providers/pro_purchase_provider.dart';
+import '../../../shared/widgets/cat_loading_widget.dart';
 import '../../../shared/widgets/pro_unlock_sheet.dart';
 
 /// 步驟 3／3：使用者選擇情緒種類後，帶著選擇結果進入 EditorScreen。
@@ -225,9 +226,11 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
                 onLockedTap: () => ProUnlockSheet.show(context),
               ),
               const SizedBox(height: 12),
-              // 有客製情緒時：隱藏 24 張卡格，改顯示說明卡
+              // 有客製情緒時：隱藏 24 張卡格，改顯示說明卡 + Pro 特權提示
               if (hasCustomEmotion) ...[
                 _CustomEmotionInfoCard(desc: _proEmotionCtrl.text.trim()),
+                const SizedBox(height: 20),
+                const _ProStandbyHint(),
                 const SizedBox(height: 16),
               ] else ...[
                 // 分隔標籤
@@ -300,7 +303,7 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFFFFD700),
+                    color: Color(0xFF7B5215),
                   ),
                 ),
                 const Text(
@@ -366,7 +369,7 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
                     gradient: canConfirm
                         ? (hasCustomEmotion
                             ? const LinearGradient(
-                                colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                                colors: [Color(0xFFC9A84C), Color(0xFFA07828)],
                                 begin: Alignment.centerLeft,
                                 end: Alignment.centerRight,
                               )
@@ -378,7 +381,7 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
                         ? [
                             BoxShadow(
                               color: hasCustomEmotion
-                                  ? const Color(0xFFFFD700).withValues(alpha: 0.40)
+                                  ? const Color(0xFFC9A84C).withValues(alpha: 0.40)
                                   : const Color(0xFFFF5864).withValues(alpha: 0.30),
                               blurRadius: 16,
                               offset: const Offset(0, 5),
@@ -394,7 +397,7 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
                       fontWeight: FontWeight.w700,
                       color: canConfirm
                           ? (hasCustomEmotion
-                              ? const Color(0xFF8B6914)
+                              ? const Color(0xFF7B5215)
                               : Colors.white)
                           : Colors.black38,
                     ),
@@ -431,10 +434,10 @@ class _ProCustomEmotionCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         decoration: BoxDecoration(
-          color: isPro ? const Color(0xFFFFFDE7) : AppColors.surface,
+          color: isPro ? const Color(0xFFFAFAF5) : AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isPro ? const Color(0xFFFFD700) : Colors.black12,
+            color: isPro ? const Color(0xFFC9A84C) : Colors.black12,
             width: isPro ? 1.5 : 1,
           ),
         ),
@@ -447,7 +450,7 @@ class _ProCustomEmotionCard extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: isPro
                     ? const LinearGradient(
-                        colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                        colors: [Color(0xFFC9A84C), Color(0xFFA07828)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       )
@@ -524,35 +527,68 @@ class _ProCustomEmotionCard extends StatelessWidget {
 
 // ─── 客製情緒說明卡 ────────────────────────────────────────────────────────────
 
-class _CustomEmotionInfoCard extends StatelessWidget {
+class _CustomEmotionInfoCard extends StatefulWidget {
   final String desc;
   const _CustomEmotionInfoCard({required this.desc});
+
+  @override
+  State<_CustomEmotionInfoCard> createState() => _CustomEmotionInfoCardState();
+}
+
+class _CustomEmotionInfoCardState extends State<_CustomEmotionInfoCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 640),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFFFFBE7), Color(0xFFFFF3CD)],
+          colors: [Color(0xFFFAFAF5), Color(0xFFF5EDD8)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFFFD700), width: 1.5),
+        border: Border.all(color: const Color(0xFFC9A84C), width: 1.5),
       ),
       child: Column(
         children: [
-          const Text('✦', style: TextStyle(fontSize: 28, color: Color(0xFFFFD700))),
+          // 香檳金貓咪動畫（取代靜態 ✦）
+          AnimatedBuilder(
+            animation: _ctrl,
+            builder: (_, __) => CustomPaint(
+              size: const Size(140, 100),
+              painter: RunningCatPainter(
+                t: _ctrl.value,
+                colors: CatColorScheme.proChampagne,
+              ),
+            ),
+          ),
           const SizedBox(height: 10),
           Text(
-            'AI 將以「$desc」為核心',
+            'AI 將以「${widget.desc}」為核心',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF8B6914),
+              color: Color(0xFF7B5215),
             ),
           ),
           const SizedBox(height: 6),
@@ -561,11 +597,63 @@ class _CustomEmotionInfoCard extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
-              color: Color(0xFFB8860B),
+              color: Color(0xFFA07828),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Pro 待命提示（填補空白區域）──────────────────────────────────────────────────
+
+class _ProStandbyHint extends StatelessWidget {
+  const _ProStandbyHint();
+
+  @override
+  Widget build(BuildContext context) {
+    const features = ['完全自由的情緒詮釋', 'AI 不受預設框架限制', '生成獨一無二的專屬貼圖'];
+    return Column(
+      children: [
+        const Text(
+          'Pro 模式特權',
+          style: TextStyle(fontSize: 12, color: Colors.black38),
+        ),
+        const SizedBox(height: 12),
+        ...features.map(
+          (text) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
+              decoration: BoxDecoration(
+                color: const Color(0xFFC9A84C).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '✦ ',
+                    style: TextStyle(
+                      color: Color(0xFFC9A84C),
+                      fontSize: 12,
+                    ),
+                  ),
+                  Text(
+                    text,
+                    style: const TextStyle(
+                      color: Color(0xFF7B5215),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

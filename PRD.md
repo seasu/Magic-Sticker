@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.9.0+319 |
+| 目前版本 | v3.9.1+320 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -314,6 +314,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.9.1 | 2026-03-21 | **ui(pro-champagne)**：Pro 客製相關畫面全面升級 — ① 色彩系統：螢光黃 `#FFD700` 全面升級為香檳金 `#C9A84C`，背景漸層改近白奶油 `#FAFAF5→#F5EDD8`，主文字 `#7B5215`（深暖棕），更具尊榮感。② 新增 `CatColorScheme` value object（`proChampagne` 和 `pink` 兩套配色），`RunningCatPainter`/`BouncingDots` 公開化並支援自訂色彩參數，標準版行為不變。③ `ProCustomLoadingWidget`：旋轉 ✨ emoji 改為 220×160 香檳金奔跑貓咪（640ms）+ 香檳跳動三點 + 近白底漸層 + 香檳邊框描述卡。④ `_CustomEmotionInfoCard`（情緒選擇畫面）：`StatelessWidget→StatefulWidget`，`✦` 改為 140×100 香檳金貓咪動畫，色系全數換香檳金。⑤ 新增 `_ProStandbyHint`：填補 Pro 客製模式下的大片空白，顯示 3 個 Pro 特權 chip（香檳金底）。⑥ `editor_screen._TopBar`：加入動態 `title` 參數，全客製確認頁顯示「專屬貼圖確認」而非「右滑生成・左滑跳過」。⑦ `_DirectGenerateConfirmCard`：`StatelessWidget→StatefulWidget`，`✨` 改為 160×120 香檳金貓咪動畫，全螢幕背景改為香檳漸層，確認按鈕 / 邊框 / 文字全數香檳金。 |
 | v3.9.0 | 2026-03-21 | **feat(pro-custom-flow)**：完整重設計客製情緒/風格四路徑流程 — ① 流程矩陣：無客製→標準 8 張 Tinder；客製風格（無情緒）→ Tinder 8 張+黃金佔位示意圖；客製情緒（無風格）→ 跳情緒卡選擇→1 張（`_isCustomEmotionMode`，Provider 只取第 1 spec）→ 卡片顯示黃金文字佔位；全客製（兩者皆有）→ 跳情緒卡→確認頁（顯示風格+情緒+1點提示）→生成 1 張。② 新增 `ProCustomLoadingWidget`（黃金漸層全螢幕動畫，取代貓咪 Loading）用於客製情緒模式的「聽」階段與圖片生成中。③ `StickerCanvas._buildCustomPlaceholder()`：有 `customStyleDesc` 或 `customEmotionDesc` 時顯示黃金漸層佔位（取代錯誤 asset），標籤改「客製中」。④ `EmotionSelectionScreen` Option C：輸入客製情緒後 24 張卡格消失，改顯示說明卡；底部改為金色按鈕「確認描述，開始 AI →」。⑤ `_DirectGenerateConfirmCard`：全客製確認頁，顯示風格/情緒描述+費用提示，使用者按確認才觸發 `generateSingleImage(0)`。 |
 | v3.8.17 | 2026-03-21 | **fix(iap + ux)**：① `itemAlreadyOwned` 偵測：BillingResponseCode=7 或訊息含 already_owned 時，不回傳「購買失敗」，改為靜默呼叫 `restorePurchases()`，purchaseStream 以 `restored` 狀態重新送達後 `_fulfillPro` 解鎖；若 15 秒內無回應 fallback 為 `verifyFailed`；② `EmotionSelectionScreen`：`_proEmotionCtrl.addListener` 讓輸入即時驅動 rebuild；`canConfirm` 在有自訂情緒文字時也為 true；底部列左欄在有自訂情緒時顯示「N 種 + 客製」，按鈕文字改為「開始製作 N 款 + 客製情緒 ✨」。 |
 | v3.8.16 | 2026-03-21 | **fix(style-selection)**：修正 Pro 用戶輸入自訂風格後仍無法進行下一步的 bug — ① 加 `_proStyleCtrl.addListener` 讓文字改變即觸發 rebuild；② `canConfirm` 改為「卡片已選 OR 自訂文字非空」；③ `_confirm()` 允許無卡片時以 index=0(chibi) 作 fallback；④ 底部列左欄在「只有自訂文字」時顯示「客製」+ 輸入內容，取代「未選擇」。 |

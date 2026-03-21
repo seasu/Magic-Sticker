@@ -430,7 +430,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             Column(
               children: [
                 // ── 頂部列 ──────────────────────────────────────────────
-                _TopBar(onBack: () => context.go('/')),
+                _TopBar(
+                  onBack: () => context.go('/'),
+                  title: isDirectConfirmPending ? '專屬貼圖確認' : '右滑生成・左滑跳過',
+                ),
 
                 if (isLoading)
                   Expanded(
@@ -447,13 +450,22 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 else if (state.errorMessage != null)
                   Expanded(child: _ErrorView(message: state.errorMessage!))
                 else if (isDirectConfirmPending)
-                  // 全客製確認頁
+                  // 全客製確認頁（香檳金漸層背景）
                   Expanded(
-                    child: _DirectGenerateConfirmCard(
-                      styleDesc: widget.customStyleDesc!,
-                      emotionDesc: widget.customEmotionDesc!,
-                      onConfirm: () => _generateImage(0),
-                      onBack: () => context.pop(),
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFFFAFAF5), Color(0xFFF5EDD8)],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                      child: _DirectGenerateConfirmCard(
+                        styleDesc: widget.customStyleDesc!,
+                        emotionDesc: widget.customEmotionDesc!,
+                        onConfirm: () => _generateImage(0),
+                        onBack: () => context.pop(),
+                      ),
                     ),
                   )
                 else if (isDone)
@@ -536,8 +548,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
 class _TopBar extends StatelessWidget {
   final VoidCallback onBack;
+  final String title;
 
-  const _TopBar({required this.onBack});
+  const _TopBar({
+    required this.onBack,
+    this.title = '右滑生成・左滑跳過',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -551,9 +567,9 @@ class _TopBar extends StatelessWidget {
             style: IconButton.styleFrom(foregroundColor: Colors.black87),
           ),
           const Spacer(),
-          const Text(
-            '右滑生成・左滑跳過',
-            style: TextStyle(
+          Text(
+            title,
+            style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
               color: Colors.black87,
@@ -1314,7 +1330,7 @@ class _CompletionViewState extends State<_CompletionView>
 
 // ─── 全客製確認頁 ─────────────────────────────────────────────────────────────
 
-class _DirectGenerateConfirmCard extends StatelessWidget {
+class _DirectGenerateConfirmCard extends StatefulWidget {
   final String styleDesc;
   final String emotionDesc;
   final VoidCallback onConfirm;
@@ -1328,6 +1344,30 @@ class _DirectGenerateConfirmCard extends StatelessWidget {
   });
 
   @override
+  State<_DirectGenerateConfirmCard> createState() =>
+      _DirectGenerateConfirmCardState();
+}
+
+class _DirectGenerateConfirmCardState extends State<_DirectGenerateConfirmCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 640),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
@@ -1336,15 +1376,15 @@ class _DirectGenerateConfirmCard extends StatelessWidget {
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFFFFFBE7), Color(0xFFFFF3CD)],
+              colors: [Color(0xFFFAFAF5), Color(0xFFF5EDD8)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: const Color(0xFFFFD700), width: 1.5),
+            border: Border.all(color: const Color(0xFFC9A84C), width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFFFD700).withValues(alpha: 0.25),
+                color: const Color(0xFFC9A84C).withValues(alpha: 0.25),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
               ),
@@ -1353,29 +1393,39 @@ class _DirectGenerateConfirmCard extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('✨', style: TextStyle(fontSize: 48)),
+              // 香檳金貓咪動畫（取代 ✨ emoji）
+              AnimatedBuilder(
+                animation: _ctrl,
+                builder: (_, __) => CustomPaint(
+                  size: const Size(160, 120),
+                  painter: RunningCatPainter(
+                    t: _ctrl.value,
+                    colors: CatColorScheme.proChampagne,
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
               const Text(
                 '即將生成您的專屬貼圖',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF8B6914),
+                  color: Color(0xFF7B5215),
                 ),
               ),
               const SizedBox(height: 20),
               // 風格
-              _DescRow(icon: '🎨', label: '風格', value: styleDesc),
+              _DescRow(icon: '🎨', label: '風格', value: widget.styleDesc),
               const SizedBox(height: 10),
               // 情緒
-              _DescRow(icon: '✦', label: '情緒', value: emotionDesc),
+              _DescRow(icon: '✦', label: '情緒', value: widget.emotionDesc),
               const SizedBox(height: 20),
               // 費用提示
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFD700).withValues(alpha: 0.20),
+                  color: const Color(0xFFC9A84C).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
@@ -1383,7 +1433,7 @@ class _DirectGenerateConfirmCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF8B6914),
+                    color: Color(0xFF7B5215),
                   ),
                 ),
               ),
@@ -1392,21 +1442,21 @@ class _DirectGenerateConfirmCard extends StatelessWidget {
               GestureDetector(
                 onTap: () {
                   HapticFeedback.mediumImpact();
-                  onConfirm();
+                  widget.onConfirm();
                 },
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                      colors: [Color(0xFFC9A84C), Color(0xFFA07828)],
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                     ),
                     borderRadius: BorderRadius.circular(32),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFFFD700).withValues(alpha: 0.45),
+                        color: const Color(0xFFC9A84C).withValues(alpha: 0.45),
                         blurRadius: 16,
                         offset: const Offset(0, 5),
                       ),
@@ -1418,7 +1468,7 @@ class _DirectGenerateConfirmCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF8B6914),
+                      color: Color(0xFF7B5215),
                     ),
                   ),
                 ),
@@ -1426,12 +1476,12 @@ class _DirectGenerateConfirmCard extends StatelessWidget {
               const SizedBox(height: 12),
               // 返回
               TextButton(
-                onPressed: onBack,
+                onPressed: widget.onBack,
                 child: const Text(
                   '← 返回',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Color(0xFFB8860B),
+                    color: Color(0xFFA07828),
                   ),
                 ),
               ),
@@ -1465,7 +1515,7 @@ class _DescRow extends StatelessWidget {
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Color(0xFFB8860B),
+            color: Color(0xFFA07828),
           ),
         ),
         Expanded(
@@ -1474,7 +1524,7 @@ class _DescRow extends StatelessWidget {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF8B6914),
+              color: Color(0xFF7B5215),
             ),
             overflow: TextOverflow.ellipsis,
           ),

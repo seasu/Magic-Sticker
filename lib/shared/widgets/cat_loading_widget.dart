@@ -3,12 +3,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// ─── 配色 ──────────────────────────────────────────────────────────────────────
-// 粉紅品牌色系：珊瑚粉貓咪 × 極淡玫瑰底，與整體 App 色調一致
-const _kCatBody  = Color(0xFFFD297B); // 貓身主色（品牌珊瑚粉）
-const _kCatLight = Color(0xFFFFB3C6); // 耳朵內側、鼻子等亮部（淡粉紅）
-const _kBg       = Color(0xFFFFF0F3); // 背景（極淡玫瑰白）
-
 /// 全畫面或全幅 Loading 動畫。
 /// 取代舊版兩個 GIF，統一為一個純 Flutter CustomPainter 貓咪跑步動畫。
 ///
@@ -54,7 +48,7 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
   Widget build(BuildContext context) {
     return SizedBox.expand(
       child: ColoredBox(
-      color: _kBg,
+      color: CatColorScheme.pink.bg,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -88,7 +82,7 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
             animation: _ctrl,
             builder: (_, __) => CustomPaint(
               size: const Size(220, 160),
-              painter: _RunningCatPainter(t: _ctrl.value),
+              painter: RunningCatPainter(t: _ctrl.value),
             ),
           ),
 
@@ -97,7 +91,7 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
           // ── 跳動點 ─────────────────────────────────────────────────
           AnimatedBuilder(
             animation: _ctrl,
-            builder: (_, __) => _BouncingDots(t: _ctrl.value),
+            builder: (_, __) => BouncingDots(t: _ctrl.value),
           ),
         ],
       ),
@@ -107,9 +101,10 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
 
 // ─── 跳動三點 ─────────────────────────────────────────────────────────────────
 
-class _BouncingDots extends StatelessWidget {
+class BouncingDots extends StatelessWidget {
   final double t;
-  const _BouncingDots({required this.t});
+  final CatColorScheme colors;
+  const BouncingDots({required this.t, this.colors = CatColorScheme.pink});
 
   @override
   Widget build(BuildContext context) {
@@ -127,7 +122,7 @@ class _BouncingDots extends StatelessWidget {
               width: 7,
               height: 7,
               decoration: BoxDecoration(
-                color: _kCatBody.withValues(alpha: 0.6 + 0.4 * sin(phase * pi)),
+                color: colors.body.withValues(alpha: 0.6 + 0.4 * sin(phase * pi)),
                 shape: BoxShape.circle,
               ),
             ),
@@ -140,17 +135,21 @@ class _BouncingDots extends StatelessWidget {
 
 // ─── 奔跑貓咪 CustomPainter ────────────────────────────────────────────────────
 
-class _RunningCatPainter extends CustomPainter {
+class RunningCatPainter extends CustomPainter {
   final double t; // 0.0 → 1.0, 動畫進度
+  final CatColorScheme colors;
 
-  const _RunningCatPainter({required this.t});
+  const RunningCatPainter({
+    required this.t,
+    this.colors = CatColorScheme.pink,
+  });
 
   // ── 畫筆 ──────────────────────────────────────────────────────────────────
 
-  Paint get _fill   => Paint()..color = _kCatBody..style = PaintingStyle.fill;
-  Paint get _light  => Paint()..color = _kCatLight..style = PaintingStyle.fill;
+  Paint get _fill   => Paint()..color = colors.body..style = PaintingStyle.fill;
+  Paint get _light  => Paint()..color = colors.light..style = PaintingStyle.fill;
   Paint get _stroke => Paint()
-    ..color = _kCatBody
+    ..color = colors.body
     ..style = PaintingStyle.stroke
     ..strokeWidth = 2.2
     ..strokeCap = StrokeCap.round;
@@ -185,7 +184,7 @@ class _RunningCatPainter extends CustomPainter {
 
   void _drawMotionLines(Canvas canvas) {
     final linePaint = Paint()
-      ..color = _kCatBody.withValues(alpha: 0.12)
+      ..color = colors.body.withValues(alpha: 0.12)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.8
       ..strokeCap = StrokeCap.round;
@@ -249,7 +248,7 @@ class _RunningCatPainter extends CustomPainter {
     double alpha = 1.0,
   }) {
     final paint = Paint()
-      ..color = _kCatBody.withValues(alpha: alpha)
+      ..color = colors.body.withValues(alpha: alpha)
       ..style = PaintingStyle.fill;
 
     canvas.save();
@@ -295,7 +294,7 @@ class _RunningCatPainter extends CustomPainter {
     // 肚子亮斑（橢圓形淺色）
     canvas.drawOval(
       const Rect.fromLTWH(-20, -8, 36, 20),
-      _light..color = _kCatLight.withValues(alpha: 0.30),
+      _light..color = colors.light.withValues(alpha: 0.30),
     );
   }
 
@@ -313,7 +312,7 @@ class _RunningCatPainter extends CustomPainter {
     canvas.drawCircle(Offset(hx, hy), 22, _fill);
 
     // ── 眼睛 ──
-    final eyePaint = Paint()..color = _kBg..style = PaintingStyle.fill;
+    final eyePaint = Paint()..color = colors.bg..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(hx + 7,  hy - 4), 5.5, eyePaint);
     canvas.drawCircle(Offset(hx - 3,  hy - 4), 5.5, eyePaint);
 
@@ -342,7 +341,7 @@ class _RunningCatPainter extends CustomPainter {
       ..lineTo(hx + 7,  hy + 8)
       ..lineTo(hx + 1,  hy + 8)
       ..close();
-    canvas.drawPath(nosePath, Paint()..color = _kCatLight);
+    canvas.drawPath(nosePath, Paint()..color = colors.accent);
 
     // ── 嘴巴 ──
     final mouthPath = Path()
@@ -378,7 +377,7 @@ class _RunningCatPainter extends CustomPainter {
 
   void _drawWhiskers(Canvas canvas, double hx, double hy) {
     final wPaint = Paint()
-      ..color = _kCatLight
+      ..color = colors.light
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round;
@@ -393,5 +392,37 @@ class _RunningCatPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RunningCatPainter old) => old.t != t;
+  bool shouldRepaint(RunningCatPainter old) => old.t != t || old.colors != colors;
+}
+
+// ─── 貓咪配色方案 ──────────────────────────────────────────────────────────────
+
+@immutable
+class CatColorScheme {
+  final Color body;    // 貓身、腿、尾巴主色
+  final Color light;   // 耳內、肚子亮部
+  final Color bg;      // 眼白色（與背景協調）
+  final Color accent;  // 鼻子點睛色（預設同 light）
+
+  const CatColorScheme({
+    required this.body,
+    required this.light,
+    required this.bg,
+    Color? accent,
+  }) : accent = accent ?? light;
+
+  /// 標準粉紅品牌色（CatLoadingWidget 預設）
+  static const pink = CatColorScheme(
+    body:  Color(0xFFFD297B), // 品牌珊瑚粉
+    light: Color(0xFFFFB3C6), // 淡粉紅
+    bg:    Color(0xFFFFF0F3), // 極淡玫瑰白
+  );
+
+  /// Pro 香檳金（ProCustomLoadingWidget、全客製確認頁、情緒選擇 InfoCard 使用）
+  static const proChampagne = CatColorScheme(
+    body:   Color(0xFFB8860D), // 深古銅金，在近白背景上對比足夠
+    light:  Color(0xFFDEBC70), // 香檳色亮部
+    bg:     Color(0xFFFAFAF8), // 近白，與背景有微差
+    accent: Color(0xFFFD297B), // 品牌珊瑚粉鼻子，橋接 App 整體色
+  );
 }
