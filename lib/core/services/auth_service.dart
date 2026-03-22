@@ -98,7 +98,27 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
 
-      return _signInWithCredential(credential);
+      final result = await _signInWithCredential(credential);
+
+      // Firebase Android SDK 有時不會在 linkWithCredential 後自動填入 photoURL，
+      // 明確呼叫 updateProfile() 補上 Google 帳號的頭像與顯示名稱。
+      if (result.isSuccess) {
+        final user = _auth.currentUser;
+        if (user != null) {
+          final needsUpdate =
+              (user.photoURL == null && googleUser.photoUrl != null) ||
+              (user.displayName == null && googleUser.displayName != null);
+          if (needsUpdate) {
+            await user.updateProfile(
+              photoURL: googleUser.photoUrl,
+              displayName: user.displayName ?? googleUser.displayName,
+            );
+            await _auth.currentUser?.reload();
+          }
+        }
+      }
+
+      return result;
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack, reason: 'google_sign_in_failed');
       return AuthResult.error(e.toString());
