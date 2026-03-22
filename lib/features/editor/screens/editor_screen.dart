@@ -559,20 +559,18 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               ],
             ),
 
-            // ── 圖片生成中：全畫面遮罩（鎖定操作）──────────────────────
+            // ── 圖片生成中：全畫面遮罩（GestureDetector.opaque 鎖定操作，允許丟球互動）
             if (isCurrentImageLoading)
-              AbsorbPointer(
-                child: isCustomEmotionMode
-                    ? ProCustomLoadingWidget(
-                        emotionDesc: widget.customEmotionDesc,
-                        styleDesc: widget.customStyleDesc,
-                      )
-                    : CatLoadingWidget(
-                        title: 'AI 努力製作中',
-                        subtitle:
-                            '✦ 第 ${_currentIndex + 1} 張 · 已扣 1 點，約 20~40 秒',
-                      ),
-              ),
+              isCustomEmotionMode
+                  ? ProCustomLoadingWidget(
+                      emotionDesc: widget.customEmotionDesc,
+                      styleDesc: widget.customStyleDesc,
+                    )
+                  : CatLoadingWidget(
+                      title: 'AI 努力製作中',
+                      subtitle:
+                          '✦ 第 ${_currentIndex + 1} 張 · 已扣 1 點，約 20~40 秒',
+                    ),
           ],
         ),
       ),
