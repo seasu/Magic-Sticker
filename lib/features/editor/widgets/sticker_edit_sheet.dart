@@ -461,10 +461,30 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
             maxLines: 1,
             maxLength: 10,
             textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
             decoration: InputDecoration(
               hintText: '輸入 2–6 字…',
+              hintStyle: const TextStyle(color: Colors.white38),
+              filled: true,
+              fillColor: const Color(0xFF1C1C1E),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: Color(0xFFFF9800),
+                  width: 1.5,
+                ),
               ),
               isDense: true,
               counterText: '',

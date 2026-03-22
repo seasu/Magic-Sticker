@@ -314,6 +314,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.10.12 | 2026-03-22 | **fix(text-field-dark)**：`StickerEditSheet` 文字輸入框改為深色風格，符合 App 深色調性。`filled: true`、`fillColor: #1C1C1E`（iOS 系統深色 surface）；文字色改白色（`w600`）；hint 色 `Colors.white38`；取消預設邊框，`focusedBorder` 改用橙色 `#FF9800`（呼應「調整文字」模式按鈕 activeColor）。 |
 | v3.10.11 | 2026-03-22 | **feat(compare-pinch-zoom)**：`StickerCompareScreen` 上下兩張圖各自支援 pinch-to-zoom + pan（`InteractiveViewer`，0.3x–5.0x，自由邊界）；**雙擊重置**（`onDoubleTap` 重設 `TransformationController` 為 `Matrix4.identity()`）；`_Chip` 用 `IgnorePointer` 包覆避免攔截手勢；兩個 `TransformationController` 在 `initState`/`dispose` 中正確管理生命週期。 |
 | v3.10.10 | 2026-03-22 | **feat(share-branding)**：`StickerCompareScreen` 分享圖片加入品牌識別。① **圖片 Footer**：在 `RepaintBoundary` 截圖範圍內的 Column 最底部加入 40px 品牌 footer（`_BrandFooter`）：左側 `app_icon.png`（22px 圓角）+ "Magic Sticker" 粗體白字，右側 "✨ 一鍵生成 LINE 貼圖" 副標；`bottomHeight` 計算同步扣除 `_kBrandFooterHeight`。② **分享文字**：`_share()` 的 `text` 由「我用 Magic Sticker 做的貼圖 ✨」改為「我用 Magic Sticker AI 做了專屬 LINE 貼圖！✨\nApp Store / Google Play 搜尋「Magic Sticker」免費下載」，日後上架後只需替換 URL 即可。 |
 | v3.10.9 | 2026-03-22 | **fix(replay-compare-icon)**：`StickerReplayScreen` 移除殘留的 `OriginalCompareOverlay`（右上角比對 toggle 按鈕），該元件在 v3.10.2 重設計時已從 `EditorScreen` 移除但遺留於 Replay 畫面，本版一併清除，同時移除已無用的 `original_compare_overlay.dart` import。 |
