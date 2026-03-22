@@ -21,12 +21,14 @@ class StickerArchiveService {
 
   /// 將貼圖 PNG bytes 存入本地，並更新 SharedPreferences 元資料。
   /// [originalImagePath] 若提供，會額外儲存 300px 縮圖用於比對原圖功能。
+  /// [rawAiBytes] 若提供，會額外儲存 AI 去背原圖（供再次編輯使用）。
   Future<StickerRecord?> archive({
     required List<int> pngBytes,
     required String stickerText,
     required int styleIndex,
     required StickerShape shape,
     String? originalImagePath,
+    List<int>? rawAiBytes,
   }) async {
     final dir = await _archiveDir();
     final ts = DateTime.now().millisecondsSinceEpoch;
@@ -52,6 +54,18 @@ class StickerArchiveService {
       }
     }
 
+    // 存 AI 去背原圖（PNG，供再次編輯時作為底圖）
+    String? rawAiPath;
+    if (rawAiBytes != null) {
+      try {
+        final rawFile = File('${dir.path}/${id}_ai.png');
+        await rawFile.writeAsBytes(rawAiBytes);
+        rawAiPath = rawFile.path;
+      } catch (_) {
+        // 失敗不影響主流程
+      }
+    }
+
     final record = StickerRecord(
       id: id,
       filePath: file.path,
@@ -60,6 +74,7 @@ class StickerArchiveService {
       styleIndex: styleIndex,
       shapeStr: shape.name,
       originalThumbnailPath: thumbnailPath,
+      rawAiImagePath: rawAiPath,
     );
 
     final prefs = await SharedPreferences.getInstance();
@@ -120,6 +135,10 @@ class StickerArchiveService {
     if (record.originalThumbnailPath != null) {
       final thumbFile = File(record.originalThumbnailPath!);
       if (thumbFile.existsSync()) thumbFile.deleteSync();
+    }
+    if (record.rawAiImagePath != null) {
+      final rawFile = File(record.rawAiImagePath!);
+      if (rawFile.existsSync()) rawFile.deleteSync();
     }
   }
 

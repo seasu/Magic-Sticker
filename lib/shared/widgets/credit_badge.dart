@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -166,10 +167,14 @@ class _UserAvatar extends StatelessWidget {
       ),
       child: ClipOval(
         child: photoUrl != null
-            ? Image.network(
-                photoUrl!,
+            ? CachedNetworkImage(
+                imageUrl: photoUrl!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _InitialFallback(
+                placeholder: (_, __) => _InitialFallback(
+                  initial: initial,
+                  isLow: isLow,
+                ),
+                errorWidget: (_, __, ___) => _InitialFallback(
                   initial: initial,
                   isLow: isLow,
                 ),
@@ -269,10 +274,11 @@ class _UserAccountSheet extends ConsumerWidget {
             padding: const EdgeInsets.all(2.5),
             child: ClipOval(
               child: photoUrl != null
-                  ? Image.network(
-                      photoUrl,
+                  ? CachedNetworkImage(
+                      imageUrl: photoUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
+                      placeholder: (_, __) => _LargeInitial(initial: initial),
+                      errorWidget: (_, __, ___) =>
                           _LargeInitial(initial: initial),
                     )
                   : _LargeInitial(initial: initial),

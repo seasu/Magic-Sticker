@@ -245,6 +245,9 @@ class AuthService {
       try {
         final anonCredits = (await getCredits(currentUser.uid)) ?? 0;
         await currentUser.linkWithCredential(credential);
+        // reload() 更新 User 物件（photoURL / displayName 在 linkWithCredential 後
+        // 不會自動寫入本機快取，必須主動 reload 才能從 Firebase 取回最新 profile）。
+        await _auth.currentUser?.reload();
         // Force token refresh: linkWithCredential fires userChanges() but
         // the updated token may not yet be in the Firestore SDK's cache.
         await _auth.currentUser?.getIdToken(true);

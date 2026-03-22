@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -13,6 +14,7 @@ import '../../../core/models/sticker_shape.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/original_compare_overlay.dart';
+import '../../editor/models/sticker_compare_args.dart';
 import '../../editor/models/sticker_config.dart';
 import '../../editor/widgets/sticker_canvas.dart';
 import '../../editor/widgets/sticker_canvas_frame.dart';
@@ -61,8 +63,18 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
   }
 
   Future<void> _loadImage() async {
-    final file = File(widget.record.filePath);
-    if (!file.existsSync()) return;
+    // 優先使用 AI 去背原圖（讓再次編輯從乾淨底圖開始），
+    // 舊紀錄無 rawAiImagePath 時退回合成圖。
+    final path = widget.record.rawAiImagePath ?? widget.record.filePath;
+    final file = File(path);
+    if (!file.existsSync()) {
+      // rawAiImagePath 不存在時再嘗試合成圖
+      final fallback = File(widget.record.filePath);
+      if (!fallback.existsSync()) return;
+      final bytes = await fallback.readAsBytes();
+      if (mounted) setState(() => _imageBytes = bytes);
+      return;
+    }
     final bytes = await file.readAsBytes();
     if (mounted) setState(() => _imageBytes = bytes);
   }
@@ -175,24 +187,39 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
 
       if (!mounted) return;
       setState(() => _isExporting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
-              SizedBox(width: 8),
-              Text('貼圖已儲存到相簿 ✨',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-            ],
+
+      // 儲存成功後，若有原圖紀錄則開啟比對／分享頁（與初次生成流程一致）
+      final originalPath = widget.record.originalThumbnailPath;
+      if (originalPath != null && mounted) {
+        await context.push(
+          '/sticker-compare',
+          extra: StickerCompareArgs(
+            originalImagePath: originalPath,
+            stickerBytes: bytes,
+            stickerShape: _stickerShape,
           ),
-          backgroundColor: const Color(0xFF4CAF50),
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+        );
+      } else if (mounted) {
+        // 舊紀錄無原圖縮圖：退回 SnackBar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                SizedBox(width: 8),
+                Text('貼圖已儲存到相簿 ✨',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+              ],
+            ),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     } on GalException catch (e, stack) {
       await FirebaseService.recordError(e, stack,
           reason: 'replay_export_failed/gal_${e.type.name}');
