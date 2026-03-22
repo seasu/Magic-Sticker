@@ -581,7 +581,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
 // ─── 頂部列 ──────────────────────────────────────────────────────────────────
 
-class _TopBar extends StatelessWidget {
+class _TopBar extends ConsumerWidget {
   final VoidCallback onBack;
   final String title;
 
@@ -591,7 +591,9 @@ class _TopBar extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final credits = ref.watch(creditProvider);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
       child: Row(
@@ -611,7 +613,35 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          const SizedBox(width: 48), // 對稱佔位
+          // 右上角點數顯示
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.divider),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ShaderMask(
+                  shaderCallback: (b) => AppColors.gradient.createShader(b),
+                  child: const Icon(Icons.bolt_rounded,
+                      size: 16, color: Colors.white),
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  '$credits',
+                  style: GoogleFonts.notoSansTc(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
         ],
       ),
     );

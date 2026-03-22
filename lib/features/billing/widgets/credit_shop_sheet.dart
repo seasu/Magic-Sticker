@@ -7,6 +7,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../models/credit_pack.dart';
+import '../providers/credit_provider.dart';
 import '../providers/iap_provider.dart';
 import '../services/iap_service.dart';
 
@@ -51,16 +52,10 @@ class _CreditShopSheetState extends ConsumerState<CreditShopSheet> {
     ref.read(iapPurchasingProvider.notifier).state = null;
 
     if (result.success) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-          '購買成功！已獲得 ${result.creditsEarned} 點 ⚡',
-          style: GoogleFonts.notoSansTc(fontSize: 13),
-        ),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF34C759),
-        duration: const Duration(seconds: 3),
-      ));
+      // 立即同步點數（在 pop 前執行，確保 ref 有效）
+      ref.read(creditProvider.notifier).reload();
+      // 顯示置中成功畫面，2 秒後自動關閉 dialog + sheet
+      _showSuccessDialog(result.creditsEarned ?? 0);
     } else if (result.error != 'canceled') {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
@@ -71,6 +66,79 @@ class _CreditShopSheetState extends ConsumerState<CreditShopSheet> {
         duration: const Duration(seconds: 2),
       ));
     }
+  }
+
+  void _showSuccessDialog(int creditsEarned) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black45,
+      transitionDuration: const Duration(milliseconds: 220),
+      transitionBuilder: (_, anim, __, child) => ScaleTransition(
+        scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+        child: FadeTransition(opacity: anim, child: child),
+      ),
+      pageBuilder: (ctx, _, __) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 48),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF34C759),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_rounded,
+                      color: Colors.white, size: 42),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  '購買成功！',
+                  style: GoogleFonts.notoSansTc(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '已獲得 $creditsEarned 點 ⚡',
+                  style: GoogleFonts.notoSansTc(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF34C759),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    // 2 秒後依序關閉 dialog 和 sheet
+    Future<void>.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      Navigator.of(context)
+        ..pop() // dialog
+        ..pop(); // sheet
+    });
   }
 
   Future<void> _onTapPurchase(CreditPack pack, ProductDetails? storeProduct) async {
