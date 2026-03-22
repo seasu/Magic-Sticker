@@ -63,8 +63,18 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
   }
 
   Future<void> _loadImage() async {
-    final file = File(widget.record.filePath);
-    if (!file.existsSync()) return;
+    // 優先使用 AI 去背原圖（讓再次編輯從乾淨底圖開始），
+    // 舊紀錄無 rawAiImagePath 時退回合成圖。
+    final path = widget.record.rawAiImagePath ?? widget.record.filePath;
+    final file = File(path);
+    if (!file.existsSync()) {
+      // rawAiImagePath 不存在時再嘗試合成圖
+      final fallback = File(widget.record.filePath);
+      if (!fallback.existsSync()) return;
+      final bytes = await fallback.readAsBytes();
+      if (mounted) setState(() => _imageBytes = bytes);
+      return;
+    }
     final bytes = await file.readAsBytes();
     if (mounted) setState(() => _imageBytes = bytes);
   }

@@ -163,7 +163,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       await Gal.putImage(tmpFile.path);
       await tmpFile.delete();
 
-      // 存入歷史紀錄（用 RepaintBoundary 截圖，確保與相簿版本一致）
+      // 存入歷史紀錄（合成圖 + AI 去背原圖，讓再次編輯時以去背圖為底）
       unawaited(
         StickerArchiveService.instance
             .archive(
@@ -173,6 +173,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               styleIndex: widget.styleIndex,
               shape: widget.stickerShape,
               originalImagePath: widget.imagePath,
+              rawAiBytes: img, // AI 去背原圖（Uint8List）
             )
             .catchError((Object e, StackTrace s) {
               FirebaseService.recordError(e, s, reason: 'sticker_archive_failed');
