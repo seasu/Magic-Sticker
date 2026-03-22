@@ -549,8 +549,8 @@ class _StickerCanvasState extends State<StickerCanvas> {
   }
 
   Widget _buildFallback() {
-    // 有客製描述時改用黃金佔位，不嘗試載入預設 asset
-    if (widget.customStyleDesc != null || widget.customEmotionDesc != null) {
+    // 客製情緒：無對應 preview asset，改用黃金佔位圖
+    if (widget.customEmotionDesc != null) {
       return _buildCustomPlaceholder();
     }
 
@@ -559,6 +559,16 @@ class _StickerCanvasState extends State<StickerCanvas> {
     // 依 style × emotion 組合選擇示意圖；categoryId 為空時退回 greeting
     final emotionId = widget.categoryId.isNotEmpty ? widget.categoryId : 'greeting';
     final asset = 'assets/images/preview_${style.name}_$emotionId.webp';
+
+    // 客製風格時的標籤文字（「客製中」vs「示意圖」）
+    final badgeLabel =
+        widget.customStyleDesc != null ? '客製中' : '示意圖';
+    final badgeBg = widget.customStyleDesc != null
+        ? const Color(0xFFFFD700).withValues(alpha: 0.85)
+        : Colors.black.withValues(alpha: 0.45);
+    final badgeFg = widget.customStyleDesc != null
+        ? const Color(0xFF8B6914)
+        : Colors.white.withValues(alpha: 0.9);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -590,7 +600,7 @@ class _StickerCanvasState extends State<StickerCanvas> {
                   ),
                 ),
               ),
-            // 示意圖標籤：提示使用者此為 AI 生成前的預覽，非最終成品
+            // 標籤：「示意圖」或「客製中」
             Positioned(
               top: size * 0.04,
               left: 0,
@@ -600,15 +610,15 @@ class _StickerCanvasState extends State<StickerCanvas> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
+                    color: badgeBg,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '示意圖',
+                    badgeLabel,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: badgeFg,
                       fontSize: size * 0.07,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: 2,
                     ),
                   ),
