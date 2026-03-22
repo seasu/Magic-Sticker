@@ -36,6 +36,24 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
   bool _isSharing = false;
   final _repaintKey = GlobalKey();
 
+  // 上下各自的縮放 / 平移控制器
+  late final TransformationController _topCtrl;
+  late final TransformationController _bottomCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _topCtrl = TransformationController();
+    _bottomCtrl = TransformationController();
+  }
+
+  @override
+  void dispose() {
+    _topCtrl.dispose();
+    _bottomCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _share() async {
     setState(() => _isSharing = true);
     try {
@@ -110,15 +128,30 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                                 fit: StackFit.expand,
                                 children: [
                                   ColoredBox(color: Colors.grey.shade900),
-                                  Image.file(
-                                    File(widget.originalImagePath),
-                                    fit: BoxFit.contain,
+                                  // 縮放 / 平移（雙擊重置）
+                                  GestureDetector(
+                                    onDoubleTap: () =>
+                                        _topCtrl.value = Matrix4.identity(),
+                                    child: InteractiveViewer(
+                                      transformationController: _topCtrl,
+                                      minScale: 0.3,
+                                      maxScale: 5.0,
+                                      boundaryMargin:
+                                          EdgeInsets.all(double.infinity),
+                                      clipBehavior: Clip.none,
+                                      child: Image.file(
+                                        File(widget.originalImagePath),
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
                                   ),
-                                  // 「原圖」chip
+                                  // 「原圖」chip（不攔截手勢）
                                   const Positioned(
                                     top: 10,
                                     left: 10,
-                                    child: _Chip(label: '原圖'),
+                                    child: IgnorePointer(
+                                      child: _Chip(label: '原圖'),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -167,23 +200,38 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                                 children: [
                                   // 棋盤格背景
                                   const CustomPaint(painter: CheckerboardPainter()),
-                                  // 貼圖（依形狀裁切）
-                                  widget.stickerShape == StickerShape.circle
-                                      ? ClipOval(
-                                          child: Image.memory(
-                                            widget.stickerBytes,
-                                            fit: BoxFit.contain,
-                                          ),
-                                        )
-                                      : Image.memory(
-                                          widget.stickerBytes,
-                                          fit: BoxFit.contain,
-                                        ),
-                                  // 「貼圖」chip
+                                  // 縮放 / 平移（雙擊重置）
+                                  GestureDetector(
+                                    onDoubleTap: () =>
+                                        _bottomCtrl.value = Matrix4.identity(),
+                                    child: InteractiveViewer(
+                                      transformationController: _bottomCtrl,
+                                      minScale: 0.3,
+                                      maxScale: 5.0,
+                                      boundaryMargin:
+                                          EdgeInsets.all(double.infinity),
+                                      clipBehavior: Clip.none,
+                                      child: widget.stickerShape ==
+                                              StickerShape.circle
+                                          ? ClipOval(
+                                              child: Image.memory(
+                                                widget.stickerBytes,
+                                                fit: BoxFit.contain,
+                                              ),
+                                            )
+                                          : Image.memory(
+                                              widget.stickerBytes,
+                                              fit: BoxFit.contain,
+                                            ),
+                                    ),
+                                  ),
+                                  // 「貼圖」chip（不攔截手勢）
                                   const Positioned(
                                     top: 10,
                                     left: 10,
-                                    child: _Chip(label: '貼圖'),
+                                    child: IgnorePointer(
+                                      child: _Chip(label: '貼圖'),
+                                    ),
                                   ),
                                 ],
                               ),
