@@ -314,6 +314,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.10.10 | 2026-03-22 | **feat(share-branding)**：`StickerCompareScreen` 分享圖片加入品牌識別。① **圖片 Footer**：在 `RepaintBoundary` 截圖範圍內的 Column 最底部加入 40px 品牌 footer（`_BrandFooter`）：左側 `app_icon.png`（22px 圓角）+ "Magic Sticker" 粗體白字，右側 "✨ 一鍵生成 LINE 貼圖" 副標；`bottomHeight` 計算同步扣除 `_kBrandFooterHeight`。② **分享文字**：`_share()` 的 `text` 由「我用 Magic Sticker 做的貼圖 ✨」改為「我用 Magic Sticker AI 做了專屬 LINE 貼圖！✨\nApp Store / Google Play 搜尋「Magic Sticker」免費下載」，日後上架後只需替換 URL 即可。 |
 | v3.10.9 | 2026-03-22 | **fix(replay-compare-icon)**：`StickerReplayScreen` 移除殘留的 `OriginalCompareOverlay`（右上角比對 toggle 按鈕），該元件在 v3.10.2 重設計時已從 `EditorScreen` 移除但遺留於 Replay 畫面，本版一併清除，同時移除已無用的 `original_compare_overlay.dart` import。 |
 | v3.10.8 | 2026-03-22 | **fix(google-photo-url)**：`AuthService.signInWithGoogle()` 在 `_signInWithCredential` 回傳後，若 `currentUser.photoURL` 仍為 null（Firebase Android SDK `linkWithCredential` 已知不會自動寫入本機快取），明確呼叫 `user.updateProfile(photoURL: googleUser.photoUrl)` 補寫並再次 `reload()`，確保登入成功彈窗與 TopBar 頭像均能正確顯示 Google 帳號大頭貼。 |
 | v3.10.2 | 2026-03-22 | **ux(compare + custom-style-placeholder)**：① **比對頁 UX 重設計**：移除 `OriginalCompareOverlay` 從滑動卡片內（按鈕疊疊樂問題），改為儲存成功後 push 獨立全螢幕 `StickerCompareScreen`（黑色底，上半原圖下半貼圖，可拖動分隔把手，「分享比對圖」+「完成」按鈕）；新增 `StickerCompareArgs` model 與 `/sticker-compare` 路由。② **客製風格空白卡片修正**：`sticker_canvas._buildFallback()` 條件由 `customStyleDesc != null \|\| customEmotionDesc != null` 改為僅 `customEmotionDesc != null` 走黃金佔位；客製風格（無客製情緒）現在直接沿用同 `styleIndex` 的 preview asset，並改顯示「客製中」badge（金底深棕字）取代「示意圖」badge（黑底白字），解決空白圓形問題。 |

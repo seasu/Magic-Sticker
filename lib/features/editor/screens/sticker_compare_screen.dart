@@ -53,7 +53,7 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
       await tmp.writeAsBytes(byteData.buffer.asUint8List());
       await Share.shareXFiles(
         [XFile(tmp.path)],
-        text: '我用 Magic Sticker 做的貼圖 ✨',
+        text: '我用 Magic Sticker AI 做了專屬 LINE 貼圖！✨\nApp Store / Google Play 搜尋「Magic Sticker」免費下載',
       );
       await tmp.delete();
     } finally {
@@ -94,7 +94,7 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                     final totalHeight = constraints.maxHeight;
                     final topHeight =
                         (totalHeight * _splitFraction).clamp(80.0, totalHeight - 80.0);
-                    final bottomHeight = totalHeight - topHeight - _kDividerHeight;
+                    final bottomHeight = totalHeight - topHeight - _kDividerHeight - _kBrandFooterHeight;
 
                     return Column(
                       children: [
@@ -190,6 +190,8 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                             ),
                           ),
                         ),
+                        // ── 品牌 Footer ───────────────────────────────
+                        const _BrandFooter(),
                       ],
                     );
                   },
@@ -264,6 +266,51 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
 }
 
 const double _kDividerHeight = 28.0;
+const double _kBrandFooterHeight = 40.0;
+
+class _BrandFooter extends StatelessWidget {
+  const _BrandFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: _kBrandFooterHeight,
+      color: Colors.black,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(5),
+            child: Image.asset(
+              'assets/app_icon.png',
+              width: 22,
+              height: 22,
+            ),
+          ),
+          const SizedBox(width: 7),
+          const Text(
+            'Magic Sticker',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const Spacer(),
+          const Text(
+            '✨ 一鍵生成 LINE 貼圖',
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _Chip extends StatelessWidget {
   final String label;
