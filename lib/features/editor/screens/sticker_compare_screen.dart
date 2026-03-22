@@ -36,6 +36,24 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
   bool _isSharing = false;
   final _repaintKey = GlobalKey();
 
+  // 上下各自的縮放 / 平移控制器
+  late final TransformationController _topCtrl;
+  late final TransformationController _bottomCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _topCtrl = TransformationController();
+    _bottomCtrl = TransformationController();
+  }
+
+  @override
+  void dispose() {
+    _topCtrl.dispose();
+    _bottomCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _share() async {
     setState(() => _isSharing = true);
     try {
@@ -53,7 +71,7 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
       await tmp.writeAsBytes(byteData.buffer.asUint8List());
       await Share.shareXFiles(
         [XFile(tmp.path)],
-        text: '我用 Magic Sticker 做的貼圖 ✨',
+        text: '我用 Magic Sticker AI 做了專屬 LINE 貼圖！✨\nApp Store / Google Play 搜尋「Magic Sticker」免費下載',
       );
       await tmp.delete();
     } finally {
@@ -94,7 +112,7 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                     final totalHeight = constraints.maxHeight;
                     final topHeight =
                         (totalHeight * _splitFraction).clamp(80.0, totalHeight - 80.0);
-                    final bottomHeight = totalHeight - topHeight - _kDividerHeight;
+                    final bottomHeight = totalHeight - topHeight - _kDividerHeight - _kBrandFooterHeight;
 
                     return Column(
                       children: [
@@ -110,15 +128,30 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                                 fit: StackFit.expand,
                                 children: [
                                   ColoredBox(color: Colors.grey.shade900),
-                                  Image.file(
-                                    File(widget.originalImagePath),
-                                    fit: BoxFit.contain,
+                                  // 縮放 / 平移（雙擊重置）
+                                  GestureDetector(
+                                    onDoubleTap: () =>
+                                        _topCtrl.value = Matrix4.identity(),
+                                    child: InteractiveViewer(
+                                      transformationController: _topCtrl,
+                                      minScale: 0.3,
+                                      maxScale: 5.0,
+                                      boundaryMargin:
+                                          EdgeInsets.all(double.infinity),
+                                      clipBehavior: Clip.none,
+                                      child: Image.file(
+                                        File(widget.originalImagePath),
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
                                   ),
-                                  // 「原圖」chip
+                                  // 「原圖」chip（不攔截手勢）
                                   const Positioned(
                                     top: 10,
                                     left: 10,
-                                    child: _Chip(label: '原圖'),
+                                    child: IgnorePointer(
+                                      child: _Chip(label: '原圖'),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -167,29 +200,46 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                                 children: [
                                   // 棋盤格背景
                                   const CustomPaint(painter: CheckerboardPainter()),
-                                  // 貼圖（依形狀裁切）
-                                  widget.stickerShape == StickerShape.circle
-                                      ? ClipOval(
-                                          child: Image.memory(
-                                            widget.stickerBytes,
-                                            fit: BoxFit.contain,
-                                          ),
-                                        )
-                                      : Image.memory(
-                                          widget.stickerBytes,
-                                          fit: BoxFit.contain,
-                                        ),
-                                  // 「貼圖」chip
+                                  // 縮放 / 平移（雙擊重置）
+                                  GestureDetector(
+                                    onDoubleTap: () =>
+                                        _bottomCtrl.value = Matrix4.identity(),
+                                    child: InteractiveViewer(
+                                      transformationController: _bottomCtrl,
+                                      minScale: 0.3,
+                                      maxScale: 5.0,
+                                      boundaryMargin:
+                                          EdgeInsets.all(double.infinity),
+                                      clipBehavior: Clip.none,
+                                      child: widget.stickerShape ==
+                                              StickerShape.circle
+                                          ? ClipOval(
+                                              child: Image.memory(
+                                                widget.stickerBytes,
+                                                fit: BoxFit.contain,
+                                              ),
+                                            )
+                                          : Image.memory(
+                                              widget.stickerBytes,
+                                              fit: BoxFit.contain,
+                                            ),
+                                    ),
+                                  ),
+                                  // 「貼圖」chip（不攔截手勢）
                                   const Positioned(
                                     top: 10,
                                     left: 10,
-                                    child: _Chip(label: '貼圖'),
+                                    child: IgnorePointer(
+                                      child: _Chip(label: '貼圖'),
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                           ),
                         ),
+                        // ── 品牌 Footer ───────────────────────────────
+                        const _BrandFooter(),
                       ],
                     );
                   },
@@ -264,6 +314,51 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
 }
 
 const double _kDividerHeight = 28.0;
+const double _kBrandFooterHeight = 40.0;
+
+class _BrandFooter extends StatelessWidget {
+  const _BrandFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: _kBrandFooterHeight,
+      color: Colors.black,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(5),
+            child: Image.asset(
+              'assets/app_icon.png',
+              width: 22,
+              height: 22,
+            ),
+          ),
+          const SizedBox(width: 7),
+          const Text(
+            'Magic Sticker',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const Spacer(),
+          const Text(
+            '✨ 一鍵生成 LINE 貼圖',
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _Chip extends StatelessWidget {
   final String label;

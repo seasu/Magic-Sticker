@@ -13,7 +13,6 @@ import 'package:path_provider/path_provider.dart';
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../shared/widgets/original_compare_overlay.dart';
 import '../../editor/models/sticker_compare_args.dart';
 import '../../editor/models/sticker_config.dart';
 import '../../editor/widgets/sticker_canvas.dart';
@@ -305,12 +304,6 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
                                     }),
                                   ),
                                 ),
-                              ),
-                              // 比對原圖 Overlay（舊紀錄 originalThumbnailPath 為 null 時自動隱藏）
-                              OriginalCompareOverlay(
-                                originalImagePath: widget.record.originalThumbnailPath,
-                                stickerBytes: _imageBytes,
-                                shape: _stickerShape,
                               ),
                             ],
                           ),
