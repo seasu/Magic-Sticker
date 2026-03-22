@@ -26,8 +26,8 @@ import '../widgets/sticker_canvas.dart';
 import '../widgets/sticker_canvas_frame.dart';
 import '../widgets/sticker_edit_sheet.dart';
 import '../widgets/sticker_swipe_card.dart';
+import '../models/sticker_compare_args.dart';
 import '../../../shared/widgets/cat_loading_widget.dart';
-import '../../../shared/widgets/original_compare_overlay.dart';
 import '../../../shared/widgets/pro_custom_loading_widget.dart';
 import '../../../features/sticker_history/services/sticker_archive_service.dart';
 
@@ -181,6 +181,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       );
 
       await FirebaseAnalytics.instance.logEvent(name: 'sticker_generated');
+
+      // ── 儲存成功後，開啟全螢幕比對頁 ──────────────────────────────────
+      if (mounted) {
+        await context.push(
+          '/sticker-compare',
+          extra: StickerCompareArgs(
+            originalImagePath: widget.imagePath,
+            stickerBytes: bytes,
+            stickerShape: widget.stickerShape,
+          ),
+        );
+      }
+      // ────────────────────────────────────────────────────────────────
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -776,15 +790,6 @@ class _CardStack extends StatelessWidget {
                   ),
                 ),
 
-              // ── 比對原圖 Overlay ──────────────────────────────────────
-              if (isGenerated)
-                Positioned.fill(
-                  child: OriginalCompareOverlay(
-                    originalImagePath: imagePath,
-                    stickerBytes: state.generatedImages[currentIndex],
-                    shape: stickerShape,
-                  ),
-                ),
             ],
           ),
         ),

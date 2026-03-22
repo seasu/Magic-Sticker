@@ -9,6 +9,8 @@ import 'features/editor/screens/editor_screen.dart';
 import 'features/editor/screens/emotion_selection_screen.dart';
 import 'features/home/screens/home_screen.dart';
 import 'features/home/screens/style_selection_screen.dart';
+import 'features/editor/models/sticker_compare_args.dart';
+import 'features/editor/screens/sticker_compare_screen.dart';
 import 'features/sticker_history/models/sticker_record.dart';
 import 'features/sticker_history/screens/sticker_history_screen.dart';
 import 'features/sticker_history/screens/sticker_replay_screen.dart';
@@ -112,6 +114,17 @@ final _router = GoRouter(
     GoRoute(
       path: '/dev-log',
       builder: (_, __) => const LogViewerScreen(),
+    ),
+    GoRoute(
+      path: '/sticker-compare',
+      builder: (_, state) {
+        final args = state.extra as StickerCompareArgs;
+        return StickerCompareScreen(
+          originalImagePath: args.originalImagePath,
+          stickerBytes: args.stickerBytes,
+          stickerShape: args.stickerShape,
+        );
+      },
     ),
   ],
 );
