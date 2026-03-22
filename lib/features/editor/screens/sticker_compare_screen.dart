@@ -102,20 +102,27 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                         SizedBox(
                           height: topHeight,
                           width: double.infinity,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Image.file(
-                                File(widget.originalImagePath),
-                                fit: BoxFit.cover,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  ColoredBox(color: Colors.grey.shade900),
+                                  Image.file(
+                                    File(widget.originalImagePath),
+                                    fit: BoxFit.contain,
+                                  ),
+                                  // 「原圖」chip
+                                  const Positioned(
+                                    top: 10,
+                                    left: 10,
+                                    child: _Chip(label: '原圖'),
+                                  ),
+                                ],
                               ),
-                              // 「原圖」chip
-                              const Positioned(
-                                top: 10,
-                                left: 14,
-                                child: _Chip(label: '原圖'),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
 
@@ -151,30 +158,36 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                         SizedBox(
                           height: bottomHeight,
                           width: double.infinity,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              // 棋盤格背景
-                              const CustomPaint(painter: CheckerboardPainter()),
-                              // 貼圖（依形狀裁切）
-                              widget.stickerShape == StickerShape.circle
-                                  ? ClipOval(
-                                      child: Image.memory(
-                                        widget.stickerBytes,
-                                        fit: BoxFit.contain,
-                                      ),
-                                    )
-                                  : Image.memory(
-                                      widget.stickerBytes,
-                                      fit: BoxFit.contain,
-                                    ),
-                              // 「貼圖」chip
-                              const Positioned(
-                                top: 10,
-                                left: 14,
-                                child: _Chip(label: '貼圖'),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  // 棋盤格背景
+                                  const CustomPaint(painter: CheckerboardPainter()),
+                                  // 貼圖（依形狀裁切）
+                                  widget.stickerShape == StickerShape.circle
+                                      ? ClipOval(
+                                          child: Image.memory(
+                                            widget.stickerBytes,
+                                            fit: BoxFit.contain,
+                                          ),
+                                        )
+                                      : Image.memory(
+                                          widget.stickerBytes,
+                                          fit: BoxFit.contain,
+                                        ),
+                                  // 「貼圖」chip
+                                  const Positioned(
+                                    top: 10,
+                                    left: 10,
+                                    child: _Chip(label: '貼圖'),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ],
@@ -186,7 +199,7 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
 
             // ── 底部按鈕列 ────────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
               child: Row(
                 children: [
                   // 分享按鈕
