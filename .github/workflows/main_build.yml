@@ -514,8 +514,15 @@ jobs:
           # Inject team ID (handles both empty string and existing value)
           sed -i '' "s/DEVELOPMENT_TEAM = \"\";/DEVELOPMENT_TEAM = $APPLE_TEAM_ID;/g" "$PBXPROJ"
           sed -i '' "s/DEVELOPMENT_TEAM = [A-Z0-9]*;/DEVELOPMENT_TEAM = $APPLE_TEAM_ID;/g" "$PBXPROJ"
-          # Set provisioning profile specifier
-          sed -i '' "s/PROVISIONING_PROFILE_SPECIFIER = \"\";/PROVISIONING_PROFILE_SPECIFIER = \"$PP_NAME\";/g" "$PBXPROJ"
+          # Set provisioning profile specifier (replace existing or insert after CODE_SIGN_STYLE)
+          if grep -q "PROVISIONING_PROFILE_SPECIFIER" "$PBXPROJ"; then
+            sed -i '' "s/PROVISIONING_PROFILE_SPECIFIER = .*;/PROVISIONING_PROFILE_SPECIFIER = \"$PP_NAME\";/g" "$PBXPROJ"
+          else
+            sed -i '' "s/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Manual;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"$PP_NAME\";/g" "$PBXPROJ"
+          fi
+          # Set code sign identity
+          sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' "$PBXPROJ"
+          sed -i '' 's/CODE_SIGN_IDENTITY = "";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' "$PBXPROJ"
           echo "✅ Xcode project: Manual signing, team=$APPLE_TEAM_ID, profile=$PP_NAME"
 
       - name: Create ExportOptions.plist
@@ -540,11 +547,20 @@ jobs:
           print('✅ ExportOptions.plist created (team:', os.environ['APPLE_TEAM_ID'], ')')
           PYEOF
 
-      - name: Build IPA
+      - name: Build IPA archive (no codesign)
         run: |
           flutter build ipa --release \
-            --export-options-plist=ios/ExportOptions.plist \
+            --no-codesign \
             --dart-define=STICKER_BG_TRANSPARENT=${{ vars.STICKER_BG_TRANSPARENT || 'true' }}
+
+      - name: Export IPA with signing
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -allowProvisioningUpdates
+          echo "✅ IPA exported to build/ios/ipa/"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
