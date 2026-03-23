@@ -1,484 +1,323 @@
-# 📝 PRD — 分享擴散與使用率提升（v3.11 規劃）
+# 📝 PRD — 分享擴散與使用率提升（v3.11 精簡版）
 
 | 屬性 | 描述 |
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
-| 文件版本 | v3.11.0-draft9 |
+| 文件版本 | v3.11.0 |
 | 文件日期 | 2026-03-23 |
 | 目標平台 | Android（現行主力） |
-| 主要目標 | 提升分享率、次日回訪（D1）、7 日留存（D7） |
+| 主要目標 | **最小必要病毒成長迴圈**：讓使用者分享的每一張圖帶動新用戶下載試用 |
 
 ---
 
 ## 1. 背景與目標
 
-目前 App 已具備「儲存後進入原圖 vs 貼圖比對頁」與「分享比對圖」能力；本 PRD 目標是把既有分享能力轉成可量測、可回流、可擴散的成長迴圈。
+### 1.1 核心問題
 
-### 1.1 成長目標（4 週）
-- 分享按鈕點擊率（Share CTR）提升至 **≥ 35%**（有進入比對頁者）
-- 分享成功率（Share Success Rate）提升至 **≥ 20%**（有點擊分享者）
-- D1 留存提升 **+5%**
-- D7 留存提升 **+2%**
+App 已具備「儲存後進入原圖 vs 貼圖比對頁」與「分享比對圖」能力，但：
+1. 分享的圖片沒有品牌標識 → 朋友看到不知道哪個 App 做的
+2. 朋友即使想試，找到 App 再進入同款模板摩擦過高
+3. 無法量測從「朋友看到」到「朋友試用」的轉換路徑
 
-### 1.2 北極星指標（North Star）
-- `每 100 次 sticker_generated 產生的 share_success 次數`
-- **目前基準值**：待上線後第一週收集 baseline（上線前填入）
+### 1.2 病毒成長迴圈（目標狀態）
+
+```
+使用者生成貼圖
+  → 分享帶品牌浮水印的比對圖（+ 內嵌連結）
+    → 朋友看到 → 點連結 → App 打開，同款模板預選
+      → 60 秒出第一張貼圖 → 再次分享
+```
+
+### 1.3 成長目標（4 週）
+
+| 指標 | 目標 |
+|---|---|
+| 北極星：share_compare_tapped / sticker_generated | ≥ 20% |
+| challenge_link_opened → 生成完成 轉換率 | ≥ 30% |
+| K-factor（每位分享用戶帶來的新 link 開啟次數） | ≥ 0.3 |
 
 ---
 
 ## 2. 範圍（Scope）
 
-### 2.1 In Scope（本次必做）
-1. **分享漏斗事件埋點補齊**
-2. **分享獎勵（每日首次分享 +1 點）**
-3. **挑戰碼（Challenge Code）最小版本**
-4. **一般使用者挑戰入口（由挑戰碼帶入預設）**
-5. **一般使用者可建立挑戰（App 內自助）**
-6. **分享當下自動產生 challenge code**
-7. **Deep Link 一鍵導流到對應模板**
-8. **成就系統（產圖成就 + 陪貓互動成就）**
-9. **比對分享頁 CTA 文案優化與分享 fallback 提示**
+### 2.1 本次 In Scope（v3.11，2 個 Sprint）
 
-### 2.2 Out of Scope（本次不做）
-- 社群後台管理系統（Web Console）
-- 複雜分潤結算
-- 深度連結跨平台歸因（先以 code + 本機事件為主）
+| # | 功能 | 病毒成長貢獻 |
+|---|---|---|
+| A | **比對頁品牌化 + CTA 優化** | 每次分享 = 有品牌廣告 |
+| B | **Viral Share Link（自動生成 deep link + 手動 code）** | 朋友點連結即零摩擦進入同款模板 |
+| C | **分享獎勵（點擊觸發，每日 1 點）** | 增加首次分享動機 |
+| D | **最小漏斗埋點（5 個關鍵事件）** | 量測病毒迴圈是否在運作 |
 
----
+### 2.2 明確移至 v3.12（本次不做）
 
-## 3. 目標使用情境（User Stories）
-
-### US-01：一般使用者
-- 作為使用者，我儲存貼圖後可一鍵分享比對圖；若分享成功可獲得 +1 點（每日一次），增加我再次使用動機。
-
-### US-02：被邀請的朋友
-- 作為收到分享的人，我輸入（或點擊）挑戰碼後，可直接套用同款風格/情緒模板並生成貼圖，降低跟做門檻。
-
-### US-03：產品營運
-- 作為營運，我可看到完整分享漏斗（曝光→點擊→成功→回流），判斷哪個版本最有效。
-
-### US-04：挑戰發起者（一般使用者）
-- 作為一般使用者，我可以在分享時決定是否發起挑戰，並在首頁進入「我的/已加入挑戰」查看清單與參與者資訊。
-
-### US-05：探索型玩家
-- 作為使用者，我希望在「生成貼圖」與「Loading 陪貓互動」中解鎖成就，拿到少量點數獎勵與勳章，增加回訪動機。
+| 功能 | 移除理由 |
+|---|---|
+| Challenge Hub（我建立的/我加入的清單） | 留存工具，非獲客工具；增加開發複雜度 |
+| Pro Entitlement for Challenges | 非核心用戶路徑，edge case |
+| 成就系統（Achievement System） | 純留存工具，與病毒獲客無關 |
+| 每日 4 點跨路徑 cap 機制 | 成就系統移走後，分享只有 1 條獎勵路徑，不需要複雜 cap |
+| Storage & Cost Guardrail（獨立章節）| TTL `expiresAt` 已內嵌資料模型；定期清理 CF 為 v3.12 運維任務 |
+| 社群後台管理、複雜分潤結算 | Out of scope |
 
 ---
 
-## 4. 功能需求（Functional Requirements）
+## 3. 使用情境（User Stories）
 
-### 4.1 分享事件漏斗（FR-Analytics）
+**US-01：分享者**
+作為使用者，我儲存貼圖後分享比對圖，朋友看到帶品牌的圖和連結，下載試用同款。我首次分享可獲得 +1 點。
 
-#### 需求
-新增以下 Analytics 事件（最低欄位）：
+**US-02：被分享者**
+作為收到分享連結的人，點連結後 App 直接開啟對應模板（或導向 Play Store 安裝後自動還原），無需手動找模板。
 
-1. `compare_screen_viewed`
-   - params: `from`（editor/replay）, `shape`（circle/square）
-2. `share_compare_tapped`
-   - params: `from`, `shape`
-3. `share_compare_success`
-   - params: `from`, `shape`, `channel`（unknown / line / instagram / ...；若無法判斷則 unknown）
-4. `share_compare_cancelled`
-5. `share_reward_granted`
-   - params: `credits=1`, `daily_count`
-6. `share_reward_blocked`
-   - params: `reason`（already_claimed_today / rate_limited / missing_signal）
-7. `challenge_code_created`
-   - params: `code`, `template_type`（preset / pro_custom）, `trigger`（share / manual）
-8. `challenge_code_attach_failed`
-   - params: `reason`（network / quota / unknown）
-9. `challenge_code_applied`
-   - params: `code`, `source`（manual / deeplink）
-10. `challenge_code_completed`
-   - params: `code`, `generated_count`
-11. `deep_link_opened`
-   - params: `code`, `installed`（true / false）, `resolved`（true / false）
-12. `achievement_unlocked`
-   - params: `achievement_id`, `source`（generation/cat_play）, `reward_credits`
-13. `achievement_reward_granted`
-   - params: `achievement_id`, `credits`, `daily_count`
-14. `cat_play_milestone_reached`
-   - params: `milestone_id`, `score_or_hits`
-
-#### 驗收
-- 可在 DebugView 即時看到事件。
-- 事件命名統一 snake_case。
+**US-03：營運**
+作為營運，我可看到從「比對頁曝光」到「分享」到「link 被點擊」到「新用戶生成」的完整漏斗，判斷哪個環節要優化。
 
 ---
 
-### 4.2 分享獎勵（FR-Reward）
+## 4. 功能需求
 
-#### 規則
-- 每個帳號每天「首次分享成功」可領 **+1 點**。
-- 當日再次分享不再發點，但允許正常分享。
-- 獎勵入帳需走 Cloud Function（避免 client 端偽造）。
-- **每日總點數獎勵上限為 4 點**（分享 1 點 + 成就最多 3 點），由 server 統一維護 `users/{uid}/dailyRewardSummary/{yyyymmdd}`，各獎勵路徑入帳前先驗證上限。
-
-#### 防濫用
-- 需具備「分享成功訊號 + 近期 compare_screen_viewed 事件」雙條件才可觸發。
-- 同一 uid 每日只可成功入帳 1 次（server 端冪等保護）。
-- 異常高頻觸發寫入風控 log（不擋主流程，但不給點）。
-
-#### 驗收
-- 首次成功分享：點數 +1 且寫入 creditHistory。
-- 重複分享：不加點，回傳已領取狀態。
-
----
-
-### 4.3 挑戰碼（FR-Challenge Code）
+### 4.A 比對頁品牌化（FR-Compare UX）
 
 #### 目標
-提供「一般使用者邀請朋友接力」所需最小能力：朋友看到分享內容中的 code/連結後，可在 App 內快速套用同款模板。
-
-#### 資料模型（Firestore）
-
-> ⚠️ 以下命名與 4.10 節的精簡模型**統一使用**，全文以此為準。
-
-`challenges/{code}`
-- `code: string`（大寫，6–10 字元，同時作為 document ID）
-- `title: string`
-- `presetStyleIndex: int?`
-- `presetCategoryIds: string[]?`
-- `customStyleDesc: string?`
-- `customEmotionDesc: string?`
-- `ownerUid: string`
-- `isActive: bool`
-- `templateType: "preset" | "pro_custom"`
-- `requiresPro: bool`
-- `participantCount: int`（預聚合，避免全量掃描）
-- `createdAt, updatedAt: Timestamp`
-- `expiresAt: Timestamp`（預設 createdAt + 30 天，配合 4.10 TTL 策略）
-
-`challengeParticipants/{challengeCode_uid}`
-- `uid`
-- `code`
-- `joinedAt: Timestamp`
-- `completedFirstSticker: bool`
-
-#### UI/流程
-1. Home 新增「輸入挑戰碼」入口（次要按鈕）
-2. 驗證 code 成功後，顯示模板摘要（風格/情緒）
-3. 使用者確認後直接帶入 style/emotion/editor 流程
-4. 產生首張貼圖即記錄 `challenge_code_completed`
-
-#### 驗收
-- 無效 code 顯示明確錯誤。
-- 有效 code 可完整導流到生成流程。
-
----
-
-### 4.4 一般使用者挑戰建立與首頁入口（FR-Challenge Authoring & Hub）
-
-#### 目標
-不做 KOL 特權。任何使用者都可在分享時發起挑戰，並在首頁同一入口查看「我建立的挑戰」與「我加入的挑戰」。
-
-#### 建立流程（分享當下）
-1. 使用者點「分享比對圖」
-2. 顯示 toggle：`同時發起挑戰`（預設開啟，可手動關閉）
-3. 開啟時，建立/重用 challenge code，並附在分享文案
-4. 關閉時，僅分享圖片（不建立 challenge）
-
-#### 首頁入口（同一入口）
-- Home 新增「挑戰」入口（單一入口）
-- 進入後有兩個分頁：
-  - `我建立的`
-  - `我加入的`
-
-#### 清單與明細
-- 清單項目：`title`, `code`, `createdAt`, `participantCount`, `lastActiveAt`
-- 點進挑戰明細可查看參加者列表（僅顯示必要資訊）
-
-#### 參加者資料最小化
-- 顯示：暱稱/匿名代號、加入時間、是否完成首張
-- 不存：原始照片、完整貼圖二進位檔、完整編輯歷史
-
-#### 驗收
-- 一般使用者可在 30 秒內完成「分享＋發起挑戰」。
-- 首頁可進入同一入口查看「我建立/我加入」兩種清單。
-
----
-
-### 4.5 挑戰碼與 Pro 付費能力授權規則（FR-Pro Entitlement）
-
-> 重點：**挑戰碼可擴散內容，不可繞過付費授權**。
-
-#### 規則
-1. 挑戰碼 metadata 新增：
-   - `requiresPro: bool`
-   - `templateType: preset | pro_custom`
-2. 若 `templateType = preset`：任何使用者可直接套用。
-3. 若 `templateType = pro_custom`：
-   - **已解鎖 Pro**：可完整套用 `customStyleDesc` / `customEmotionDesc`。
-   - **未解鎖 Pro**：可看到「同款預覽」，但按「開始生成」時必須先走 Pro 解鎖流程。
-4. 未解鎖 Pro 的使用者不可透過 challenge code 直接拿到 `pro_custom` 的可生成權限。
-
-#### Server 端驗證（必要）
-- 新增 Cloud Function：`resolveChallengeCode`（或整合既有 function）
-  - 驗證 Auth + App Check
-  - 讀取 code 後判斷呼叫者是否 `isProUnlocked`
-  - 回傳「可用模板」：
-    - Pro 用戶：回完整 payload
-    - 非 Pro：回傳 `requiresPro=true` + 預覽資料（可不含完整 custom prompt）
-
-#### 客戶端 UX
-- 非 Pro 套用 `pro_custom` code 時：
-  - 顯示「此同款為 Pro 專屬模板」
-  - 提供 CTA：`解鎖 Pro 後套用`
-  - 可先生成非 Pro fallback（可選）：只帶預設 style/category，不帶 custom desc
-
-#### 驗收
-- 非 Pro 使用者輸入 Pro 挑戰碼，不會直接取得 Pro 生成功能。
-- Pro 使用者輸入同一碼，可完整套用且生成成功。
-- 任意 client 偽造 `requiresPro=false` 請求，server 仍會擋下。
-
----
-
-### 4.6 分享當下自動產生 Code（FR-Auto Challenge on Share）
-
-#### 目標
-使用者在「分享比對圖」當下，系統自動產生（或重用）challenge code，降低擴散摩擦。
-
-#### 規則
-1. 使用者點「分享比對圖」時，先呼叫 `ensureShareChallengeCode`。
-2. 若使用者在最近 24h 內已有同模板 code，可直接重用；否則建立新 code。
-3. 分享文案自動附上：
-   - `challenge code`（可手動輸入）
-   - `deep link`（可直接點擊導入 App）
-4. 若 code 建立失敗：
-   - 分享流程不可中斷（退回純圖片分享）
-   - 事件記錄 `challenge_code_attach_failed`
-
-#### 驗收
-- 多數分享（目標 ≥ 90%）都能帶 code 或 deep link。
-- code 生成失敗時，分享按鈕仍可用，不阻塞主流程。
-
----
-
-### 4.7 成就系統（FR-Achievement & Reward Loop）
-
-#### 目標
-把既有「產圖」與「Loading 陪貓互動」轉為可發現、可收集、可回訪的遊戲化獎勵循環。
-
-#### 成就分類
-1. **產圖成就（Generation Achievements）**
-   - 例：首次生成、連續 3 天生成、單日生成 8 張、完成 1 次挑戰
-2. **互動成就（Cat Play Achievements）**
-   - 例：單次 loading 命中球 10 次、累積互動 50 次、首次觸發隱藏彩蛋
-
-#### 獎勵規則
-- 成就解鎖可給點數（建議小額 1~2 點）或純徽章。
-- 成就每日獎勵上限 **3 點**，與分享獎勵（1 點）共用每日 4 點總 cap（詳見 4.2）。
-- 同一成就僅可領取一次（或按賽季重置）。
-
-#### 與現有系統整合
-- 點數入帳走 server function（與既有 creditHistory 一致）。
-- 陪貓互動成就需附帶「本次確實在生成流程中」的 session 證明，避免離線刷分。
-
-#### 成就中心（可發現性）
-- Home 加入「成就」入口（可與挑戰並列）
-- 顯示：
-  - 已解鎖勳章
-  - 未解鎖成就（附 Hint）
-  - 下一個可達成條件
-
-#### 驗收
-- 使用者可看到成就清單 + Hint，且至少能在首日解鎖 1 個成就。
-- 成就獎勵不影響既有點數經濟平衡（每日 cap 生效）。
-
----
-
-### 4.8 比對頁 CTA/容錯優化（FR-Compare UX）
+讓每一張分享出去的比對圖本身成為品牌廣告，參考 Retrica / FaceApp 的被動浮水印策略。
 
 #### 調整項
-- 分享按鈕文案 A/B：
-  - A: `分享比對圖`
-  - B: `分享我的貼圖成果`
-- 分享失敗或取消時顯示輕提示（不打斷流程）
-- 分享成功後若當日已領獎，顯示「今日獎勵已領，可繼續分享」
+
+**1. 分享圖品牌 Footer**
+- 比對圖底部加上品牌 footer 區塊（高度約 48dp）
+- 內容：Magic Sticker Logo + App 名稱 + 下載提示文字（「試試同款 ↓」）
+- 顏色：品牌主色背景，白色文字，不遮蓋主圖
+
+**2. 分享文案預填**
+- 預填文案（可修改）：`我用 Magic Sticker 做了這個！試試同款 👇\n{deep_link}`
+- 若 deep link 生成失敗，僅保留圖片 + 純文字（不含連結）
+
+**3. 分享按鈕文案 A/B**
+- A（control）：`分享比對圖`
+- B（test）：`分享我的貼圖成果`
+- 以 `compare_screen_ab_variant`（值：A/B）參數記錄，在 `share_compare_tapped` 事件帶出
+
+**4. 分享狀態容錯**
+- 分享取消或失敗：顯示 Snackbar 輕提示，不打斷流程
+- 修復 `_isSharing` 離開頁面後殘留 loading 狀態的問題
+- 分享成功後若當日已領獎：顯示「今日獎勵已領，可繼續分享」
 
 #### 驗收
-- 無論分享成功/取消/失敗，頁面狀態可恢復可操作。
-- `_isSharing` 卡住率為 0（離開頁面後也不殘留 loading）。
+- 分享出去的圖片底部有品牌 footer，含 Logo + 文字。
+- 無論分享成功/取消/失敗，比對頁狀態可恢復可操作。
+- A/B variant 可在 DebugView 確認被正確記錄。
 
 ---
 
-### 4.9 Deep Link 導流（FR-Deep Link Routing）
+### 4.B Viral Share Link（FR-Viral Share Link）
+
+> 整合原 4.3 挑戰碼、4.6 自動生成、4.9 Deep Link 為單一最小實作。
 
 #### 目標
-讓朋友點擊分享內文連結後，可直接進入 App 對應模板（或落到輸入 code 頁）。
+使用者分享時自動附上可點擊的深層連結，朋友點擊後直接進入 App 的同款模板預覽頁，零額外步驟。
 
-#### Link 格式
-- `https://magicsticker.app/c/{code}`（建議主格式）
-- `magicsticker://challenge/{code}`（App scheme fallback）
+#### 4.B.1 分享時自動生成連結
 
-#### 行為規則
-1. **已安裝 App**：直接開啟 App → 進入 challenge 預覽頁 → 一鍵套用。
-2. **未安裝 App**：導向下載頁（Android Play），安裝後首次開啟帶入 pending code。
-3. **無效/過期 code**：顯示錯誤並導回手動輸入頁。
+**規則**
+1. 使用者點「分享比對圖」時，先呼叫 Cloud Function `ensureShareCode`。
+2. 若同一 ownerUid + templateType 在最近 24 小時內已有有效 code，直接重用（不重複建立）。
+3. 分享文案自動附上：
+   - `deep link`：`https://magicsticker.app/c/{CODE}`
+   - `code`（供手動輸入）：同一組 CODE
+4. 若 code 建立失敗：靜默降級為純圖片分享，主流程不中斷，記錄 `share_link_attach_failed` 事件。
 
-#### 技術建議
-- ~~Firebase Dynamic Links 已於 2025/08 終止~~，改用 **Android App Links**（`/.well-known/assetlinks.json`）+ 自建 landing page redirect（未安裝時導向 Play Store）
-- App 首次啟動保存 `pendingChallengeCode`，登入/初始化後再解析。
-- Landing page 建議部署於 Firebase Hosting（`magicsticker.app/c/{code}`），自動偵測 UA 決定導向 App 或 Play Store。
+**Code 格式**
+- 大寫英數字，6 碼
+- 排除混淆字元：`0, O, I, L, 1`（字元集：`A-Z` 去除 O/I/L + `2-9`）
+- 例：`M7BX4R`
+
+#### 4.B.2 資料模型（Firestore）
+
+**`challenges/{code}`**
+
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `code` | string | 同 document ID |
+| `ownerUid` | string | 建立者 UID |
+| `templateType` | `"preset"` \| `"pro_custom"` | 模板類型 |
+| `presetStyleIndex` | int? | preset 模板索引 |
+| `presetCategoryIds` | string[]? | preset 情緒類別 |
+| `createdAt` | Timestamp | 建立時間 |
+| `expiresAt` | Timestamp | 建立時間 + 30 天（TTL） |
+| `isActive` | bool | 預設 true，過期或手動停用後為 false |
+
+**`challengeParticipants/{code_uid}`**
+
+| 欄位 | 型別 | 說明 |
+|---|---|---|
+| `uid` | string | 參與者 UID |
+| `code` | string | 挑戰碼 |
+| `joinedAt` | Timestamp | 點連結時間 |
+| `completedFirstSticker` | bool | 是否完成首張生成 |
+
+> **不存**：原始照片、自訂 prompt 完整內容、編輯歷史。
+
+#### 4.B.3 Deep Link 路由
+
+**Link 格式**
+- 主格式：`https://magicsticker.app/c/{CODE}`
+- 技術實作：**Android App Links**（`/.well-known/assetlinks.json` 部署於 Firebase Hosting）
+- ~~Firebase Dynamic Links~~：已於 2025/08 終止，不使用。
+
+**已安裝 App 行為**
+1. OS 直接開啟 App
+2. 進入「挑戰預覽頁」：顯示模板摘要（風格/情緒）
+3. 使用者點「用這款生成」→ 帶入 editor 流程
+
+**未安裝 App 行為**
+1. Firebase Hosting landing page（`magicsticker.app/c/{CODE}`）
+2. 偵測 User-Agent → Android 導向 Play Store（帶 `utm_source=challenge&referrer={CODE}`）
+3. 安裝後首次開啟 → Play Install Referrer API 解析 CODE → 還原「挑戰預覽頁」
+
+**Pending Code 暫存**
+- 安裝後首次啟動尚未登入時，CODE 暫存 `SharedPreferences`
+- 登入/初始化完成後讀取並解析
+
+**無效/過期 code**
+- 顯示明確錯誤訊息，提示「連結已過期」，導回 Home
+
+#### 4.B.4 Cloud Function：`ensureShareCode`
+
+| 項目 | 規格 |
+|---|---|
+| Trigger | HTTPS Callable |
+| Auth | 必須登入（`context.auth` 驗證） |
+| Input | `{ templateType, presetStyleIndex?, presetCategoryIds? }` |
+| Output | `{ code, deepLink, reused: bool }` |
+| 冪等性 | 同 ownerUid + templateType 在 24h 內重用現有 code |
+| 失敗行為 | 回傳 HTTP 5xx，client 靜默降級 |
+| Timeout | 10 秒 |
+| Memory | 256 MB |
 
 #### 驗收
-- 點擊 deep link 後 1 次跳轉內可到挑戰預覽頁。
-- 首裝後回流可正確還原 pending code。
+- 分享文案含有效 deep link，可點擊開啟 App（或 Play Store）。
+- 已安裝：點 link → 1 次跳轉內到挑戰預覽頁。
+- 未安裝：安裝後首次開啟 → 自動還原挑戰預覽頁。
+- code 生成失敗 → 分享按鈕仍可用，僅缺少 link。
+- 6 碼 code 不含混淆字元，可手動輸入。
 
 ---
 
-### 4.10 挑戰資料儲存策略與免費額度評估（FR-Storage & Cost Guardrail）
+### 4.C 分享獎勵（FR-Reward）
 
-#### 問題
-挑戰功能若保存大量圖片/檔案會快速增加儲存與流量成本。
+#### 規則
+- 每個帳號每天首次點擊分享按鈕（且同 session 內曾看過比對頁）可領 **+1 點**。
+- 當日再次分享不再發點，但允許正常分享。
+- 獎勵入帳必須走 Cloud Function（避免 client 端偽造）。
 
-#### 策略（建議採用）
-1. **只存 metadata，不存大檔**
-   - challenge / participant / status / counters / achievements
-2. **不複製貼圖檔**
-   - 挑戰系統只記錄「是否完成首張」與貼圖記錄 id（可選）
-3. **保留期限（TTL）**
-   - 挑戰資料預設保留 30 天（可配置），逾期自動封存或刪除
-4. **排行榜/清單預聚合**
-   - 以 counter 欄位顯示人數，避免每次掃全量 participants
+> **為什麼改為「點擊觸發」而非「成功觸發」：**
+> Android OS 的 Intent Chooser 不回傳分享結果，`share_plus` 的回傳值只代表「呼叫了 share sheet」，無法可靠判斷「真的發出去了」。iOS 可精確判斷但不一致性太高。降級為點擊觸發 + session 內有 compare_screen_viewed 作為雙條件防濫用，是最務實策略。
 
-#### 完整資料模型（與 4.3 統一）
+#### 防濫用
+- 雙條件觸發：`share_compare_tapped` + 同 session 內有 `compare_screen_viewed`
+- 同一 uid 每日只可成功入帳 1 次（server 端冪等，`users/{uid}/dailyRewardSummary/{yyyymmdd}`）
+- 異常高頻：寫風控 log，不給點，不擋主流程
 
-> 以下集合命名與 4.3 完全一致，此節補充各集合的欄位規範。
+#### Cloud Function：`shareRewardGrant`
 
-- `challenges/{code}`：詳見 4.3；`participantCount` 為預聚合欄位，避免讀取全量 participants
-- `challengeParticipants/{challengeCode_uid}`：詳見 4.3
-- `users/{uid}/joinedChallenges/{code}`：只存索引（joinedAt），供首頁快速查詢
-- `users/{uid}/achievements/{achievementId}`：unlockAt / rewardClaimed(bool) / source / creditsGranted
-- `users/{uid}/dailyRewardSummary/{yyyymmdd}`：totalGranted(int) / shareGranted(bool) / achievementsGranted(int)（統一 cap 管理，詳見 4.2）
-
-#### 免費用量評估方式（先用估算，不先擴容）
-- 估算公式：
-  - 每日寫入量 ≈ `new_challenges + joins + completions + counter_updates`
-  - 儲存量 ≈ `avg_doc_size × doc_count`
-- 先設定 3 檔警戒：
-  - 50% 免費額度：觀察
-  - 70% 免費額度：啟用更短 TTL
-  - 90% 免費額度：暫停新挑戰建立（保留參加）
+| 項目 | 規格 |
+|---|---|
+| Trigger | HTTPS Callable |
+| Auth | 必須登入 |
+| Input | `{ sessionHadCompareView: bool }` |
+| Output | `{ granted: bool, reason: string, newBalance: int }` |
+| 冪等性 | `users/{uid}/dailyRewardSummary/{yyyymmdd}.shareGranted: bool` |
+| Timeout | 10 秒 |
+| Memory | 256 MB |
 
 #### 驗收
-- 挑戰功能上線後 4 週內，儲存與讀寫均在免費額度警戒範圍內。
-- 不因挑戰功能而新增圖片儲存成本。
+- 首次點擊分享（且 session 有 compare_screen_viewed）：creditHistory 新增 +1 筆。
+- 同日第二次：不加點，回傳 `granted: false, reason: already_claimed_today`。
+- client 可顯示「+1 點」或「今日已領」對應提示。
 
 ---
 
-## 5. 非功能需求（NFR）
+### 4.D 最小漏斗埋點（FR-Analytics）
 
-1. **效能**：分享截圖耗時 P95 < 1.2s（中階 Android 裝置）。
-2. **穩定性**：分享流程 crash-free > 99.9%。
-3. **安全**：分享獎勵發放必須 server 端驗證 + 冪等。
-4. **隱私**：分享內容僅含使用者主動產生與主動分享之圖片，不上傳額外個資。
+#### 5 個關鍵事件
+
+| 事件名稱 | 關鍵 params | 用途 |
+|---|---|---|
+| `compare_screen_viewed` | `from`（editor/replay）, `shape`, `ab_variant`（A/B） | 漏斗頂端曝光 |
+| `share_compare_tapped` | `from`, `shape`, `ab_variant`, `has_link`（bool） | 點擊率計算 |
+| `share_compare_dismissed` | `reason`（cancelled/failed） | 流失追蹤 |
+| `share_reward_granted` | `credits=1` | 獎勵是否在工作 |
+| `challenge_link_opened` | `code`, `installed`（bool）, `resolved`（bool） | 回流漏斗量測 |
+
+> 所有事件命名統一 snake_case，可在 Firebase DebugView 即時確認。
+
+#### 明確移除的事件（v3.12）
+- `achievement_unlocked`, `achievement_reward_granted`, `cat_play_milestone_reached`（隨成就系統一起）
+- `challenge_code_created`（Hub 功能移走後暫不需要）
 
 ---
 
-## 6. 實作切分與排程（建議）
+## 5. Firestore Security Rules（新增）
+
+> 上線前必須補齊，否則為安全漏洞。
+
+```
+// challenges（挑戰碼）
+match /challenges/{code} {
+  // 任何已登入用戶可讀（用於驗證 code）
+  allow read: if request.auth != null;
+  // 只有 Cloud Function（Admin SDK）可寫入
+  allow write: if false;
+}
+
+// challengeParticipants
+match /challengeParticipants/{docId} {
+  // 本人可讀自己的參與記錄
+  allow read: if request.auth != null
+    && resource.data.uid == request.auth.uid;
+  // 只有 Cloud Function 可寫入
+  allow write: if false;
+}
+```
+
+---
+
+## 6. Sprint 規劃
 
 ### Sprint 1（3–4 天）
-- FR-Analytics（4.1）
-- FR-Compare UX（4.8）（A/B 文案 + fallback 提示）
-- FR-Achievement 基礎建設（4.7 部分）：`users/{uid}/achievements` 集合定義 + server unlock function + 每日 cap 機制
-  > 原因：S1 就開始埋 analytics 事件與生成流程，成就底層若不先建好，後續所有 sprint 都無法開始觸發成就計算
+**目標：讓分享的圖有品牌識別 + 開始量測**
 
-### Sprint 2（4–5 天）
-- FR-Reward（4.2）（Cloud Function + client call + creditHistory + dailyRewardSummary 共用 cap）
-- FR-Achievement UI（4.7 剩餘）：成就中心頁面、勳章顯示、Hint
+| 任務 | 負責 |
+|---|---|
+| 比對頁底部品牌 footer（Flutter UI） | Flutter |
+| 分享文案預填（含 placeholder for link） | Flutter |
+| 分享按鈕文案 A/B（`ab_variant` 參數） | Flutter |
+| `_isSharing` 狀態容錯修復 | Flutter |
+| 5 個關鍵漏斗事件埋點 | Flutter |
+| Firestore Security Rules 補齊 | Firebase |
 
-### Sprint 3（5–7 天）
-- FR-Challenge Code（4.3）（資料模型、輸入流程、導流）
-- FR-Pro Entitlement（4.5）（server 驗證 + client UX）
+### Sprint 2（5–6 天）
+**目標：Viral Share Link 端到端可用**
 
-### Sprint 4（5–7 天）
-- FR-Challenge Authoring & Hub（4.4）（分享 toggle、首頁入口、清單 UI）
-- FR-Auto Challenge on Share（4.6）（ensureShareChallengeCode + fallback）
-
-### Sprint 5（5–7 天）
-- FR-Deep Link Routing（4.9）（App Links + landing page + pending code）
-- FR-Storage & Cost Guardrail（4.10）（TTL + 警戒機制）
-
-### Sprint 6（3–4 天）
-- 全功能整合測試 + UAT
-- 數據看板確認（DebugView 事件、漏斗報表、免費額度警戒）
-
----
-
-## 7. 風險與對策
-
-1. **無法精準判斷分享 channel**
-   - 對策：先記錄 unknown；後續再做可選回填。
-2. **獎勵被刷**
-   - 對策：server daily idempotency + 行為門檻 + 風控記錄。
-3. **挑戰資料量成長過快**
-   - 對策：只存 metadata、啟用 TTL、超過警戒時限制新建挑戰。
-4. **Deep Link 未安裝場景體驗差**
-   - 對策：自建 landing page 偵測 UA，未安裝導 Play Store 並保存 pending code。
-5. **成就獎勵破壞點數經濟平衡**
-   - 對策：每日成就獎勵 cap 3 點，與分享獎勵共用每日上限計算。
+| 任務 | 負責 |
+|---|---|
+| Cloud Function `ensureShareCode`（建立/重用 code，Firestore 寫入） | Functions |
+| Cloud Function `shareRewardGrant`（冪等 +1 點） | Functions |
+| Firebase Hosting landing page（`/c/{code}`，UA 偵測 → Play Store） | Hosting |
+| `/.well-known/assetlinks.json` 部署（Android App Links） | Hosting |
+| App 端 App Links intent-filter 設定（AndroidManifest.xml） | Android |
+| 挑戰預覽頁（Flutter UI：顯示模板摘要 + 一鍵生成 CTA） | Flutter |
+| Pending code SharedPreferences 暫存與登入後解析 | Flutter |
+| Play Install Referrer API 首裝後 code 還原 | Android/Flutter |
 
 ---
 
-## 8. 驗收清單（UAT）
+## 7. 關鍵技術風險與對策
 
-- [ ] 儲存貼圖後可正常進入比對分享頁
-- [ ] 分享成功可正確打點 `share_compare_success`
-- [ ] 每日首次分享可 +1 點，重複分享不加點
-- [ ] 輸入有效挑戰碼可成功套用模板並導流生成
-- [ ] 無效碼顯示錯誤且不影響原流程
-- [ ] 非 Pro 不可藉由 Pro 挑戰碼繞過付費授權
-- [ ] 一般使用者可在分享時選擇是否發起挑戰，並在首頁查看我建立/我加入清單
-- [ ] 分享時會自動帶入 code 或 deep link（失敗時不阻塞分享）
-- [ ] deep link 可正確導到對應 challenge 預覽
-- [ ] 成就中心可顯示已解鎖/未解鎖與 Hint
-- [ ] 產圖成就與陪貓互動成就可解鎖且點數獎勵受每日上限保護
-- [ ] 挑戰功能上線 4 週內 Firestore 用量在免費額度警戒範圍內
-- [ ] TTL 過期後挑戰資料自動封存/刪除
-- [ ] Crashlytics 無新增高頻錯誤
-
-
----
-
-## 9. 零廣告預算自然成長策略（Organic Discovery）
-
-> 前提：不依賴買量，核心是讓「使用者產生內容 → 內容帶新用戶 → 新用戶再產生內容」。
-
-### 9.1 主要流量來源（不花廣告費）
-1. **分享比對圖自帶品牌曝光**
-   - 既有 compare 分享圖保留品牌 footer 與清楚 CTA（搜尋 app 名稱）。
-2. **LINE 群組自然擴散**
-   - 分享素材以「原圖 vs 貼圖」強對比為主，降低理解成本。
-3. **使用者挑戰碼接力**
-   - 一般使用者發 code，朋友一鍵套用同款模板，形成接力挑戰。
-
-### 9.2 可執行的低成本管道（不買廣告）
-- **社群主題串合作**：找中小型創作者或社群活躍用戶（寵物、情侶、上班迷因）做「本週模板挑戰」。
-- **社群貼文留言互動導流**：貼文只要放 1 張最強對比圖 + challenge code。
-- **LINE 社群 / Discord 社群共創**：每週固定一個模板題目（如「週一崩潰」）。
-
-### 9.3 產品內必備配套（讓自然流量真的留住）
-1. 首次安裝 60 秒內完成第一張（降低流失）
-2. 分享成功後即時回饋（徽章 / +1 點）
-3. 進來的 challenge code 流量能快速落地（少一步表單、少一步選擇）
-4. 成就 Hint 驅動探索（讓使用者自發挖彩蛋、提高回訪）
-
-### 9.4 「奇怪管道」原則（可以做，但要可持續）
-- 不建議短期灰色手法（洗群、機器留言、灌榜）。
-- 可做的「非典型但健康」管道：
-  - 小型垂直社群版主合作（交換模板、非付費）
-  - 校園社團 / 寵物社群活動（貼圖主題週）
-  - Discord 伺服器「每週模板」共創
-
-### 9.5 Organic 成效 KPI（4 週）
-- `organic_new_users / total_new_users` ≥ 70%
-- `share_compare_success / sticker_generated` ≥ 0.20
-- `challenge_code_applied -> challenge_code_completed` 轉換率 ≥ 25%
-- K-factor（每位分享用戶帶來的新用戶）≥ 0.25
-- `achievement_unlocked_users / DAU` ≥ 20%
-
-### 9.6 驗收
-- [ ] 不投放廣告下，連續 2 週仍有正成長新用戶
-- [ ] 主要新用戶來源可追蹤到「分享」或「challenge code」
-- [ ] 自然流量用戶 D7 留存不低於整體 D7 的 90%
+| 風險 | 對策 |
+|---|---|
+| Firebase Dynamic Links 已停服 | 改用 Android App Links + Firebase Hosting redirect（已在規格中） |
+| Android share signal 不可靠 | 降級為「點擊觸發」+ session 雙條件（已在 4.C 中說明） |
+| Pending code 安裝後丟失 | Play Install Referrer API（Android）+ SharedPreferences 暫存 |
+| Code 碰撞（6 碼 32 字元）| 生成池 ≈ 32^6 ≈ 10 億，實際並發量極低，碰撞可安全忽略；如需擴展改 8 碼 |
