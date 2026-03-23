@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' show Random;
 import 'dart:typed_data';
@@ -11,6 +12,8 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/services/analytics_service.dart';
+import '../../../core/services/share_code_service.dart';
+import '../../../core/services/share_reward_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../widgets/sticker_canvas_frame.dart';
 
@@ -19,12 +22,10 @@ import '../widgets/sticker_canvas_frame.dart';
 const _kShareLabelA = '分享比對圖';
 const _kShareLabelB = '分享我的貼圖成果';
 
-/// 分享按鈕文案 A/B 版本，每次進入比對頁隨機分配（50/50）。
-/// Analytics 以 'A' / 'B' 記錄，作為 compare_screen_viewed 的 ab_variant 參數。
 String _pickAbVariant() => Random().nextBool() ? 'A' : 'B';
 
-// ── Landing page URL（Sprint 2 改為 challenge deep link）────────────────────
-const _kShareLandingUrl = 'https://magicsticker.app/download';
+// ── 降級用 Landing Page URL ──────────────────────────────────────────────────
+const _kFallbackShareUrl = 'https://magicsticker.app/download';
 
 // ── 尺寸常數 ─────────────────────────────────────────────────────────────────
 
@@ -33,7 +34,6 @@ const double _kBrandFooterHeight = 48.0;
 
 /// 儲存貼圖成功後顯示的全螢幕上下比對頁。
 /// 上半：原圖；下半：貼圖（棋盤格背景）。
-/// 分隔把手可垂直拖動調整比例。
 class StickerCompareScreen extends StatefulWidget {
   final String originalImagePath;
   final Uint8List stickerBytes;
@@ -42,12 +42,18 @@ class StickerCompareScreen extends StatefulWidget {
   /// 來源頁：'editor' | 'replay'（用於 Analytics）
   final String from;
 
+  /// 用於 ensureShareCode 的模板資訊
+  final int? styleIndex;
+  final List<String>? categoryIds;
+
   const StickerCompareScreen({
     super.key,
     required this.originalImagePath,
     required this.stickerBytes,
     required this.stickerShape,
     this.from = 'editor',
+    this.styleIndex,
+    this.categoryIds,
   });
 
   @override
@@ -62,7 +68,6 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
   late final String _abVariant;
   late final String _shapeLabel;
 
-  // 上下各自的縮放 / 平移控制器
   late final TransformationController _topCtrl;
   late final TransformationController _bottomCtrl;
 
@@ -72,7 +77,8 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
     _topCtrl = TransformationController();
     _bottomCtrl = TransformationController();
     _abVariant = _pickAbVariant();
-    _shapeLabel = widget.stickerShape == StickerShape.circle ? 'circle' : 'square';
+    _shapeLabel =
+        widget.stickerShape == StickerShape.circle ? 'circle' : 'square';
 
     // ── 漏斗 Event 1：進入比對頁 ───────────────────────────────────────────
     AnalyticsService.logCompareScreenViewed(
@@ -93,51 +99,78 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
     if (_isSharing) return;
     setState(() => _isSharing = true);
 
-    // ── 漏斗 Event 2：分享按鈕被點擊（分享 sheet 彈出前記錄）───────────────
-    AnalyticsService.logShareCompareTapped(
-      from: widget.from,
-      shape: _shapeLabel,
-      abVariant: _abVariant,
-      hasLink: false, // Sprint 2：帶入 challenge deep link 後改為 true
-    );
-
     try {
+      // ── 同步執行：CF 取挑戰碼 + 截圖（並行，不互相等待）──────────────────
+      final codeFuture = ShareCodeService.ensureShareCode(
+        presetStyleIndex: widget.styleIndex,
+        presetCategoryIds: widget.categoryIds,
+      ).timeout(const Duration(seconds: 8));
+
+      // 截圖（本機操作，快）
       final boundary = _repaintKey.currentContext?.findRenderObject()
           as RenderRepaintBoundary?;
       if (boundary == null) return;
-
       final image = await boundary.toImage(pixelRatio: 2.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final byteData =
+          await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return;
 
+      // 等待挑戰碼（或降級）
+      ShareCodeResult? codeResult;
+      try {
+        codeResult = await codeFuture;
+      } catch (_) {
+        codeResult = null; // 靜默降級：分享文案用 fallback URL
+      }
+
+      final shareUrl = codeResult?.deepLink ?? _kFallbackShareUrl;
+      final hasLink = codeResult != null;
+
+      // ── 漏斗 Event 2：分享按鈕被點擊 ─────────────────────────────────────
+      unawaited(AnalyticsService.logShareCompareTapped(
+        from: widget.from,
+        shape: _shapeLabel,
+        abVariant: _abVariant,
+        hasLink: hasLink,
+      ));
+
+      // 寫暫存檔
       final tmp = File(
         '${(await getTemporaryDirectory()).path}'
         '/compare_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await tmp.writeAsBytes(byteData.buffer.asUint8List());
 
+      // 分享
       final result = await Share.shareXFiles(
         [XFile(tmp.path)],
-        text: '我用 Magic Sticker 做了這個！試試同款 👇\n$_kShareLandingUrl',
+        text: '我用 Magic Sticker 做了這個！試試同款 👇\n$shareUrl',
       );
 
-      // 清理暫存檔（無論結果如何）
       if (await tmp.exists()) await tmp.delete();
 
-      // ── 漏斗 Event 3：使用者取消分享 ──────────────────────────────────────
-      if (result.status == ShareResultStatus.dismissed && mounted) {
-        AnalyticsService.logShareCompareDismissed(reason: 'cancelled');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('分享已取消'),
-            duration: Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
+      if (result.status == ShareResultStatus.dismissed) {
+        // ── 漏斗 Event 3：取消分享 ──────────────────────────────────────────
+        unawaited(
+          AnalyticsService.logShareCompareDismissed(reason: 'cancelled'),
         );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('分享已取消'),
+              duration: Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        // ── 分享完成：背景請求獎勵 ───────────────────────────────────────────
+        unawaited(_tryGrantReward());
       }
     } catch (_) {
-      // ── 分享失敗（截圖或 IO 錯誤）─────────────────────────────────────────
-      AnalyticsService.logShareCompareDismissed(reason: 'failed');
+      unawaited(
+        AnalyticsService.logShareCompareDismissed(reason: 'failed'),
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -148,8 +181,30 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
         );
       }
     } finally {
-      // _isSharing 一定重置，不殘留 loading 狀態
       if (mounted) setState(() => _isSharing = false);
+    }
+  }
+
+  /// 背景請求分享獎勵（fire-and-forget）；
+  /// 若成功且今日首次，顯示 +1 點 Toast。
+  Future<void> _tryGrantReward() async {
+    try {
+      final reward = await ShareRewardService.grantReward(
+        sessionHadCompareView: true, // 進入此畫面即代表已看過比對頁
+      );
+      if (reward.granted && mounted) {
+        // ── 漏斗 Event 4：獎勵入帳 ────────────────────────────────────────
+        unawaited(AnalyticsService.logShareRewardGranted());
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🎉 +1 點分享獎勵！'),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {
+      // 獎勵失敗不影響主流程，靜默忽略
     }
   }
 
@@ -285,19 +340,18 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                                       boundaryMargin:
                                           EdgeInsets.all(double.infinity),
                                       clipBehavior: Clip.none,
-                                      child:
-                                          widget.stickerShape ==
-                                                  StickerShape.circle
-                                              ? ClipOval(
-                                                  child: Image.memory(
-                                                    widget.stickerBytes,
-                                                    fit: BoxFit.contain,
-                                                  ),
-                                                )
-                                              : Image.memory(
-                                                  widget.stickerBytes,
-                                                  fit: BoxFit.contain,
-                                                ),
+                                      child: widget.stickerShape ==
+                                              StickerShape.circle
+                                          ? ClipOval(
+                                              child: Image.memory(
+                                                widget.stickerBytes,
+                                                fit: BoxFit.contain,
+                                              ),
+                                            )
+                                          : Image.memory(
+                                              widget.stickerBytes,
+                                              fit: BoxFit.contain,
+                                            ),
                                     ),
                                   ),
                                   const Positioned(
@@ -391,9 +445,6 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
 }
 
 // ── _BrandFooter ──────────────────────────────────────────────────────────────
-//
-// 隨截圖一起分享，讓看到圖的朋友知道這是哪個 App、怎麼找到它。
-// 高度 48dp，主色漸層背景，白色文字。
 
 class _BrandFooter extends StatelessWidget {
   const _BrandFooter();
@@ -402,19 +453,13 @@ class _BrandFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: _kBrandFooterHeight,
-      decoration: BoxDecoration(
-        gradient: AppColors.gradient,
-      ),
+      decoration: const BoxDecoration(gradient: AppColors.gradient),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: Image.asset(
-              'assets/app_icon.png',
-              width: 24,
-              height: 24,
-            ),
+            child: Image.asset('assets/app_icon.png', width: 24, height: 24),
           ),
           const SizedBox(width: 8),
           const Text(

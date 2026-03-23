@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.11.1+350 |
+| 目前版本 | v3.11.2+351 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -325,6 +325,7 @@ lib/
 |---|---|---|
 | v3.10.23 | 2026-03-23 | **docs(optimize-share-growth-prd)**：深度優化 v3.11 分享成長 PRD，修正 6 項架構問題：① 統一資料模型命名（`challengeCodes`→`challenges`、`challengeRedemptions`→`challengeParticipants`，全文一致）；② Analytics 補齊 3 個缺漏事件（`challenge_code_created`、`challenge_code_attach_failed`、`deep_link_opened`）；③ 明確化每日獎勵 cap 機制（總 4 點上限，由 `dailyRewardSummary` 統一管理）；④ 成就系統提前至 Sprint 1 建基礎、Sprint 2 完成 UI（原排在 Sprint 6）；⑤ `challenges/{code}` 補加 `expiresAt` 與 `participantCount` 欄位；⑥ Section 4 子章節標題層級由 `###` 修正為 `####`。 |
 | v3.10.22 | 2026-03-23 | **docs(review-share-growth-prd)**：審查 `PRD_share_growth_v311.md` 並修正 6 項問題：① 修正 Section 4 子章節標題層級（`##` → `###`）；② 補完 Sprint 排程（原只排 Sprint 1-3 遺漏 4.4-4.10，新增 Sprint 4-6）；③ 修正 Deep Link 技術建議（Firebase Dynamic Links 已停止，改用 App Links + 自建 landing page）；④ 北極星指標補充基準值欄位；⑤ 風險與對策新增 Deep Link 未安裝體驗風險與成就獎勵經濟平衡風險；⑥ UAT 驗收清單補充 Firestore 用量與 TTL 驗收項。 |
+| v3.11.2 | 2026-03-23 | **feat(sprint2-viral-share-link)**：Sprint 2 完整實作——Cloud Functions `ensureShareCode`（6碼挑戰碼建立/重用，24h 冪等，含 deep link）與 `shareRewardGrant`（每日首次分享 +1 點，UTC+8 日期 key，Transaction 冪等）；Firestore Rules 補齊 `challenges`/`challengeParticipants`/`dailyRewardSummary`；Firebase Hosting landing page `/c/{CODE}`（UA 偵測 → intent:// → Play Store fallback）+ `assetlinks.json`；Android App Links + custom scheme intent-filter；Flutter 新增 `app_links` 套件 + `ShareCodeService` + `ShareRewardService` + `ChallengePreviewScreen` + deep link 路由；`StickerCompareScreen` 整合兩個 CF（並行 + timeout 降級）+ 獎勵 Toast；`StickerCompareArgs` 新增 `styleIndex`/`categoryIds`；`app.dart` 改為 `StatefulWidget` 處理 cold/hot deep link。 |
 | v3.11.1 | 2026-03-23 | **feat(sprint1-viral-compare)**：Sprint 1 實作完成——新增 `AnalyticsService`（5 個漏斗事件：compare_screen_viewed / share_compare_tapped / share_compare_dismissed / share_reward_granted / challenge_link_opened）；`StickerCompareArgs` 新增 `from` 欄位（editor/replay）；`StickerCompareScreen` 加入 A/B 分享按鈕文案測試（A: 分享比對圖 / B: 分享我的貼圖成果）、品牌 footer 換為主色漸層+下載 CTA、分享取消/失敗 Snackbar、`_isSharing` 確保 finally 重置；replay 頁正確傳入 from='replay'。 |
 | v3.11.0 | 2026-03-23 | **docs(prd-viral-growth-lean)**：精簡 v3.11 分享擴散 PRD，聚焦最小病毒成長迴圈：比對頁品牌化（浮水印 footer + 預填分享文案）、Viral Share Link（深層連結 + 挑戰碼自動生成，App Links 取代已停服的 Dynamic Links）、分享獎勵（點擊觸發 +1 點，處理 Android share signal 不可靠問題）、5 個關鍵漏斗埋點。移除成就系統、Challenge Hub、Pro Entitlement 至 v3.12，Sprint 由 6 個壓縮為 2 個。 |
 | v3.10.21 | 2026-03-23 | **docs(prd-achievement-loop)**：新增成就系統規格，包含「產圖成就」與「Loading 陪貓互動成就」、成就中心（勳章 + Hint）、解鎖事件與點數獎勵上限；並要求成就獎勵走 server 入帳且與生成 session 綁定，避免刷獎勵。 |

@@ -894,3 +894,178 @@ export const getConfig = onCall(
     imageModel: geminiImageModel.value(),
   })
 );
+
+// ── 病毒成長輔助函式 ──────────────────────────────────────────────────────────
+
+/** 無混淆字元的挑戰碼字集（排除 0/O/I/L/1），共 31 字元 */
+const kCodeChars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+/** 隨機產生 length 碼的挑戰碼 */
+function generateCode(length = 6): string {
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += kCodeChars[Math.floor(Math.random() * kCodeChars.length)];
+  }
+  return result;
+}
+
+/** 取得台灣時間（UTC+8）的日期 key，格式 yyyymmdd */
+function todayKeyTW(): string {
+  const now = new Date();
+  const tw = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  return tw.toISOString().slice(0, 10).replace(/-/g, "");
+}
+
+const kDomainBase = "https://magicsticker.app";
+
+// ── ensureShareCode ───────────────────────────────────────────────────────────
+//
+// 分享時自動建立（或重用）挑戰碼 + deep link。
+// 若同一 ownerUid 在最近 24h 內已有同 templateType 的有效 code，直接重用。
+// 回傳 { code, deepLink, reused }。
+
+export const ensureShareCode = onCall(
+  {
+    region: "asia-east1",
+    timeoutSeconds: 15,
+    memory: "256MiB",
+    invoker: "public",
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    log("ensureShareCode: invoked");
+    const uid = await resolveUid(request);
+
+    const {templateType, presetStyleIndex, presetCategoryIds} =
+      request.data as {
+        templateType: "preset" | "pro_custom";
+        presetStyleIndex?: number;
+        presetCategoryIds?: string[];
+      };
+
+    if (!templateType) {
+      throw new HttpsError("invalid-argument", "templateType is required.");
+    }
+
+    const challengesRef = db.collection("challenges");
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    // ── 嘗試重用 24h 內的有效 code ──────────────────────────────────────────
+    const existing = await challengesRef
+      .where("ownerUid", "==", uid)
+      .where("templateType", "==", templateType)
+      .where("isActive", "==", true)
+      .where("createdAt", ">=", cutoff)
+      .limit(1)
+      .get();
+
+    if (!existing.empty) {
+      const code = existing.docs[0].id;
+      log("ensureShareCode: reusing existing code", {uid, code});
+      return {code, deepLink: `${kDomainBase}/c/${code}`, reused: true};
+    }
+
+    // ── 建立新 code（碰撞重試最多 5 次）────────────────────────────────────
+    let code = "";
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = generateCode(6);
+      const snap = await challengesRef.doc(candidate).get();
+      if (!snap.exists) {
+        code = candidate;
+        break;
+      }
+    }
+
+    if (!code) {
+      throw new HttpsError("internal", "Failed to generate unique challenge code.");
+    }
+
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await challengesRef.doc(code).set({
+      code,
+      ownerUid: uid,
+      templateType,
+      presetStyleIndex: presetStyleIndex ?? null,
+      presetCategoryIds: presetCategoryIds ?? null,
+      isActive: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt,
+    });
+
+    log("ensureShareCode: new code created", {uid, code});
+    return {code, deepLink: `${kDomainBase}/c/${code}`, reused: false};
+  }
+);
+
+// ── shareRewardGrant ──────────────────────────────────────────────────────────
+//
+// 使用者點擊分享按鈕後呼叫；每日首次且 session 有 compare_screen_viewed 即 +1 點。
+// 以 users/{uid}/dailyRewardSummary/{yyyymmdd}.shareGranted 作為冪等鎖。
+// 回傳 { granted, newBalance, reason }。
+
+export const shareRewardGrant = onCall(
+  {
+    region: "asia-east1",
+    timeoutSeconds: 15,
+    memory: "256MiB",
+    invoker: "public",
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    log("shareRewardGrant: invoked");
+    const uid = await resolveUid(request);
+
+    const {sessionHadCompareView} = request.data as {
+      sessionHadCompareView: boolean;
+    };
+
+    if (!sessionHadCompareView) {
+      log("shareRewardGrant: missing compare view signal", {uid});
+      return {granted: false, newBalance: 0, reason: "missing_signal"};
+    }
+
+    const dateKey = todayKeyTW();
+    const dailyRef = db
+      .collection("users")
+      .doc(uid)
+      .collection("dailyRewardSummary")
+      .doc(dateKey);
+    const userRef = db.collection("users").doc(uid);
+
+    let granted = false;
+    let newBalance = 0;
+    let reason = "already_claimed_today";
+
+    await db.runTransaction(async (tx) => {
+      const [dailyDoc, userDoc] = await Promise.all([
+        tx.get(dailyRef),
+        tx.get(userRef),
+      ]);
+
+      newBalance = (userDoc.data()?.credits as number) ?? 0;
+
+      if (dailyDoc.exists && dailyDoc.data()?.shareGranted === true) {
+        return; // 今日已領，冪等回傳
+      }
+
+      newBalance += 1;
+      granted = true;
+      reason = "";
+
+      tx.set(
+        userRef,
+        {credits: newBalance, updatedAt: admin.firestore.FieldValue.serverTimestamp()},
+        {merge: true}
+      );
+      writeCreditHistory(tx, uid, {type: "earned", amount: 1, reason: "share_reward"});
+      tx.set(
+        dailyRef,
+        {shareGranted: true, shareGrantedAt: admin.firestore.FieldValue.serverTimestamp()},
+        {merge: true}
+      );
+    });
+
+    log("shareRewardGrant: done", {uid, granted, newBalance, dateKey});
+    return {granted, newBalance, reason};
+  }
+);

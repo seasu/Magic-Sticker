@@ -1,9 +1,14 @@
+import 'dart:async';
+
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/models/sticker_shape.dart';
 import 'core/theme/app_theme.dart';
 import 'features/billing/screens/credit_history_screen.dart';
+import 'features/challenge/screens/challenge_preview_screen.dart';
 import 'features/dev_log/screens/log_viewer_screen.dart';
 import 'features/editor/screens/editor_screen.dart';
 import 'features/editor/screens/emotion_selection_screen.dart';
@@ -14,6 +19,9 @@ import 'features/editor/screens/sticker_compare_screen.dart';
 import 'features/sticker_history/models/sticker_record.dart';
 import 'features/sticker_history/screens/sticker_history_screen.dart';
 import 'features/sticker_history/screens/sticker_replay_screen.dart';
+
+// SharedPreferences key：存放從 deep link / Install Referrer 帶入的待處理挑戰碼
+const kPendingChallengeCodeKey = 'pending_challenge_code';
 
 /// 跳轉至 /style-select 時攜帶的參數（步驟 2：選擇風格）
 class StyleSelectArgs {
@@ -56,7 +64,7 @@ class EditorArgs {
   });
 }
 
-final _router = GoRouter(
+final router = GoRouter(
   initialLocation: '/',
   routes: [
     GoRoute(
@@ -124,14 +132,95 @@ final _router = GoRouter(
           stickerBytes: args.stickerBytes,
           stickerShape: args.stickerShape,
           from: args.from,
+          styleIndex: args.styleIndex,
+          categoryIds: args.categoryIds,
         );
+      },
+    ),
+    // ── Viral Share Link：朋友點擊 deep link 後進入的挑戰預覽頁 ──────────────
+    GoRoute(
+      path: '/challenge/:code',
+      builder: (_, state) {
+        final code = state.pathParameters['code']!;
+        return ChallengePreviewScreen(code: code);
       },
     ),
   ],
 );
 
-class MagicStickerApp extends StatelessWidget {
+class MagicStickerApp extends StatefulWidget {
   const MagicStickerApp({super.key});
+
+  @override
+  State<MagicStickerApp> createState() => _MagicStickerAppState();
+}
+
+class _MagicStickerAppState extends State<MagicStickerApp> {
+  final _appLinks = AppLinks();
+  StreamSubscription<Uri>? _linkSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _initDeepLinks();
+  }
+
+  @override
+  void dispose() {
+    _linkSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initDeepLinks() async {
+    // ── Cold start：App 從連結啟動（已安裝，直接開啟）──────────────────────
+    try {
+      final initialUri = await _appLinks.getInitialLink();
+      if (initialUri != null) _handleDeepLink(initialUri);
+    } catch (_) {}
+
+    // ── Hot link：App 已在前景，收到連結 ──────────────────────────────────
+    _linkSub = _appLinks.uriLinkStream.listen(
+      _handleDeepLink,
+      onError: (_) {},
+    );
+  }
+
+  void _handleDeepLink(Uri uri) {
+    // 支援格式：
+    //   https://magicsticker.app/c/{CODE}
+    //   magicsticker://challenge/{CODE}
+    String? code;
+
+    final segments = uri.pathSegments;
+    if (uri.scheme == 'https' &&
+        segments.length == 2 &&
+        segments[0] == 'c') {
+      code = segments[1];
+    } else if (uri.scheme == 'magicsticker' &&
+        uri.host == 'challenge' &&
+        segments.isNotEmpty) {
+      code = segments[0];
+    }
+
+    if (code == null || code.isEmpty) return;
+
+    // 若尚未登入，先存入 SharedPreferences，登入後由 HomeScreen 讀取並導航
+    _navigateToChallengeOrStore(code);
+  }
+
+  void _navigateToChallengeOrStore(String code) {
+    // 嘗試直接導航；若使用者未登入，ChallengePreviewScreen 會顯示提示
+    // SharedPreferences 暫存由 HomeScreen 的 initState 讀取（登入後回流）
+    _savePendingCode(code);
+    router.push('/challenge/$code');
+  }
+
+  Future<void> _savePendingCode(String code) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(kPendingChallengeCodeKey, code);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -139,7 +228,7 @@ class MagicStickerApp extends StatelessWidget {
       title: 'Magic Sticker',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      routerConfig: _router,
+      routerConfig: router,
       debugShowCheckedModeBanner: false,
     );
   }
