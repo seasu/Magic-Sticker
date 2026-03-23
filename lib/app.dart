@@ -123,6 +123,7 @@ final _router = GoRouter(
           originalImagePath: args.originalImagePath,
           stickerBytes: args.stickerBytes,
           stickerShape: args.stickerShape,
+          from: args.from,
         );
       },
     ),

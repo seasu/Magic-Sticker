@@ -196,6 +196,7 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
             originalImagePath: originalPath,
             stickerBytes: bytes,
             stickerShape: _stickerShape,
+            from: 'replay',
           ),
         );
       } else if (mounted) {

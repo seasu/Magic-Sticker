@@ -8,9 +8,13 @@ class StickerCompareArgs {
   final Uint8List stickerBytes;
   final StickerShape stickerShape;
 
+  /// 來源頁：'editor' | 'replay'（用於 Analytics from 參數）
+  final String from;
+
   const StickerCompareArgs({
     required this.originalImagePath,
     required this.stickerBytes,
     required this.stickerShape,
+    this.from = 'editor',
   });
 }
