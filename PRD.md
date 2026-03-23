@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.10.7+332 |
+| 目前版本 | v3.10.21+346 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -199,6 +199,15 @@ users/{uid}/purchases/pro_custom_input: {
 
 ---
 
+
+### 2.9 分享擴散與使用率提升規劃（v3.11 Draft）
+
+為了把既有「比對分享頁」能力轉成可量測、可回流、可擴散的成長循環，新增獨立 PRD：
+
+- 文件：[`PRD_share_growth_v311.md`](./PRD_share_growth_v311.md)
+- 範圍：分享漏斗事件、每日首次分享獎勵、一般使用者可發起挑戰、首頁「我建立/我加入」挑戰入口、Pro 挑戰碼授權規則、分享時自動產生 code、deep link 一鍵導流、成就系統（產圖 + 陪貓互動）、低儲存成本的挑戰資料策略、比對頁 CTA 優化、零廣告預算的自然成長策略
+- 目標：提升分享率、D1/D7 留存，降低一般使用者與朋友的跟做門檻
+
 ### 2.7 Fallback 機制
 - Gemini 圖片生成失敗 → Flutter 端顯示彩色圓形背景 + outline 文字疊加
 - 失敗 badge 支援長按查看 API 錯誤詳情、點擊單張重試
@@ -314,6 +323,13 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.10.21 | 2026-03-23 | **docs(prd-achievement-loop)**：新增成就系統規格，包含「產圖成就」與「Loading 陪貓互動成就」、成就中心（勳章 + Hint）、解鎖事件與點數獎勵上限；並要求成就獎勵走 server 入帳且與生成 session 綁定，避免刷獎勵。 |
+| v3.10.20 | 2026-03-23 | **docs(prd-general-challenge + storage-guardrail)**：移除 KOL 特化設計，改為一般使用者皆可在分享時選擇發起挑戰；新增首頁單一「挑戰」入口（我建立/我加入）、挑戰清單與參加者檢視規格；補充「只存 metadata、不存圖片大檔」與 TTL/免費額度警戒的成本保護策略。 |
+| v3.10.19 | 2026-03-22 | **docs(prd-auto-code-deeplink)**：新增「分享時自動產生 challenge code」與「deep link 一鍵導流」規格；定義 share 當下 attach code/deeplink、失敗 fallback 不阻塞分享、以及 `https://.../c/{code}` / app scheme 導流行為與首裝回流 pending code 邏輯。 |
+| v3.10.18 | 2026-03-22 | **docs(prd-kol-authoring-flow)**：補上 KOL 角色與挑戰建立流程，新增「KOL/社群主理人」使用情境與 App 內自助建立 code 的功能規格（建立步驟、成效指標、限制與驗收），讓挑戰碼機制可被非技術 KOL 實際操作。 |
+| v3.10.17 | 2026-03-22 | **docs(prd-organic-discovery)**：補充 v3.11 分享成長 PRD 的「零廣告預算自然成長策略」，新增可執行的 organic 管道、奇怪/非典型但可持續的觸及原則、產品內配套與 KPI 驗收，回答「不買廣告如何被發現」的落地方案。 |
+| v3.10.16 | 2026-03-22 | **docs(prd-pro-challenge-guardrail)**：補充分享成長 PRD 的 Pro 授權規則：挑戰碼可擴散但不可繞過付費；`pro_custom` code 對未解鎖 Pro 僅顯示預覽並導向解鎖流程，實際模板解析由 server 依 entitlement 判斷（避免 client 偽造）。同步更新主 PRD 2.9 節摘要。 |
+| v3.10.15 | 2026-03-22 | **docs(prd-share-growth)**：新增獨立文件 `PRD_share_growth_v311.md`，明確定義 v3.11 分享擴散與使用率提升需求（分享漏斗事件、每日首次分享 +1 點、挑戰碼/KOL 模板導流、比對頁 CTA 優化）；同步在主 PRD 新增 2.9 節連結與摘要。 |
 | v3.10.14 | 2026-03-22 | **fix(prompt-head-crop)**：AI 圖片生成 prompt 全 4 個分支（circle/square × ChromaKey on/off）頭頂邊距從 `至少 5%` 加強為 `至少 10%`，並補充說明「確保頭部、耳朵、髮型完全不被截斷」，減少 AI 生成時角色頭頂被裁切的機率。 |
 | v3.10.13 | 2026-03-22 | **feat(interactive-cat-loading)**：Loading 動畫升級為可互動「陪貓玩球」遊戲。點擊畫面任意位置丟球 → 球彈跳出現（`Curves.elasticOut`）→ 貓咪轉向目標方向（`canvas.scale(-1,1)` 翻轉）並平滑移動（800ms `Curves.easeInOut`）→ 到達後開心彎月眼 + 尾巴激動搖擺（±30°，原 ±18°）+ 2 秒後回 idle。**球色依配色方案分開**：標準版橙球 `#FF9800`、Pro 版珊瑚粉球 `#FD297B`（對應 `accent`/鼻子色）；`CatColorScheme` 新增 `ball` 欄位。**技術**：`TickerProviderStateMixin`（4 個 controller），`GestureDetector(behavior: HitTestBehavior.opaque)` 取代 `AbsorbPointer`，Generation counter 防止過期 Future 回呼。`RunningCatPainter` 新增 `isHappy`/`facingLeft`/`exciteLevel` 參數；新 `_BallPainter`（徑向漸層 + 光澤高光）。`editor_screen.dart` 移除 `AbsorbPointer` 包裹。 |
 | v3.10.12 | 2026-03-22 | **fix(text-field-dark)**：`StickerEditSheet` 文字輸入框改為深色風格，符合 App 深色調性。`filled: true`、`fillColor: #1C1C1E`（iOS 系統深色 surface）；文字色改白色（`w600`）；hint 色 `Colors.white38`；取消預設邊框，`focusedBorder` 改用橙色 `#FF9800`（呼應「調整文字」模式按鈕 activeColor）。 |
