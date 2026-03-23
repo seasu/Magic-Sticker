@@ -437,7 +437,7 @@ jobs:
           PBXPROJ="ios/Runner.xcodeproj/project.pbxproj"
           # Bundle identifier
           sed -i '' \
-            's/PRODUCT_BUNDLE_IDENTIFIER = .*/PRODUCT_BUNDLE_IDENTIFIER = com.magicsticker.magic_sticker;/g' \
+            's/PRODUCT_BUNDLE_IDENTIFIER = .*/PRODUCT_BUNDLE_IDENTIFIER = com.magicsticker.magic-sticker;/g' \
             "$PBXPROJ"
           # iOS deployment target
           sed -i '' \
@@ -453,7 +453,7 @@ jobs:
           /usr/libexec/PlistBuddy \
             -c "Add :CFBundleDisplayName string 'Magic Sticker'" \
             ios/Runner/Info.plist
-          echo "✅ Bundle: com.magicsticker.magic_sticker, iOS 15.0+"
+          echo "✅ Bundle: com.magicsticker.magic-sticker, iOS 15.0+"
 
       - name: Generate launcher icons
         run: dart run flutter_launcher_icons
@@ -539,7 +539,7 @@ jobs:
             'compileBitcode': False,
             'uploadSymbols': True,
             'provisioningProfiles': {
-              'com.magicsticker.magic_sticker': os.environ['PP_NAME']
+              'com.magicsticker.magic-sticker': os.environ['PP_NAME']
             }
           }
           with open('ios/ExportOptions.plist', 'wb') as f:
