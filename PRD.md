@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.10.21+346 |
+| 目前版本 | v3.10.22+347 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.10.22 | 2026-03-23 | **docs(review-share-growth-prd)**：審查 `PRD_share_growth_v311.md` 並修正 6 項問題：① 修正 Section 4 子章節標題層級（`##` → `###`）；② 補完 Sprint 排程（原只排 Sprint 1-3 遺漏 4.4-4.10，新增 Sprint 4-6）；③ 修正 Deep Link 技術建議（Firebase Dynamic Links 已停止，改用 App Links + 自建 landing page）；④ 北極星指標補充基準值欄位；⑤ 風險與對策新增 Deep Link 未安裝體驗風險與成就獎勵經濟平衡風險；⑥ UAT 驗收清單補充 Firestore 用量與 TTL 驗收項。 |
 | v3.10.21 | 2026-03-23 | **docs(prd-achievement-loop)**：新增成就系統規格，包含「產圖成就」與「Loading 陪貓互動成就」、成就中心（勳章 + Hint）、解鎖事件與點數獎勵上限；並要求成就獎勵走 server 入帳且與生成 session 綁定，避免刷獎勵。 |
 | v3.10.20 | 2026-03-23 | **docs(prd-general-challenge + storage-guardrail)**：移除 KOL 特化設計，改為一般使用者皆可在分享時選擇發起挑戰；新增首頁單一「挑戰」入口（我建立/我加入）、挑戰清單與參加者檢視規格；補充「只存 metadata、不存圖片大檔」與 TTL/免費額度警戒的成本保護策略。 |
 | v3.10.19 | 2026-03-22 | **docs(prd-auto-code-deeplink)**：新增「分享時自動產生 challenge code」與「deep link 一鍵導流」規格；定義 share 當下 attach code/deeplink、失敗 fallback 不阻塞分享、以及 `https://.../c/{code}` / app scheme 導流行為與首裝回流 pending code 邏輯。 |

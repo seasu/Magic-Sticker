@@ -3,8 +3,8 @@
 | 屬性 | 描述 |
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
-| 文件版本 | v3.11.0-draft7 |
-| 文件日期 | 2026-03-22 |
+| 文件版本 | v3.11.0-draft8 |
+| 文件日期 | 2026-03-23 |
 | 目標平台 | Android（現行主力） |
 | 主要目標 | 提升分享率、次日回訪（D1）、7 日留存（D7） |
 
@@ -22,6 +22,7 @@
 
 ### 1.2 北極星指標（North Star）
 - `每 100 次 sticker_generated 產生的 share_success 次數`
+- **目前基準值**：待上線後第一週收集 baseline（上線前填入）
 
 ---
 
@@ -66,7 +67,7 @@
 
 ## 4. 功能需求（Functional Requirements）
 
-## 4.1 分享事件漏斗（FR-Analytics）
+### 4.1 分享事件漏斗（FR-Analytics）
 
 ### 需求
 新增以下 Analytics 事件（最低欄位）：
@@ -99,7 +100,7 @@
 
 ---
 
-## 4.2 分享獎勵（FR-Reward）
+### 4.2 分享獎勵（FR-Reward）
 
 ### 規則
 - 每個帳號每天「首次分享成功」可領 **+1 點**。
@@ -117,7 +118,7 @@
 
 ---
 
-## 4.3 挑戰碼（FR-Challenge Code）
+### 4.3 挑戰碼（FR-Challenge Code）
 
 ### 目標
 提供「一般使用者邀請朋友接力」所需最小能力：朋友看到分享內容中的 code/連結後，可在 App 內快速套用同款模板。
@@ -153,7 +154,7 @@
 
 ---
 
-## 4.4 一般使用者挑戰建立與首頁入口（FR-Challenge Authoring & Hub）
+### 4.4 一般使用者挑戰建立與首頁入口（FR-Challenge Authoring & Hub）
 
 ### 目標
 不做 KOL 特權。任何使用者都可在分享時發起挑戰，並在首頁同一入口查看「我建立的挑戰」與「我加入的挑戰」。
@@ -184,7 +185,7 @@
 
 ---
 
-## 4.5 挑戰碼與 Pro 付費能力授權規則（FR-Pro Entitlement）
+### 4.5 挑戰碼與 Pro 付費能力授權規則（FR-Pro Entitlement）
 
 > 重點：**挑戰碼可擴散內容，不可繞過付費授權**。
 
@@ -219,7 +220,7 @@
 
 ---
 
-## 4.6 分享當下自動產生 Code（FR-Auto Challenge on Share）
+### 4.6 分享當下自動產生 Code（FR-Auto Challenge on Share）
 
 ### 目標
 使用者在「分享比對圖」當下，系統自動產生（或重用）challenge code，降低擴散摩擦。
@@ -240,7 +241,7 @@
 
 ---
 
-## 4.7 成就系統（FR-Achievement & Reward Loop）
+### 4.7 成就系統（FR-Achievement & Reward Loop）
 
 ### 目標
 把既有「產圖」與「Loading 陪貓互動」轉為可發現、可收集、可回訪的遊戲化獎勵循環。
@@ -273,7 +274,7 @@
 
 ---
 
-## 4.8 比對頁 CTA/容錯優化（FR-Compare UX）
+### 4.8 比對頁 CTA/容錯優化（FR-Compare UX）
 
 ### 調整項
 - 分享按鈕文案 A/B：
@@ -288,7 +289,7 @@
 
 ---
 
-## 4.9 Deep Link 導流（FR-Deep Link Routing）
+### 4.9 Deep Link 導流（FR-Deep Link Routing）
 
 ### 目標
 讓朋友點擊分享內文連結後，可直接進入 App 對應模板（或落到輸入 code 頁）。
@@ -303,8 +304,9 @@
 3. **無效/過期 code**：顯示錯誤並導回手動輸入頁。
 
 ### 技術建議
-- Android 優先用 Firebase Dynamic Links（或 App Links + 自建 redirect）
+- ~~Firebase Dynamic Links 已於 2025/08 終止~~，改用 **Android App Links**（`/.well-known/assetlinks.json`）+ 自建 landing page redirect（未安裝時導向 Play Store）
 - App 首次啟動保存 `pendingChallengeCode`，登入/初始化後再解析。
+- Landing page 建議部署於 Firebase Hosting（`magicsticker.app/c/{code}`），自動偵測 UA 決定導向 App 或 Play Store。
 
 ### 驗收
 - 點擊 deep link 後 1 次跳轉內可到挑戰預覽頁。
@@ -312,7 +314,7 @@
 
 ---
 
-## 4.10 挑戰資料儲存策略與免費額度評估（FR-Storage & Cost Guardrail）
+### 4.10 挑戰資料儲存策略與免費額度評估（FR-Storage & Cost Guardrail）
 
 ### 問題
 挑戰功能若保存大量圖片/檔案會快速增加儲存與流量成本。
@@ -360,14 +362,27 @@
 ## 6. 實作切分與排程（建議）
 
 ### Sprint 1（3–4 天）
-- FR-Analytics
-- FR-Compare UX（A/B 文案 + fallback 提示）
+- FR-Analytics（4.1）
+- FR-Compare UX（4.8）（A/B 文案 + fallback 提示）
 
 ### Sprint 2（4–5 天）
-- FR-Reward（Cloud Function + client call + creditHistory）
+- FR-Reward（4.2）（Cloud Function + client call + creditHistory）
 
 ### Sprint 3（5–7 天）
-- FR-Challenge Code（資料模型、輸入流程、導流）
+- FR-Challenge Code（4.3）（資料模型、輸入流程、導流）
+- FR-Pro Entitlement（4.5）（server 驗證 + client UX）
+
+### Sprint 4（5–7 天）
+- FR-Challenge Authoring & Hub（4.4）（分享 toggle、首頁入口、清單 UI）
+- FR-Auto Challenge on Share（4.6）（ensureShareChallengeCode + fallback）
+
+### Sprint 5（5–7 天）
+- FR-Deep Link Routing（4.9）（App Links + landing page + pending code）
+- FR-Storage & Cost Guardrail（4.10）（TTL + 警戒機制）
+
+### Sprint 6（4–5 天）
+- FR-Achievement（4.7）（成就定義、解鎖邏輯、成就中心 UI）
+- 全功能整合測試 + UAT
 
 ---
 
@@ -379,6 +394,10 @@
    - 對策：server daily idempotency + 行為門檻 + 風控記錄。
 3. **挑戰資料量成長過快**
    - 對策：只存 metadata、啟用 TTL、超過警戒時限制新建挑戰。
+4. **Deep Link 未安裝場景體驗差**
+   - 對策：自建 landing page 偵測 UA，未安裝導 Play Store 並保存 pending code。
+5. **成就獎勵破壞點數經濟平衡**
+   - 對策：每日成就獎勵 cap 3 點，與分享獎勵共用每日上限計算。
 
 ---
 
@@ -395,6 +414,8 @@
 - [ ] deep link 可正確導到對應 challenge 預覽
 - [ ] 成就中心可顯示已解鎖/未解鎖與 Hint
 - [ ] 產圖成就與陪貓互動成就可解鎖且點數獎勵受每日上限保護
+- [ ] 挑戰功能上線 4 週內 Firestore 用量在免費額度警戒範圍內
+- [ ] TTL 過期後挑戰資料自動封存/刪除
 - [ ] Crashlytics 無新增高頻錯誤
 
 
