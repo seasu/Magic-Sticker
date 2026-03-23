@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Magic Sticker — 試試同款貼圖</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #FF9F43 0%, #FF6B6B 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      color: #fff;
+    }
+    .card {
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(16px);
+      border-radius: 24px;
+      padding: 40px 32px;
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+    }
+    .emoji { font-size: 64px; margin-bottom: 20px; display: block; }
+    h1 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+    p  { font-size: 15px; opacity: 0.9; line-height: 1.6; margin-bottom: 28px; }
+    .code-box {
+      background: rgba(0,0,0,0.2);
+      border-radius: 12px;
+      padding: 12px 20px;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 6px;
+      margin-bottom: 28px;
+    }
+    .btn {
+      display: block;
+      background: #fff;
+      color: #FF6B6B;
+      border-radius: 14px;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+    .btn-secondary {
+      background: transparent;
+      color: #fff;
+      border: 2px solid rgba(255,255,255,0.6);
+      font-size: 14px;
+    }
+    .hint { font-size: 12px; opacity: 0.7; margin-top: 16px; }
+    #status { font-size: 13px; opacity: 0.8; margin-top: 12px; min-height: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="emoji">✨</span>
+    <h1>朋友邀你試試同款貼圖！</h1>
+    <p>用 Magic Sticker AI，一鍵把你的照片變成 LINE 貼圖</p>
+    <div class="code-box" id="codeDisplay">------</div>
+    <button class="btn" id="btnOpen" onclick="openApp()">開啟 App 試試</button>
+    <a class="btn btn-secondary" id="btnStore" href="#" onclick="goStore(event)">前往下載 Magic Sticker</a>
+    <div id="status"></div>
+    <p class="hint">也可以在 App 內手動輸入上方的挑戰碼</p>
+  </div>
+
+  <script>
+    // ── 讀取挑戰碼（從 URL path /c/{CODE} 取得）──────────────────────────────
+    const pathParts = window.location.pathname.split('/');
+    const code = pathParts[pathParts.length - 1] || '';
+    if (code && code !== 'index.html') {
+      document.getElementById('codeDisplay').textContent = code;
+    }
+
+    const pkg = 'com.magicsticker.magic_sticker';
+    const playUrl = `https://play.google.com/store/apps/details?id=${pkg}&referrer=challenge_code%3D${encodeURIComponent(code)}`;
+    const appStoreUrl = 'https://apps.apple.com/app/magic-sticker'; // TODO: 上架後填入
+
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const isIOS     = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    document.getElementById('btnStore').href = isIOS ? appStoreUrl : playUrl;
+
+    function openApp() {
+      if (!code) { goStore(); return; }
+
+      const statusEl = document.getElementById('status');
+
+      if (isAndroid) {
+        // intent:// 讓 Android 嘗試開啟 App，若未安裝則 fallback 到 Play Store
+        const intent = `intent://challenge/${code}#Intent;` +
+          `scheme=magicsticker;` +
+          `package=${pkg};` +
+          `S.browser_fallback_url=${encodeURIComponent(playUrl)};end`;
+        window.location.href = intent;
+        statusEl.textContent = '正在開啟 App…';
+        // 若 3 秒後仍在頁面，表示 App 未安裝，導向 Play Store
+        setTimeout(() => { window.location.href = playUrl; }, 3000);
+      } else if (isIOS) {
+        // Universal Links 由系統處理；此為備用
+        window.location.href = `magicsticker://challenge/${code}`;
+        setTimeout(() => { window.location.href = appStoreUrl; }, 2000);
+      } else {
+        // 桌面：只能導向下載頁
+        window.location.href = playUrl;
+      }
+    }
+
+    function goStore(e) {
+      if (e) e.preventDefault();
+      window.location.href = isIOS ? appStoreUrl : playUrl;
+    }
+
+    // ── 已安裝 App 且是 Android → App Links 會直接開啟 App，不會到這頁 ────────
+    // ── 此頁主要給「未安裝」的使用者看 ───────────────────────────────────────
+  </script>
+</body>
+</html>

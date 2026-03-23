@@ -1,0 +1,14 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.magicsticker.magic_sticker",
+      "sha256_cert_fingerprints": [
+        "TODO: 填入正式簽名憑證的 SHA-256 Fingerprint",
+        "請執行: keytool -list -v -keystore your-release.jks -alias your-alias",
+        "或在 Firebase App Distribution 取得 SHA-256 後填入"
+      ]
+    }
+  }
+]

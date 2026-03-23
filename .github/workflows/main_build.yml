@@ -305,13 +305,68 @@ jobs:
           releaseNotes: |
             ${{ github.event.inputs.release_notes != '' && github.event.inputs.release_notes || github.ref_name }}
 
-  # ─── Firebase Hosting Deploy（隱私政策頁面）──────────────────
+  # ─── Firebase Hosting Deploy（隱私政策 + App Links assetlinks.json）────────
   deploy-hosting:
-    name: Deploy Hosting (Privacy Policy)
+    name: Deploy Hosting (Privacy Policy + App Links)
     runs-on: ubuntu-latest
     needs: android-build
     steps:
       - uses: actions/checkout@v4
+
+      - name: Inject SHA-256 Fingerprint into assetlinks.json
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "⚠️  ANDROID_KEYSTORE_BASE64 not set — assetlinks.json 將保留 placeholder，App Links 無法通過 Android 驗證"
+            exit 0
+          fi
+
+          # 解碼 keystore
+          echo "$KEYSTORE_BASE64" | base64 --decode > /tmp/release.jks
+
+          # 從 keystore 提取 SHA-256 fingerprint（keytool 為 JRE 標準工具，Ubuntu runner 內建）
+          SHA256=$(keytool -list -v \
+            -keystore /tmp/release.jks \
+            -storepass "$STORE_PASSWORD" \
+            -alias "$KEY_ALIAS" \
+            2>/dev/null \
+            | grep "SHA256:" \
+            | awk '{print $2}')
+
+          rm /tmp/release.jks
+
+          if [ -z "$SHA256" ]; then
+            echo "❌ 無法從 keystore 提取 SHA-256，請確認 STORE_PASSWORD / KEY_ALIAS 正確"
+            exit 1
+          fi
+
+          echo "✅ SHA-256: $SHA256"
+
+          # 覆寫 assetlinks.json（repo 中的 placeholder → 真實 fingerprint）
+          # 此檔案僅在 CI deploy 時有真實值，repo 本身保留 placeholder 避免意外洩漏
+          python3 - <<PYEOF
+          import json
+
+          content = [
+            {
+              "relation": ["delegate_permission/common.handle_all_urls"],
+              "target": {
+                "namespace": "android_app",
+                "package_name": "com.magicsticker.magic_sticker",
+                "sha256_cert_fingerprints": ["$SHA256"]
+              }
+            }
+          ]
+
+          with open("public/.well-known/assetlinks.json", "w") as f:
+            json.dump(content, f, indent=2)
+            f.write("\n")
+
+          print("✅ assetlinks.json 已注入真實 fingerprint")
+          PYEOF
 
       - name: Deploy to Firebase Hosting
         uses: w9jds/firebase-action@master
