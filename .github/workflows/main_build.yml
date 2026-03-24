@@ -570,6 +570,39 @@ jobs:
           printf '%s' "$GOOGLE_SERVICE_INFO_PLIST" > ios/Runner/GoogleService-Info.plist
           echo "✅ GoogleService-Info.plist written"
 
+      - name: Inject REVERSED_CLIENT_ID into Info.plist URL scheme
+        run: |
+          # GoogleSignIn SDK 7.x 在呼叫 signIn 前會檢查 REVERSED_CLIENT_ID URL scheme 是否已
+          # 註冊於 CFBundleURLTypes，未註冊則直接拋 NSException 導致 crash。
+          # GoogleService-Info.plist 由 secret 注入，此步驟將其中的 REVERSED_CLIENT_ID 讀出
+          # 並以 PlistBuddy 寫入 Info.plist 的 CFBundleURLTypes。
+          REVERSED_CLIENT_ID=$(/usr/libexec/PlistBuddy \
+            -c "Print :REVERSED_CLIENT_ID" \
+            ios/Runner/GoogleService-Info.plist 2>/dev/null || echo "")
+          if [ -z "$REVERSED_CLIENT_ID" ] || [ "$REVERSED_CLIENT_ID" = "PLACEHOLDER" ]; then
+            echo "❌ REVERSED_CLIENT_ID 無法從 GoogleService-Info.plist 讀取，請確認 secret 正確"
+            exit 1
+          fi
+          echo "REVERSED_CLIENT_ID=${REVERSED_CLIENT_ID:0:30}…"
+          # 若 CFBundleURLTypes 不存在則先新增陣列
+          /usr/libexec/PlistBuddy \
+            -c "Add :CFBundleURLTypes array" \
+            ios/Runner/Info.plist 2>/dev/null || true
+          # 新增 Google Sign-In URL scheme entry
+          /usr/libexec/PlistBuddy \
+            -c "Add :CFBundleURLTypes:0 dict" \
+            ios/Runner/Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy \
+            -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" \
+            ios/Runner/Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy \
+            -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string $REVERSED_CLIENT_ID" \
+            ios/Runner/Info.plist 2>/dev/null || \
+          /usr/libexec/PlistBuddy \
+            -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $REVERSED_CLIENT_ID" \
+            ios/Runner/Info.plist
+          echo "✅ CFBundleURLTypes 注入完成：$REVERSED_CLIENT_ID"
+
       - name: Import Distribution Certificate
         env:
           CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
