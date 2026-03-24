@@ -1,12 +1,7 @@
-import 'dart:convert';
-import 'dart:math';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import 'firebase_service.dart';
 import '../../features/billing/models/credit_history_entry.dart';
@@ -55,13 +50,17 @@ class AuthService {
   }
 
   /// 呼叫 initUserSession Cloud Function，確保用戶文件存在並取得點數。
-  static Future<int?> _callInitUserSession(String uid) async {
+  ///
+  /// [anonCredits] > 0 時，CF 會在 Server 端原子性地將匿名點數合併至目標帳號。
+  static Future<int?> _callInitUserSession(String uid, {int anonCredits = 0}) async {
     final result = await _fn
         .httpsCallable(
           'initUserSession',
           options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
         )
-        .call<Map<String, dynamic>>();
+        .call<Map<String, dynamic>>(
+          anonCredits > 0 ? {'anonCredits': anonCredits} : null,
+        );
     final credits = (result.data['credits'] as num?)?.toInt();
     FirebaseService.log(
       'AuthService: initUserSession uid=$uid credits=$credits created=${result.data['created']}',
@@ -129,52 +128,6 @@ class AuthService {
     }
   }
 
-  // ── Apple 登入 ───────────────────────────────────────────────────────────
-
-  /// 產生 20-byte random hex nonce
-  static String _generateNonce() {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    final rng = Random.secure();
-    return List.generate(32, (_) => chars[rng.nextInt(chars.length)]).join();
-  }
-
-  /// SHA256 hex digest
-  static String _sha256(String input) =>
-      sha256.convert(utf8.encode(input)).toString();
-
-  /// 使用 Apple ID 登入（或升級訪客帳號）
-  static Future<AuthResult> signInWithApple() async {
-    try {
-      final rawNonce = _generateNonce();
-      final hashedNonce = _sha256(rawNonce);
-
-      final appleCredential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-        nonce: hashedNonce,
-      );
-
-      final oauthCredential = OAuthProvider('apple.com').credential(
-        idToken: appleCredential.identityToken,
-        rawNonce: rawNonce,
-      );
-
-      return _signInWithCredential(oauthCredential);
-    } on SignInWithAppleAuthorizationException catch (e) {
-      if (e.code == AuthorizationErrorCode.canceled) {
-        return AuthResult.cancelled;
-      }
-      await FirebaseService.recordError(e, StackTrace.current,
-          reason: 'apple_sign_in_failed');
-      return AuthResult.error(e.message);
-    } catch (e, stack) {
-      await FirebaseService.recordError(e, stack, reason: 'apple_sign_in_failed');
-      return AuthResult.error(e.toString());
-    }
-  }
-
   // ── 登出 ─────────────────────────────────────────────────────────────────
 
   static Future<void> signOut() async {
@@ -197,54 +150,6 @@ class AuthService {
     return doc.data()?['credits'] as int?;
   }
 
-  /// 原子性扣點（Firestore Transaction）
-  ///
-  /// 回傳 `true` = 扣點成功；`false` = 點數不足
-  static Future<bool> consumeCredit(String uid) async {
-    try {
-      return await _db.runTransaction((tx) async {
-        final ref = _userDoc(uid);
-        final doc = await tx.get(ref);
-        final credits = (doc.data()?['credits'] as int?) ?? 0;
-        if (credits <= 0) return false;
-        tx.update(ref, {'credits': credits - 1, 'updatedAt': FieldValue.serverTimestamp()});
-        return true;
-      });
-    } catch (e, stack) {
-      await FirebaseService.recordError(e, stack, reason: 'consume_credit_failed');
-      return false;
-    }
-  }
-
-  /// 購買點數包後增加點數（內部呼叫 addCredits，reason = purchase）
-  static Future<void> addCreditsFromPurchase(String uid, int amount) =>
-      addCredits(uid, amount, reason: CreditHistoryReason.purchase);
-
-  /// 增加點數（看廣告 / 登入獎勵後呼叫）
-  static Future<void> addCredits(
-    String uid,
-    int amount, {
-    String reason = CreditHistoryReason.rewardedAd,
-  }) async {
-    try {
-      await _db.runTransaction((tx) async {
-        final ref = _userDoc(uid);
-        tx.set(
-          ref,
-          {
-            'credits': FieldValue.increment(amount),
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
-      });
-      // 寫入點數歷史（非原子，失敗不影響主流程）
-      await _writeHistoryEntry(uid,
-          type: 'earned', amount: amount, reason: reason);
-    } catch (e, stack) {
-      await FirebaseService.recordError(e, stack, reason: 'add_credits_failed');
-    }
-  }
 
   /// 寫入一筆點數歷史紀錄（best-effort，失敗僅記錄）
   static Future<void> _writeHistoryEntry(
@@ -318,9 +223,8 @@ class AuthService {
 
         final newUid = _auth.currentUser!.uid;
         try {
-          await _callInitUserSession(newUid);
+          await _callInitUserSession(newUid, anonCredits: anonCredits);
           if (anonCredits > 0) {
-            await addCredits(newUid, anonCredits);
             FirebaseService.log(
               'AuthService: merged $anonCredits credits to uid=$newUid',
             );

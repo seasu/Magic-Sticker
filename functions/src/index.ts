@@ -1061,6 +1061,9 @@ export const initUserSession = onCall(
     const uid = await resolveUid(request);
     log("initUserSession: auth OK", {uid});
 
+    const {anonCredits = 0} = (request.data ?? {}) as {anonCredits?: number};
+    const mergeAmount = Math.max(0, Math.floor(anonCredits));
+
     const userRef = db.collection("users").doc(uid);
     let credits = 0;
     let created = false;
@@ -1069,6 +1072,19 @@ export const initUserSession = onCall(
       const doc = await tx.get(userRef);
       if (doc.exists) {
         credits = (doc.data()?.credits as number) ?? 0;
+        // 合併匿名帳號點數（帳號切換時由 App 傳入）
+        if (mergeAmount > 0) {
+          credits += mergeAmount;
+          tx.update(userRef, {
+            credits,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          writeCreditHistory(tx, uid, {
+            type: "earned",
+            amount: mergeAmount,
+            reason: "anon_merge",
+          });
+        }
         return;
       }
 
@@ -1095,7 +1111,7 @@ export const initUserSession = onCall(
       });
     });
 
-    log("initUserSession: done", {uid, credits, created});
+    log("initUserSession: done", {uid, credits, created, mergeAmount});
     return {credits, created};
   }
 );
