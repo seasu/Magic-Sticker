@@ -292,9 +292,13 @@ class IAPService {
     }
 
     try {
-      final token = purchase.verificationData.serverVerificationData.isNotEmpty
-          ? purchase.verificationData.serverVerificationData
-          : purchase.verificationData.localVerificationData;
+      // iOS: App Store Server API 需要 transaction ID（purchase.purchaseID）
+      // Android: Google Play API 需要 purchaseToken（serverVerificationData）
+      final token = Platform.isIOS
+          ? (purchase.purchaseID ?? purchase.verificationData.serverVerificationData)
+          : (purchase.verificationData.serverVerificationData.isNotEmpty
+              ? purchase.verificationData.serverVerificationData
+              : purchase.verificationData.localVerificationData);
 
       final result = await _fn
           .httpsCallable(
@@ -325,9 +329,13 @@ class IAPService {
   }
 
   Future<void> _fulfillPro(PurchaseDetails purchase) async {
-    final token = purchase.verificationData.serverVerificationData.isNotEmpty
-        ? purchase.verificationData.serverVerificationData
-        : purchase.verificationData.localVerificationData;
+    // iOS: App Store Server API 需要 transaction ID（purchase.purchaseID）
+    // Android: Google Play API 需要 purchaseToken（serverVerificationData）
+    final token = Platform.isIOS
+        ? (purchase.purchaseID ?? purchase.verificationData.serverVerificationData)
+        : (purchase.verificationData.serverVerificationData.isNotEmpty
+            ? purchase.verificationData.serverVerificationData
+            : purchase.verificationData.localVerificationData);
 
     try {
       FirebaseService.log(

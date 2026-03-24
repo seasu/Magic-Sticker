@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import * as crypto from "node:crypto";
 import {onCall, HttpsError, CallableRequest} from "firebase-functions/v2/https";
 import {defineSecret, defineString} from "firebase-functions/params";
 import {log, warn} from "firebase-functions/logger";
@@ -8,7 +9,9 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
-const appleSharedSecret = defineSecret("APPLE_SHARED_SECRET");
+const appStoreKeyId = defineSecret("APP_STORE_KEY_ID");
+const appStoreIssuerId = defineSecret("APP_STORE_ISSUER_ID");
+const appStorePrivateKey = defineSecret("APP_STORE_PRIVATE_KEY");
 const geminiTextModel = defineString("GEMINI_TEXT_MODEL", {
   default: "gemini-2.5-flash",
   description: "Gemini model for text/specs generation",
@@ -465,17 +468,20 @@ async function getPlayAccessToken(): Promise<string> {
   return token;
 }
 
-// ── Apple App Store 收據驗證 helper ───────────────────────────────────────────
+// ── App Store Server API (v1) helper ──────────────────────────────────────────
 //
-// iOS 購買完成後，in_app_purchase 套件的 serverVerificationData 為
-// base64 encoded App Store receipt（StoreKit 1）。
-// 驗證步驟：先打 Production，若 status=21007（sandbox receipt）則 retry Sandbox。
+// 使用 App Store Connect API Key（ES256 JWT）驗證交易。
+// Flutter 端傳入 purchase.purchaseID（iOS transaction ID），
+// CF 用 GET /inApps/v1/transactions/{transactionId} 查詢交易狀態。
 //
-// status codes:
-//   0    = 成功
-//   21007 = receipt 為 sandbox，請改打 sandbox 端點
-//   21004 = shared secret 不符（設定錯誤）
-//   其他  = 驗證失敗
+// 所需 Firebase Secrets：
+//   APP_STORE_KEY_ID      — App Store Connect API Key 的 Key ID（10 字元）
+//   APP_STORE_ISSUER_ID   — App Store Connect 的 Issuer ID（UUID）
+//   APP_STORE_PRIVATE_KEY — .p8 私鑰內容（PKCS8 PEM 格式）
+//
+// 流程：先打 Production，HTTP 404 代表 sandbox 交易，自動 retry sandbox endpoint。
+
+const kAppleBundleId = "com.magicsticker.magic-sticker";
 
 interface AppleVerifyResult {
   valid: boolean;
@@ -485,80 +491,120 @@ interface AppleVerifyResult {
   transactionId?: string;
 }
 
-async function verifyAppleReceipt(
-  receiptData: string,
+interface AppStoreTransactionPayload {
+  transactionId: string;
+  originalTransactionId: string;
+  bundleId: string;
+  productId: string;
+  quantity: number;
+  type: string;
+  revocationDate?: number;
+  revocationReason?: number;
+}
+
+/** 產生 App Store Server API 所需的 ES256 JWT（有效 15 分鐘）。 */
+function generateAppStoreJWT(): string {
+  const now = Math.floor(Date.now() / 1000);
+  const header = Buffer.from(
+    JSON.stringify({alg: "ES256", kid: appStoreKeyId.value(), typ: "JWT"})
+  ).toString("base64url");
+  const payload = Buffer.from(
+    JSON.stringify({
+      iss: appStoreIssuerId.value(),
+      iat: now,
+      exp: now + 900,
+      aud: "appstoreconnect-v1",
+      bid: kAppleBundleId,
+    })
+  ).toString("base64url");
+
+  const signingInput = `${header}.${payload}`;
+  const privateKey = crypto.createPrivateKey(appStorePrivateKey.value());
+  // IEEE P1363 格式（R||S fixed-length）是 JWS ES256 規範要求的格式
+  const sig = crypto.sign("sha256", Buffer.from(signingInput), {
+    key: privateKey,
+    dsaEncoding: "ieee-p1363",
+  });
+  return `${signingInput}.${sig.toString("base64url")}`;
+}
+
+/**
+ * 向 App Store Server API 查詢單筆交易，驗證 productId 與 revocation 狀態。
+ *
+ * @param transactionId Flutter `purchase.purchaseID`（iOS transaction identifier）
+ * @param expectedProductId 預期的 productId
+ */
+async function verifyAppleTransaction(
+  transactionId: string,
   expectedProductId: string
 ): Promise<AppleVerifyResult> {
-  const secret = appleSharedSecret.value();
-  const body = JSON.stringify({"receipt-data": receiptData, password: secret});
+  const jwt = generateAppStoreJWT();
 
-  const tryVerify = async (url: string): Promise<{status: number; body: unknown}> => {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body,
+  const tryFetch = (baseUrl: string) =>
+    fetch(`${baseUrl}/inApps/v1/transactions/${transactionId}`, {
+      headers: {Authorization: `Bearer ${jwt}`},
       signal: AbortSignal.timeout(15000),
     });
-    return {status: res.status, body: await res.json()};
-  };
 
-  let resp = await tryVerify("https://buy.itunes.apple.com/verifyReceipt");
-  const data = resp.body as {status: number; latest_receipt_info?: AppleReceiptInfo[]};
+  let res = await tryFetch("https://api.storekit.itunes.apple.com");
 
-  // 21007 = sandbox receipt sent to production — retry with sandbox
-  if (data.status === 21007) {
-    log("verifyAppleReceipt: sandbox receipt, retrying sandbox endpoint");
-    resp = await tryVerify("https://sandbox.itunes.apple.com/verifyReceipt");
-    const sandboxData = resp.body as {status: number; latest_receipt_info?: AppleReceiptInfo[]};
-    return extractAppleResult(sandboxData, expectedProductId);
+  // 404 in production = sandbox transaction → retry sandbox endpoint
+  if (res.status === 404) {
+    log("verifyAppleTransaction: not in production, retrying sandbox");
+    res = await tryFetch("https://api.storekit-sandbox.itunes.apple.com");
   }
 
-  return extractAppleResult(data, expectedProductId);
-}
-
-interface AppleReceiptInfo {
-  product_id: string;
-  quantity: string;
-  transaction_id: string;
-  purchase_date_ms: string;
-  cancellation_date?: string;
-}
-
-function extractAppleResult(
-  data: {status: number; latest_receipt_info?: AppleReceiptInfo[]},
-  expectedProductId: string
-): AppleVerifyResult {
-  if (data.status !== 0) {
-    return {valid: false, status: data.status};
+  if (!res.ok) {
+    warn("verifyAppleTransaction: API error", {status: res.status});
+    return {valid: false, status: res.status};
   }
 
-  const receipts = data.latest_receipt_info ?? [];
-  // 找到最新一筆對應的 product（未取消）
-  const match = receipts
-    .filter(
-      (r) =>
-        r.product_id === expectedProductId &&
-        !r.cancellation_date
-    )
-    .sort((a, b) => Number(b.purchase_date_ms) - Number(a.purchase_date_ms))[0];
+  const data = await res.json() as {signedTransactionInfo: string};
+  const parts = data.signedTransactionInfo?.split(".");
+  if (!parts || parts.length !== 3) {
+    warn("verifyAppleTransaction: invalid JWS format");
+    return {valid: false, status: 0};
+  }
 
-  if (!match) {
+  let txPayload: AppStoreTransactionPayload;
+  try {
+    txPayload = JSON.parse(
+      Buffer.from(parts[1], "base64url").toString("utf8")
+    ) as AppStoreTransactionPayload;
+  } catch {
+    warn("verifyAppleTransaction: failed to parse JWS payload");
+    return {valid: false, status: 0};
+  }
+
+  if (txPayload.productId !== expectedProductId) {
+    warn("verifyAppleTransaction: productId mismatch", {
+      expected: expectedProductId,
+      got: txPayload.productId,
+    });
+    return {valid: false, status: 0};
+  }
+
+  if (txPayload.revocationDate) {
+    warn("verifyAppleTransaction: transaction revoked", {
+      transactionId,
+      revocationDate: txPayload.revocationDate,
+    });
     return {valid: false, status: 0};
   }
 
   return {
     valid: true,
-    status: 0,
-    productId: match.product_id,
-    quantity: parseInt(match.quantity, 10),
-    transactionId: match.transaction_id,
+    status: 200,
+    productId: txPayload.productId,
+    quantity: txPayload.quantity ?? 1,
+    transactionId: txPayload.transactionId,
   };
 }
 
 // ── verifyProPurchase ─────────────────────────────────────────────────────────
 //
 // 1. 驗證 Firebase Auth
-// 2. 依 platform 分流：Android → Google Play API；iOS → Apple verifyReceipt
+// 2. 依 platform 分流：Android → Google Play API；iOS → App Store Server API
 // 3. 寫入 Firestore: users/{uid}/purchases/pro_custom_input
 
 const kPackageName = "com.magicsticker.magic_sticker";
@@ -571,7 +617,7 @@ export const verifyProPurchase = onCall(
     memory: "256MiB",
     invoker: "public",
     enforceAppCheck: false,
-    secrets: [appleSharedSecret],
+    secrets: [appStoreKeyId, appStoreIssuerId, appStorePrivateKey],
     serviceAccount: "github-play-store-deployer@magic-sticker-8eaf4.iam.gserviceaccount.com",
   },
   async (request) => {
@@ -609,11 +655,11 @@ export const verifyProPurchase = onCall(
     }
 
     if (platform === "ios") {
-      // ── iOS：呼叫 Apple App Store verifyReceipt ────────────────────────────
+      // ── iOS：呼叫 App Store Server API（purchaseToken = iOS transaction ID）──
       let appleResult: AppleVerifyResult;
       try {
-        appleResult = await verifyAppleReceipt(purchaseToken, kProProductId);
-        log("verifyProPurchase: Apple receipt verified", {uid, status: appleResult.status, valid: appleResult.valid});
+        appleResult = await verifyAppleTransaction(purchaseToken, kProProductId);
+        log("verifyProPurchase: Apple transaction verified", {uid, status: appleResult.status, valid: appleResult.valid});
       } catch (e) {
         warn("verifyProPurchase: Apple API failed", {error: String(e)});
         throw new HttpsError("unavailable", "Unable to reach Apple API. Please try again.");
@@ -622,7 +668,7 @@ export const verifyProPurchase = onCall(
       if (!appleResult.valid) {
         throw new HttpsError(
           "failed-precondition",
-          `Apple receipt invalid. status=${appleResult.status}`
+          `Apple transaction invalid. status=${appleResult.status}`
         );
       }
 
@@ -753,7 +799,7 @@ export const fulfillCreditPurchase = onCall(
     memory: "256MiB",
     invoker: "public",
     enforceAppCheck: false,
-    secrets: [appleSharedSecret],
+    secrets: [appStoreKeyId, appStoreIssuerId, appStorePrivateKey],
     serviceAccount: "github-play-store-deployer@magic-sticker-8eaf4.iam.gserviceaccount.com",
   },
   async (request) => {
@@ -789,11 +835,11 @@ export const fulfillCreditPurchase = onCall(
     let verifiedTransactionId: string | undefined;
 
     if (platform === "ios") {
-      // iOS：呼叫 Apple App Store verifyReceipt
+      // iOS：呼叫 App Store Server API（purchaseToken = iOS transaction ID）
       let appleResult: AppleVerifyResult;
       try {
-        appleResult = await verifyAppleReceipt(purchaseToken, productId);
-        log("fulfillCreditPurchase: Apple receipt verified", {uid, status: appleResult.status, valid: appleResult.valid, productId});
+        appleResult = await verifyAppleTransaction(purchaseToken, productId);
+        log("fulfillCreditPurchase: Apple transaction verified", {uid, status: appleResult.status, valid: appleResult.valid, productId});
       } catch (e) {
         warn("fulfillCreditPurchase: Apple API failed", {error: String(e)});
         throw new HttpsError("unavailable", "Unable to reach Apple API. Please try again.");
@@ -802,7 +848,7 @@ export const fulfillCreditPurchase = onCall(
       if (!appleResult.valid) {
         throw new HttpsError(
           "failed-precondition",
-          `Apple receipt invalid. status=${appleResult.status}`
+          `Apple transaction invalid. status=${appleResult.status}`
         );
       }
 
