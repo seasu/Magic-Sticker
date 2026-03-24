@@ -1,7 +1,7 @@
 name: magic_sticker
 description: AI 一鍵產 LINE 貼圖 — Magic Sticker
 publish_to: 'none'
-version: 3.13.7+374
+version: 3.13.8+375
 
 environment:
   sdk: '>=3.7.0 <4.0.0'
@@ -61,6 +61,7 @@ dependencies:
   cloud_firestore: ^5.4.0
   google_sign_in: ^6.2.1
   sign_in_with_apple: ^6.1.2
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

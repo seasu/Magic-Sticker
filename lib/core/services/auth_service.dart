@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -127,19 +131,34 @@ class AuthService {
 
   // ── Apple 登入 ───────────────────────────────────────────────────────────
 
+  /// 產生 20-byte random hex nonce
+  static String _generateNonce() {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final rng = Random.secure();
+    return List.generate(32, (_) => chars[rng.nextInt(chars.length)]).join();
+  }
+
+  /// SHA256 hex digest
+  static String _sha256(String input) =>
+      sha256.convert(utf8.encode(input)).toString();
+
   /// 使用 Apple ID 登入（或升級訪客帳號）
   static Future<AuthResult> signInWithApple() async {
     try {
+      final rawNonce = _generateNonce();
+      final hashedNonce = _sha256(rawNonce);
+
       final appleCredential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
           AppleIDAuthorizationScopes.fullName,
         ],
+        nonce: hashedNonce,
       );
 
       final oauthCredential = OAuthProvider('apple.com').credential(
         idToken: appleCredential.identityToken,
-        accessToken: appleCredential.authorizationCode,
+        rawNonce: rawNonce,
       );
 
       return _signInWithCredential(oauthCredential);
