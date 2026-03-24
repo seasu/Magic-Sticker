@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.4+371 |
+| 目前版本 | v3.13.5+372 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.5 | 2026-03-24 | **fix(appstore-jwt-401)**：修正 iOS IAP 驗證 Cloud Function 回傳 `failed-precondition: Apple transaction invalid. status=401` 的問題——根本原因為 Secret Manager 中 `APP_STORE_PRIVATE_KEY` 可能以字面 `\n` 儲存（GitHub Actions env 注入常見問題），導致 PEM 格式破損、Apple API 拒絕 JWT；`generateAppStoreJWT()` 新增 `.replace(/\\n/g, "\n")` 正規化；同時補充 401 專屬 warn log，明確提示 `APP_STORE_KEY_ID / APP_STORE_ISSUER_ID / APP_STORE_PRIVATE_KEY` 需重新檢查，縮短未來 debug 時間。 |
 | v3.13.0 | 2026-03-24 | **feat(ios-iap-appstore-server-api)**：將 iOS IAP 驗證從已棄用的 `verifyReceipt`（App-Specific Shared Secret）遷移至 **App Store Server API v1**（ES256 JWT 認證）。CF 使用 App Store Connect API Key（`APP_STORE_KEY_ID` / `APP_STORE_ISSUER_ID` / `APP_STORE_PRIVATE_KEY`）產生 JWT，呼叫 `GET /inApps/v1/transactions/{transactionId}` 驗證交易；Flutter 端 iOS 改傳 `purchase.purchaseID`（transaction ID）取代完整 receipt；Production 404 自動 fallback sandbox endpoint；CI workflow 同步更新 secret provisioning 步驟。 |
 | v3.12.7 | 2026-03-24 | **fix(ci-apple-secret)**：修正 CI `deploy-functions` 因 `APPLE_SHARED_SECRET` 未存在於 Secret Manager 而失敗（`In non-interactive mode but have no value for the secret`）；在 Deploy Functions 步驟前新增 `Provision Firebase Secrets via gcloud` step，使用 gcloud 直接建立/更新 secret version，讀取 GitHub Secret `APPLE_SHARED_SECRET`；未設定時僅 warn 不中斷流程。 |
 | v3.12.6 | 2026-03-24 | **fix(ensureShareCode-index)**：修正 `ensureShareCode` CF 呼叫時 `[firebase_functions/internal] INTERNAL` 錯誤——根本原因為 `challenges` collection 複合查詢（`ownerUid` + `templateType` + `isActive` + `createdAt >=`）缺少 Firestore composite index；新增 `firestore.indexes.json` 並於 `firebase.json` 補上 `"indexes"` 路徑；CF 查詢加入 try-catch 降級：索引未就緒時跳過重用邏輯直接建立新 code，避免 INTERNAL 錯誤中斷分享流程。 |

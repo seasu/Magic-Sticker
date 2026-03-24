@@ -505,12 +505,20 @@ interface AppStoreTransactionPayload {
 /** 產生 App Store Server API 所需的 ES256 JWT（有效 15 分鐘）。 */
 function generateAppStoreJWT(): string {
   const now = Math.floor(Date.now() / 1000);
+  const keyId = appStoreKeyId.value();
+  const issuerId = appStoreIssuerId.value();
+  // Secret Manager 中可能以字面 \n 儲存（GitHub Actions env 注入時常見），
+  // 先將字面 \n 轉為真正的換行符，確保 PEM 格式正確。
+  const rawPem = appStorePrivateKey.value().replace(/\\n/g, "\n");
+
+  log("generateAppStoreJWT: keyId=" + keyId.slice(0, 4) + "… issuerId=" + issuerId.slice(0, 8) + "…");
+
   const header = Buffer.from(
-    JSON.stringify({alg: "ES256", kid: appStoreKeyId.value(), typ: "JWT"})
+    JSON.stringify({alg: "ES256", kid: keyId, typ: "JWT"})
   ).toString("base64url");
   const payload = Buffer.from(
     JSON.stringify({
-      iss: appStoreIssuerId.value(),
+      iss: issuerId,
       iat: now,
       exp: now + 900,
       aud: "appstoreconnect-v1",
@@ -519,7 +527,7 @@ function generateAppStoreJWT(): string {
   ).toString("base64url");
 
   const signingInput = `${header}.${payload}`;
-  const privateKey = crypto.createPrivateKey(appStorePrivateKey.value());
+  const privateKey = crypto.createPrivateKey(rawPem);
   // IEEE P1363 格式（R||S fixed-length）是 JWS ES256 規範要求的格式
   const sig = crypto.sign("sha256", Buffer.from(signingInput), {
     key: privateKey,
@@ -555,7 +563,12 @@ async function verifyAppleTransaction(
   }
 
   if (!res.ok) {
-    warn("verifyAppleTransaction: API error", {status: res.status});
+    if (res.status === 401) {
+      // 401 = JWT 驗證失敗 → 通常是 Secret Manager 中的 KEY_ID / ISSUER_ID / PRIVATE_KEY 設定錯誤或已撤銷
+      warn("verifyAppleTransaction: 401 Unauthorized — check APP_STORE_KEY_ID / APP_STORE_ISSUER_ID / APP_STORE_PRIVATE_KEY secrets");
+    } else {
+      warn("verifyAppleTransaction: API error", {status: res.status});
+    }
     return {valid: false, status: res.status};
   }
 
