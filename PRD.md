@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.12.0+359 |
+| 目前版本 | v3.12.1+360 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.12.1 | 2026-03-24 | **fix(ios-bootstrap-yaml)**：修正 `ios_bootstrap.yml` 中 `git commit -m` 多行訊息縮排為 0 導致 YAML 區塊純量（block scalar）提前結束、workflow 解析失敗（0s Failure）的問題；改用 `{ echo ...; } > /tmp/commit_msg.txt && git commit -F` 方式撰寫，確保所有行都在正確縮排內。 |
 | v3.12.0 | 2026-03-24 | **ci(ios-bootstrap)**：新增 `ios_bootstrap.yml` 一次性 workflow——在 macOS runner 上執行 `flutter create --platforms=ios`、設定 Bundle ID（`com.magicsticker.magic-sticker`）、Deployment Target iOS 15.0+、Display Name、隱私權描述（相簿讀寫/相機）、`ITSAppUsesNonExemptEncryption: false`，並自動 commit ios/ 目錄回分支；版本升至 3.12.0 標誌 iOS 支援啟動。 |
 | v3.10.23 | 2026-03-23 | **docs(optimize-share-growth-prd)**：深度優化 v3.11 分享成長 PRD，修正 6 項架構問題：① 統一資料模型命名（`challengeCodes`→`challenges`、`challengeRedemptions`→`challengeParticipants`，全文一致）；② Analytics 補齊 3 個缺漏事件（`challenge_code_created`、`challenge_code_attach_failed`、`deep_link_opened`）；③ 明確化每日獎勵 cap 機制（總 4 點上限，由 `dailyRewardSummary` 統一管理）；④ 成就系統提前至 Sprint 1 建基礎、Sprint 2 完成 UI（原排在 Sprint 6）；⑤ `challenges/{code}` 補加 `expiresAt` 與 `participantCount` 欄位；⑥ Section 4 子章節標題層級由 `###` 修正為 `####`。 |
 | v3.10.22 | 2026-03-23 | **docs(review-share-growth-prd)**：審查 `PRD_share_growth_v311.md` 並修正 6 項問題：① 修正 Section 4 子章節標題層級（`##` → `###`）；② 補完 Sprint 排程（原只排 Sprint 1-3 遺漏 4.4-4.10，新增 Sprint 4-6）；③ 修正 Deep Link 技術建議（Firebase Dynamic Links 已停止，改用 App Links + 自建 landing page）；④ 北極星指標補充基準值欄位；⑤ 風險與對策新增 Deep Link 未安裝體驗風險與成就獎勵經濟平衡風險；⑥ UAT 驗收清單補充 Firestore 用量與 TTL 驗收項。 |
