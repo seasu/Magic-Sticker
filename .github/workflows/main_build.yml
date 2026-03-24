@@ -213,14 +213,25 @@ jobs:
           provision_secret() {
             local NAME="$1"
             local VALUE="$2"
-            if [ -z "$VALUE" ]; then
-              echo "⚠️  $NAME GitHub secret is not set — skipping"
-              return
-            fi
+            # 確保 Secret Manager 中的 secret 存在（Firebase deploy 需要此 secret 存在才不會報錯）
             gcloud secrets describe "$NAME" --project="$PROJECT" > /dev/null 2>&1 || \
               gcloud secrets create "$NAME" --replication-policy="automatic" --project="$PROJECT"
-            printf '%s' "$VALUE" | gcloud secrets versions add "$NAME" --data-file=- --project="$PROJECT"
-            echo "✅ $NAME provisioned"
+            if [ -z "$VALUE" ]; then
+              # GitHub Secret 未設定：若 Secret Manager 中已有 version 則不動，
+              # 否則加入 placeholder 讓 Firebase deploy 不會因「no value」中止。
+              NVER=$(gcloud secrets versions list "$NAME" --project="$PROJECT" \
+                       --format="value(name)" 2>/dev/null | wc -l)
+              if [ "$NVER" -eq 0 ]; then
+                echo "⚠️  $NAME not configured — adding placeholder (set real value in GitHub Secrets)"
+                printf '%s' "NOT_CONFIGURED" | \
+                  gcloud secrets versions add "$NAME" --data-file=- --project="$PROJECT"
+              else
+                echo "ℹ️  $NAME GitHub secret not set — existing Secret Manager version retained"
+              fi
+            else
+              printf '%s' "$VALUE" | gcloud secrets versions add "$NAME" --data-file=- --project="$PROJECT"
+              echo "✅ $NAME provisioned"
+            fi
           }
 
           provision_secret APP_STORE_KEY_ID     "$APP_STORE_KEY_ID"
