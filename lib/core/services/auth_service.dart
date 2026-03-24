@@ -150,25 +150,6 @@ class AuthService {
     return doc.data()?['credits'] as int?;
   }
 
-  /// 原子性扣點（Firestore Transaction）
-  ///
-  /// 回傳 `true` = 扣點成功；`false` = 點數不足
-  static Future<bool> consumeCredit(String uid) async {
-    try {
-      return await _db.runTransaction((tx) async {
-        final ref = _userDoc(uid);
-        final doc = await tx.get(ref);
-        final credits = (doc.data()?['credits'] as int?) ?? 0;
-        if (credits <= 0) return false;
-        tx.update(ref, {'credits': credits - 1, 'updatedAt': FieldValue.serverTimestamp()});
-        return true;
-      });
-    } catch (e, stack) {
-      await FirebaseService.recordError(e, stack, reason: 'consume_credit_failed');
-      return false;
-    }
-  }
-
 
   /// 寫入一筆點數歷史紀錄（best-effort，失敗僅記錄）
   static Future<void> _writeHistoryEntry(

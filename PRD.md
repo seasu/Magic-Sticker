@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.13 | 2026-03-24 | **fix(credits): 移除前端直接扣點的死碼**：`AuthService.consumeCredit()` 及 `CreditProvider.consumeCredit()` 直寫 Firestore `credits` 欄位，被 Security Rules 封鎖且無任何呼叫者。實際扣點邏輯已在 `generateStickerImage` CF Server 端原子完成，CF 回傳 `remainingCredits`，`editor_provider` 呼叫 `updateCredits()` 同步 UI。刪除這兩個無效方法，防止未來誤用。 |
 | v3.13.12 | 2026-03-24 | **feat(auth): 移除 Apple ID 登入**：移除 `AuthService.signInWithApple()`、`_generateNonce()`、`_sha256()` 及相關 imports（`dart:convert`、`dart:math`、`crypto`、`sign_in_with_apple`）；從 `LoginBottomSheet` 移除 Apple 按鈕、`loadingApple` 狀態與 `_loginWithApple()` 方法；從 `pubspec.yaml` 移除 `sign_in_with_apple: ^6.1.2` 與 `crypto: ^3.0.3`。登入頁面現在只保留 Google 登入。 |
 | v3.13.11 | 2026-03-24 | **fix(credits-server-side)**：移除 `AuthService.addCredits` / `addCreditsFromPurchase` / `CreditProvider.addCredits` 等直寫 Firestore 的方法（被 Security Rules 封鎖）。在 `initUserSession` CF 新增選填 `anonCredits` 參數，帳號切換時 App 傳入，CF 原子性合併點數並寫 `creditHistory`（`reason: anon_merge`）。 |
 | v3.13.10 | 2026-03-24 | **fix(cd-ios-firebase-dist)**：`wzieba/Firebase-Distribution-Github-Action@v1` 為 Docker container action，無法在 macOS runner 上執行。改用 Firebase CLI（`npm install -g firebase-tools` + `firebase appdistribution:distribute`）直接在 macos-15 runner 上上傳 IPA；以 `GOOGLE_APPLICATION_CREDENTIALS` 傳入 SA JSON 做身份驗證，SA JSON 用完即刪除。 |

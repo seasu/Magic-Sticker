@@ -86,23 +86,6 @@ class CreditNotifier extends Notifier<int> {
 
   bool get hasCredit => state > 0;
 
-  /// 消耗 1 點（透過 Firestore Transaction，防止 race condition）
-  ///
-  /// 回傳 `true` = 扣點成功
-  Future<bool> consumeCredit() async {
-    final uid = ref.read(currentUserProvider)?.uid;
-    if (uid == null) return false;
-
-    if (state <= 0) return false;
-
-    final success = await AuthService.consumeCredit(uid);
-    if (success) {
-      state = state - 1;
-      FirebaseService.log('CreditProvider: consumed 1 → remaining $state');
-    }
-    return success;
-  }
-
   /// Cloud Function 回傳的最新點數直接寫入（免去一次 Firestore 讀取）
   void updateCredits(int credits) {
     state = credits;
