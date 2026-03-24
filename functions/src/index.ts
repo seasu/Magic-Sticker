@@ -8,6 +8,7 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
+const appleSharedSecret = defineSecret("APPLE_SHARED_SECRET");
 const geminiTextModel = defineString("GEMINI_TEXT_MODEL", {
   default: "gemini-2.5-flash",
   description: "Gemini model for text/specs generation",
@@ -464,10 +465,100 @@ async function getPlayAccessToken(): Promise<string> {
   return token;
 }
 
+// ── Apple App Store 收據驗證 helper ───────────────────────────────────────────
+//
+// iOS 購買完成後，in_app_purchase 套件的 serverVerificationData 為
+// base64 encoded App Store receipt（StoreKit 1）。
+// 驗證步驟：先打 Production，若 status=21007（sandbox receipt）則 retry Sandbox。
+//
+// status codes:
+//   0    = 成功
+//   21007 = receipt 為 sandbox，請改打 sandbox 端點
+//   21004 = shared secret 不符（設定錯誤）
+//   其他  = 驗證失敗
+
+interface AppleVerifyResult {
+  valid: boolean;
+  status: number;
+  productId?: string;
+  quantity?: number;
+  transactionId?: string;
+}
+
+async function verifyAppleReceipt(
+  receiptData: string,
+  expectedProductId: string
+): Promise<AppleVerifyResult> {
+  const secret = appleSharedSecret.value();
+  const body = JSON.stringify({"receipt-data": receiptData, password: secret});
+
+  const tryVerify = async (url: string): Promise<{status: number; body: unknown}> => {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body,
+      signal: AbortSignal.timeout(15000),
+    });
+    return {status: res.status, body: await res.json()};
+  };
+
+  let resp = await tryVerify("https://buy.itunes.apple.com/verifyReceipt");
+  const data = resp.body as {status: number; latest_receipt_info?: AppleReceiptInfo[]};
+
+  // 21007 = sandbox receipt sent to production — retry with sandbox
+  if (data.status === 21007) {
+    log("verifyAppleReceipt: sandbox receipt, retrying sandbox endpoint");
+    resp = await tryVerify("https://sandbox.itunes.apple.com/verifyReceipt");
+    const sandboxData = resp.body as {status: number; latest_receipt_info?: AppleReceiptInfo[]};
+    return extractAppleResult(sandboxData, expectedProductId);
+  }
+
+  return extractAppleResult(data, expectedProductId);
+}
+
+interface AppleReceiptInfo {
+  product_id: string;
+  quantity: string;
+  transaction_id: string;
+  purchase_date_ms: string;
+  cancellation_date?: string;
+}
+
+function extractAppleResult(
+  data: {status: number; latest_receipt_info?: AppleReceiptInfo[]},
+  expectedProductId: string
+): AppleVerifyResult {
+  if (data.status !== 0) {
+    return {valid: false, status: data.status};
+  }
+
+  const receipts = data.latest_receipt_info ?? [];
+  // 找到最新一筆對應的 product（未取消）
+  const match = receipts
+    .filter(
+      (r) =>
+        r.product_id === expectedProductId &&
+        !r.cancellation_date
+    )
+    .sort((a, b) => Number(b.purchase_date_ms) - Number(a.purchase_date_ms))[0];
+
+  if (!match) {
+    return {valid: false, status: 0};
+  }
+
+  return {
+    valid: true,
+    status: 0,
+    productId: match.product_id,
+    quantity: parseInt(match.quantity, 10),
+    transactionId: match.transaction_id,
+  };
+}
+
 // ── verifyProPurchase ─────────────────────────────────────────────────────────
 //
 // 1. 驗證 Firebase Auth
-// 2. 呼叫 Google Play Developer API 驗證 purchaseToken
+// 2. 依 platform 分流：Android → Google Play API；iOS → Apple verifyReceipt
 // 3. 寫入 Firestore: users/{uid}/purchases/pro_custom_input
 
 const kPackageName = "com.magicsticker.magic_sticker";
@@ -480,6 +571,7 @@ export const verifyProPurchase = onCall(
     memory: "256MiB",
     invoker: "public",
     enforceAppCheck: false,
+    secrets: [appleSharedSecret],
     serviceAccount: "github-play-store-deployer@magic-sticker-8eaf4.iam.gserviceaccount.com",
   },
   async (request) => {
@@ -490,9 +582,10 @@ export const verifyProPurchase = onCall(
     const uid = await resolveUid(request);
     log("verifyProPurchase: auth OK", {uid});
 
-    const {purchaseToken, orderId} = request.data as {
+    const {purchaseToken, orderId, platform = "android"} = request.data as {
       purchaseToken: string;
       orderId?: string;
+      platform?: string;
     };
 
     if (!purchaseToken) {
@@ -515,7 +608,43 @@ export const verifyProPurchase = onCall(
       }
     }
 
-    // ── 呼叫 Google Play Developer API ──────────────────────────────────────
+    if (platform === "ios") {
+      // ── iOS：呼叫 Apple App Store verifyReceipt ────────────────────────────
+      let appleResult: AppleVerifyResult;
+      try {
+        appleResult = await verifyAppleReceipt(purchaseToken, kProProductId);
+        log("verifyProPurchase: Apple receipt verified", {uid, status: appleResult.status, valid: appleResult.valid});
+      } catch (e) {
+        warn("verifyProPurchase: Apple API failed", {error: String(e)});
+        throw new HttpsError("unavailable", "Unable to reach Apple API. Please try again.");
+      }
+
+      if (!appleResult.valid) {
+        throw new HttpsError(
+          "failed-precondition",
+          `Apple receipt invalid. status=${appleResult.status}`
+        );
+      }
+
+      await db
+        .collection("users")
+        .doc(uid)
+        .collection("purchases")
+        .doc(kProProductId)
+        .set({
+          purchased_at: admin.firestore.FieldValue.serverTimestamp(),
+          platform: "ios",
+          order_id: appleResult.transactionId ?? orderId ?? "",
+          product_id: kProProductId,
+          purchase_token: purchaseToken,
+          verified: true,
+        });
+
+      log("verifyProPurchase: iOS Firestore written OK", {uid});
+      return {success: true};
+    }
+
+    // ── Android：呼叫 Google Play Developer API ──────────────────────────────
     let accessToken: string;
     try {
       accessToken = await getPlayAccessToken();
@@ -624,6 +753,7 @@ export const fulfillCreditPurchase = onCall(
     memory: "256MiB",
     invoker: "public",
     enforceAppCheck: false,
+    secrets: [appleSharedSecret],
     serviceAccount: "github-play-store-deployer@magic-sticker-8eaf4.iam.gserviceaccount.com",
   },
   async (request) => {
@@ -634,9 +764,10 @@ export const fulfillCreditPurchase = onCall(
     const uid = await resolveUid(request);
     log("fulfillCreditPurchase: auth OK", {uid});
 
-    const {purchaseToken, productId} = request.data as {
+    const {purchaseToken, productId, platform = "android"} = request.data as {
       purchaseToken: string;
       productId: string;
+      platform?: string;
     };
 
     if (!purchaseToken || !productId) {
@@ -654,65 +785,92 @@ export const fulfillCreditPurchase = onCall(
       );
     }
 
-    // ── 呼叫 Google Play Developer API ──────────────────────────────────────
-    let accessToken: string;
-    try {
-      accessToken = await getPlayAccessToken();
-    } catch (e) {
-      warn("fulfillCreditPurchase: Play API auth failed", {error: String(e)});
-      throw new HttpsError(
-        "internal",
-        "Play API authentication unavailable. Please try again later."
-      );
+    // ── 依 platform 分流驗證 ─────────────────────────────────────────────────
+    let verifiedTransactionId: string | undefined;
+
+    if (platform === "ios") {
+      // iOS：呼叫 Apple App Store verifyReceipt
+      let appleResult: AppleVerifyResult;
+      try {
+        appleResult = await verifyAppleReceipt(purchaseToken, productId);
+        log("fulfillCreditPurchase: Apple receipt verified", {uid, status: appleResult.status, valid: appleResult.valid, productId});
+      } catch (e) {
+        warn("fulfillCreditPurchase: Apple API failed", {error: String(e)});
+        throw new HttpsError("unavailable", "Unable to reach Apple API. Please try again.");
+      }
+
+      if (!appleResult.valid) {
+        throw new HttpsError(
+          "failed-precondition",
+          `Apple receipt invalid. status=${appleResult.status}`
+        );
+      }
+
+      verifiedTransactionId = appleResult.transactionId;
+      log("fulfillCreditPurchase: Apple API verified OK", {uid, productId, transactionId: verifiedTransactionId});
+    } else {
+      // Android：呼叫 Google Play Developer API
+      let accessToken: string;
+      try {
+        accessToken = await getPlayAccessToken();
+      } catch (e) {
+        warn("fulfillCreditPurchase: Play API auth failed", {error: String(e)});
+        throw new HttpsError(
+          "internal",
+          "Play API authentication unavailable. Please try again later."
+        );
+      }
+
+      const verifyUrl =
+        `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
+        `${kPackageName}/purchases/products/${productId}/tokens/${purchaseToken}`;
+
+      let verifyRes: Response;
+      try {
+        verifyRes = await fetch(verifyUrl, {
+          headers: {Authorization: `Bearer ${accessToken}`},
+          signal: AbortSignal.timeout(15000),
+        });
+      } catch (e) {
+        warn("fulfillCreditPurchase: Play API fetch failed", {error: String(e)});
+        throw new HttpsError("unavailable", "Unable to reach Play API. Please try again.");
+      }
+
+      if (!verifyRes.ok) {
+        const errText = await verifyRes.text();
+        warn("fulfillCreditPurchase: Play API error", {
+          status: verifyRes.status,
+          body: errText.slice(0, 500),
+          uid,
+          productId,
+        });
+        throw new HttpsError(
+          "failed-precondition",
+          `Play API returned ${verifyRes.status}`
+        );
+      }
+
+      const playData = (await verifyRes.json()) as {
+        purchaseState?: number; // 0=Purchased, 1=Canceled, 2=Pending
+        acknowledgementState?: number;
+        consumptionState?: number; // 0=Yet to consume, 1=Consumed
+      };
+
+      if (playData.purchaseState !== 0) {
+        throw new HttpsError(
+          "failed-precondition",
+          `Purchase not valid. state=${playData.purchaseState}`
+        );
+      }
+
+      log("fulfillCreditPurchase: Play API verified OK", {uid, productId});
     }
-
-    const verifyUrl =
-      `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
-      `${kPackageName}/purchases/products/${productId}/tokens/${purchaseToken}`;
-
-    let verifyRes: Response;
-    try {
-      verifyRes = await fetch(verifyUrl, {
-        headers: {Authorization: `Bearer ${accessToken}`},
-        signal: AbortSignal.timeout(15000),
-      });
-    } catch (e) {
-      warn("fulfillCreditPurchase: Play API fetch failed", {error: String(e)});
-      throw new HttpsError("unavailable", "Unable to reach Play API. Please try again.");
-    }
-
-    if (!verifyRes.ok) {
-      const errText = await verifyRes.text();
-      warn("fulfillCreditPurchase: Play API error", {
-        status: verifyRes.status,
-        body: errText.slice(0, 500),
-        uid,
-        productId,
-      });
-      throw new HttpsError(
-        "failed-precondition",
-        `Play API returned ${verifyRes.status}`
-      );
-    }
-
-    const playData = (await verifyRes.json()) as {
-      purchaseState?: number; // 0=Purchased, 1=Canceled, 2=Pending
-      acknowledgementState?: number;
-      consumptionState?: number; // 0=Yet to consume, 1=Consumed
-    };
-
-    if (playData.purchaseState !== 0) {
-      throw new HttpsError(
-        "failed-precondition",
-        `Purchase not valid. state=${playData.purchaseState}`
-      );
-    }
-
-    log("fulfillCreditPurchase: Play API verified OK", {uid, productId});
 
     // ── 冪等性檢查 + 原子性入帳 ──────────────────────────────────────────────
     // purchaseTokens/{token} 作為已處理紀錄，防止重複入帳
-    const tokenRef = db.collection("purchaseTokens").doc(purchaseToken);
+    // iOS：receipt 為大型 base64，使用 transactionId 作為 doc key
+    const idempotencyKey = platform === "ios" ? (verifiedTransactionId ?? purchaseToken.slice(0, 1450)) : purchaseToken;
+    const tokenRef = db.collection("purchaseTokens").doc(idempotencyKey);
     const userRef = db.collection("users").doc(uid);
 
     let remainingCredits = 0;

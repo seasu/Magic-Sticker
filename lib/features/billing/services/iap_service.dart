@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -303,6 +304,7 @@ class IAPService {
           .call<Map<String, dynamic>>({
         'purchaseToken': token,
         'productId': purchase.productID,
+        'platform': Platform.isIOS ? 'ios' : 'android',
       });
 
       final creditsEarned = (result.data['credits'] as num?)?.toInt() ?? pack.credits;
@@ -340,6 +342,7 @@ class IAPService {
           .call<Map<String, dynamic>>({
         'purchaseToken': token,
         'orderId': purchase.purchaseID ?? '',
+        'platform': Platform.isIOS ? 'ios' : 'android',
       });
       FirebaseService.log('IAPService: Pro unlock verified OK');
       // completePurchase 只在 CF 確認成功後才呼叫。

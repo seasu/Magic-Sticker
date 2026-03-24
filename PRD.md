@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.12.4+363 |
+| 目前版本 | v3.12.5+364 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.12.5 | 2026-03-24 | **feat(ios-iap-receipt-verify)**：Cloud Functions `verifyProPurchase` 與 `fulfillCreditPurchase` 新增 iOS 收據驗證分支——接受 `platform` 參數（`'ios'`/`'android'`）；iOS 端呼叫 Apple App Store `verifyReceipt` API（含 Production→Sandbox 自動 retry）驗證 `serverVerificationData`（base64 receipt）；冪等 key 改用 `transactionId` 避免大型 receipt blob 超出 Firestore doc ID 上限；Android 路徑維持原 Google Play API 驗證不變；新增 `APPLE_SHARED_SECRET` Firebase Secret（需在 App Store Connect 取得 App-Specific Shared Secret 並設定）；Flutter `iap_service.dart` 的 CF 呼叫加入 `platform` 欄位。 |
 | v3.12.1 | 2026-03-24 | **fix(ios-bootstrap-yaml)**：修正 `ios_bootstrap.yml` 中 `git commit -m` 多行訊息縮排為 0 導致 YAML 區塊純量（block scalar）提前結束、workflow 解析失敗（0s Failure）的問題；改用 `{ echo ...; } > /tmp/commit_msg.txt && git commit -F` 方式撰寫，確保所有行都在正確縮排內。 |
 | v3.12.0 | 2026-03-24 | **ci(ios-bootstrap)**：新增 `ios_bootstrap.yml` 一次性 workflow——在 macOS runner 上執行 `flutter create --platforms=ios`、設定 Bundle ID（`com.magicsticker.magic-sticker`）、Deployment Target iOS 15.0+、Display Name、隱私權描述（相簿讀寫/相機）、`ITSAppUsesNonExemptEncryption: false`，並自動 commit ios/ 目錄回分支；版本升至 3.12.0 標誌 iOS 支援啟動。 |
 | v3.10.23 | 2026-03-23 | **docs(optimize-share-growth-prd)**：深度優化 v3.11 分享成長 PRD，修正 6 項架構問題：① 統一資料模型命名（`challengeCodes`→`challenges`、`challengeRedemptions`→`challengeParticipants`，全文一致）；② Analytics 補齊 3 個缺漏事件（`challenge_code_created`、`challenge_code_attach_failed`、`deep_link_opened`）；③ 明確化每日獎勵 cap 機制（總 4 點上限，由 `dailyRewardSummary` 統一管理）；④ 成就系統提前至 Sprint 1 建基礎、Sprint 2 完成 UI（原排在 Sprint 6）；⑤ `challenges/{code}` 補加 `expiresAt` 與 `participantCount` 欄位；⑥ Section 4 子章節標題層級由 `###` 修正為 `####`。 |
