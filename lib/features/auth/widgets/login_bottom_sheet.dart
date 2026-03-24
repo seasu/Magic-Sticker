@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,7 +10,7 @@ import '../../billing/providers/credit_provider.dart';
 
 // ── 狀態機 ─────────────────────────────────────────────────────────────────
 
-enum _SheetState { initial, loadingGoogle, loadingApple, success, error }
+enum _SheetState { initial, loadingGoogle, success, error }
 
 /// 登入底部彈窗
 ///
@@ -105,27 +103,6 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
     }
   }
 
-  Future<void> _loginWithApple() async {
-    if (_state != _SheetState.initial) return;
-    setState(() => _state = _SheetState.loadingApple);
-
-    final result = await AuthService.signInWithApple();
-
-    if (!mounted) return;
-
-    if (result.isSuccess) {
-      _handleSuccess(result);
-    } else if (result.isError) {
-      HapticFeedback.vibrate();
-      setState(() {
-        _state = _SheetState.error;
-        _errorMessage = 'Apple 登入失敗，請稍後再試一次';
-      });
-    } else {
-      setState(() => _state = _SheetState.initial);
-    }
-  }
-
   void _handleSuccess(AuthResult result) {
     HapticFeedback.mediumImpact();
     final user = FirebaseAuth.instance.currentUser;
@@ -190,9 +167,7 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
           _ => _InitialView(
               key: const ValueKey('initial'),
               isLoadingGoogle: _state == _SheetState.loadingGoogle,
-              isLoadingApple: _state == _SheetState.loadingApple,
               onGoogle: _loginWithGoogle,
-              onApple: _loginWithApple,
               onGuest: () => Navigator.of(context).pop(false),
             ),
         },
@@ -205,17 +180,13 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
 
 class _InitialView extends StatelessWidget {
   final bool isLoadingGoogle;
-  final bool isLoadingApple;
   final VoidCallback onGoogle;
-  final VoidCallback onApple;
   final VoidCallback onGuest;
 
   const _InitialView({
     super.key,
     required this.isLoadingGoogle,
-    required this.isLoadingApple,
     required this.onGoogle,
-    required this.onApple,
     required this.onGuest,
   });
 
@@ -295,19 +266,6 @@ class _InitialView extends StatelessWidget {
           foregroundColor: AppColors.textPrimary,
           borderColor: AppColors.divider,
         ),
-
-        // ── Apple 登入（iOS only）───────────────────────────────────
-        if (Platform.isIOS) ...[
-          const SizedBox(height: 12),
-          _SocialLoginButton(
-            isLoading: isLoadingApple,
-            onTap: onApple,
-            icon: const Icon(Icons.apple, size: 24, color: Colors.white),
-            label: '使用 Apple ID 登入',
-            backgroundColor: Colors.black,
-            foregroundColor: Colors.white,
-          ),
-        ],
 
         const SizedBox(height: 20),
         TextButton(
