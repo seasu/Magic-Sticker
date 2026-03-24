@@ -453,7 +453,21 @@ jobs:
           /usr/libexec/PlistBuddy \
             -c "Add :CFBundleDisplayName string 'Magic Sticker'" \
             ios/Runner/Info.plist
-          echo "✅ Bundle: com.magicsticker.magic-sticker, iOS 15.0+"
+          # 加密合規聲明：App 不使用非豁免加密，跳過 TestFlight 合規問卷
+          /usr/libexec/PlistBuddy \
+            -c "Set :ITSAppUsesNonExemptEncryption false" \
+            ios/Runner/Info.plist 2>/dev/null || \
+          /usr/libexec/PlistBuddy \
+            -c "Add :ITSAppUsesNonExemptEncryption bool false" \
+            ios/Runner/Info.plist
+          # 使用 GitHub run number 作為 build number，確保 TestFlight 每次上傳唯一
+          /usr/libexec/PlistBuddy \
+            -c "Set :CFBundleVersion ${{ github.run_number }}" \
+            ios/Runner/Info.plist 2>/dev/null || \
+          /usr/libexec/PlistBuddy \
+            -c "Add :CFBundleVersion string ${{ github.run_number }}" \
+            ios/Runner/Info.plist
+          echo "✅ Bundle: com.magicsticker.magic-sticker, iOS 15.0+, build=${{ github.run_number }}"
 
       - name: Generate launcher icons
         run: dart run flutter_launcher_icons
