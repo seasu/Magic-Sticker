@@ -55,13 +55,17 @@ class AuthService {
   }
 
   /// 呼叫 initUserSession Cloud Function，確保用戶文件存在並取得點數。
-  static Future<int?> _callInitUserSession(String uid) async {
+  ///
+  /// [anonCredits] > 0 時，CF 會在 Server 端原子性地將匿名點數合併至目標帳號。
+  static Future<int?> _callInitUserSession(String uid, {int anonCredits = 0}) async {
     final result = await _fn
         .httpsCallable(
           'initUserSession',
           options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
         )
-        .call<Map<String, dynamic>>();
+        .call<Map<String, dynamic>>(
+          anonCredits > 0 ? {'anonCredits': anonCredits} : null,
+        );
     final credits = (result.data['credits'] as num?)?.toInt();
     FirebaseService.log(
       'AuthService: initUserSession uid=$uid credits=$credits created=${result.data['created']}',
@@ -216,35 +220,6 @@ class AuthService {
     }
   }
 
-  /// 購買點數包後增加點數（內部呼叫 addCredits，reason = purchase）
-  static Future<void> addCreditsFromPurchase(String uid, int amount) =>
-      addCredits(uid, amount, reason: CreditHistoryReason.purchase);
-
-  /// 增加點數（看廣告 / 登入獎勵後呼叫）
-  static Future<void> addCredits(
-    String uid,
-    int amount, {
-    String reason = CreditHistoryReason.rewardedAd,
-  }) async {
-    try {
-      await _db.runTransaction((tx) async {
-        final ref = _userDoc(uid);
-        tx.set(
-          ref,
-          {
-            'credits': FieldValue.increment(amount),
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
-      });
-      // 寫入點數歷史（非原子，失敗不影響主流程）
-      await _writeHistoryEntry(uid,
-          type: 'earned', amount: amount, reason: reason);
-    } catch (e, stack) {
-      await FirebaseService.recordError(e, stack, reason: 'add_credits_failed');
-    }
-  }
 
   /// 寫入一筆點數歷史紀錄（best-effort，失敗僅記錄）
   static Future<void> _writeHistoryEntry(
@@ -318,9 +293,8 @@ class AuthService {
 
         final newUid = _auth.currentUser!.uid;
         try {
-          await _callInitUserSession(newUid);
+          await _callInitUserSession(newUid, anonCredits: anonCredits);
           if (anonCredits > 0) {
-            await addCredits(newUid, anonCredits);
             FirebaseService.log(
               'AuthService: merged $anonCredits credits to uid=$newUid',
             );

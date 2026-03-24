@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../models/credit_history_entry.dart';
 
 /// 每次看廣告獲得的點數
 const int kCreditsPerAd = 1;
@@ -102,19 +101,6 @@ class CreditNotifier extends Notifier<int> {
       FirebaseService.log('CreditProvider: consumed 1 → remaining $state');
     }
     return success;
-  }
-
-  /// 增加點數（看廣告 / 登入獎勵後呼叫）
-  Future<void> addCredits(
-    int amount, {
-    String reason = CreditHistoryReason.rewardedAd,
-  }) async {
-    final uid = ref.read(currentUserProvider)?.uid;
-    if (uid == null) return;
-
-    await AuthService.addCredits(uid, amount, reason: reason);
-    state = state + amount;
-    FirebaseService.log('CreditProvider: +$amount → total $state');
   }
 
   /// Cloud Function 回傳的最新點數直接寫入（免去一次 Firestore 讀取）

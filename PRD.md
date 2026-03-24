@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.11 | 2026-03-24 | **fix(credits-server-side)**：移除 `AuthService.addCredits` / `addCreditsFromPurchase` / `CreditProvider.addCredits` 等直寫 Firestore 的方法（被 Security Rules 封鎖）。在 `initUserSession` CF 新增選填 `anonCredits` 參數，帳號切換時 App 傳入，CF 原子性合併點數並寫 `creditHistory`（`reason: anon_merge`）。 |
 | v3.13.10 | 2026-03-24 | **fix(cd-ios-firebase-dist)**：`wzieba/Firebase-Distribution-Github-Action@v1` 為 Docker container action，無法在 macOS runner 上執行。改用 Firebase CLI（`npm install -g firebase-tools` + `firebase appdistribution:distribute`）直接在 macos-15 runner 上上傳 IPA；以 `GOOGLE_APPLICATION_CREDENTIALS` 傳入 SA JSON 做身份驗證，SA JSON 用完即刪除。 |
 | v3.13.9 | 2026-03-24 | **feat(cd-ios-firebase-dist)**：`main_build.yml` `ios-build` job 新增「Upload iOS to Firebase App Distribution」步驟；使用 `FIREBASE_APP_ID_IOS` secret 及 `testers` 群組。需新增 GitHub Secret：`FIREBASE_APP_ID_IOS`。 |
 | v3.13.8 | 2026-03-25 | **fix(apple-signin-nonce)**：修正 `signInWithApple()` 缺少 nonce 導致 Firebase Auth 驗證失敗。新增 `crypto: ^3.0.3`；`_generateNonce()`（32 chars, `Random.secure()`）+ `_sha256()` helper；`getAppleIDCredential` 傳入 `nonce: hashedNonce`；`OAuthCredential` 改用 `rawNonce` 取代錯誤的 `accessToken: authorizationCode`。 |
