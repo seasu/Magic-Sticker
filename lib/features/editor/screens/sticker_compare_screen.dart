@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/services/analytics_service.dart';
+import '../../../core/services/firebase_service.dart';
 import '../../../core/services/share_code_service.dart';
 import '../../../core/services/share_reward_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -142,8 +143,10 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
       await tmp.writeAsBytes(byteData.buffer.asUint8List());
 
       // 分享
+      // iOS：XFile 必須帶 mimeType，否則 UIActivityViewController 無法識別
+      // 檔案類型，導致分享失敗。
       final result = await Share.shareXFiles(
-        [XFile(tmp.path)],
+        [XFile(tmp.path, mimeType: 'image/png')],
         text: '我用 Magic Sticker 做了這個！試試同款 👇\n$shareUrl',
       );
 
@@ -167,7 +170,8 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
         // ── 分享完成：背景請求獎勵 ───────────────────────────────────────────
         unawaited(_tryGrantReward());
       }
-    } catch (_) {
+    } catch (e, stack) {
+      FirebaseService.recordError(e, stack, reason: '_share failed');
       unawaited(
         AnalyticsService.logShareCompareDismissed(reason: 'failed'),
       );
