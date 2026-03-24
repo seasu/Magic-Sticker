@@ -35,4 +35,6 @@ functions/.env
 functions/.env.*
 google-services.json
 GoogleService-Info.plist
+# 允許 placeholder（不含真實金鑰），CI 建置時會被 GOOGLE_SERVICE_INFO_PLIST secret 覆寫
+!ios/Runner/GoogleService-Info.plist
 scripts/__pycache__/

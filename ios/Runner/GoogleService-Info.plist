@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- PLACEHOLDER: 此檔案在 CI 建置時會被 GOOGLE_SERVICE_INFO_PLIST secret 覆寫 -->
+<!-- 本地開發請從 Firebase Console 下載真實的 GoogleService-Info.plist 替換此檔案 -->
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>PLACEHOLDER</string>
+	<key>GCM_SENDER_ID</key>
+	<string>PLACEHOLDER</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.magicsticker.magic-sticker</string>
+	<key>PROJECT_ID</key>
+	<string>PLACEHOLDER</string>
+	<key>STORAGE_BUCKET</key>
+	<string>PLACEHOLDER</string>
+	<key>IS_ADS_ENABLED</key>
+	<false/>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false/>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true/>
+	<key>IS_GCM_ENABLED</key>
+	<true/>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true/>
+	<key>GOOGLE_APP_ID</key>
+	<string>PLACEHOLDER</string>
+</dict>
+</plist>
