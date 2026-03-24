@@ -193,6 +193,37 @@ jobs:
       - name: Build Functions
         run: cd functions && npm run build
 
+      # Firebase defineSecret() 會在部署時要求 APPLE_SHARED_SECRET 已存在於
+      # Google Cloud Secret Manager。非互動式 CI 環境中 Firebase CLI 無法提示輸入，
+      # 所以在 Deploy 前用 gcloud 直接建立/更新 secret version。
+      - name: Provision Firebase Secrets via gcloud
+        env:
+          APPLE_SHARED_SECRET: ${{ secrets.APPLE_SHARED_SECRET }}
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > /tmp/sa.json
+          gcloud auth activate-service-account --key-file=/tmp/sa.json
+          gcloud config set project ${{ secrets.FIREBASE_PROJECT_ID }}
+
+          if [ -z "$APPLE_SHARED_SECRET" ]; then
+            echo "⚠️  APPLE_SHARED_SECRET GitHub secret is not set — skipping provisioning"
+            echo "   Run: firebase functions:secrets:set APPLE_SHARED_SECRET  (locally)"
+          else
+            # create secret if it doesn't exist yet (idempotent)
+            gcloud secrets describe APPLE_SHARED_SECRET --project=${{ secrets.FIREBASE_PROJECT_ID }} \
+              > /dev/null 2>&1 || \
+              gcloud secrets create APPLE_SHARED_SECRET \
+                --replication-policy="automatic" \
+                --project=${{ secrets.FIREBASE_PROJECT_ID }}
+            # add new version
+            printf '%s' "$APPLE_SHARED_SECRET" | \
+              gcloud secrets versions add APPLE_SHARED_SECRET \
+                --data-file=- \
+                --project=${{ secrets.FIREBASE_PROJECT_ID }}
+            echo "✅ APPLE_SHARED_SECRET provisioned in Secret Manager"
+          fi
+
+          rm -f /tmp/sa.json
+
       - name: Deploy Functions
         uses: w9jds/firebase-action@master
         with:
