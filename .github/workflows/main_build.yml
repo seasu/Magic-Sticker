@@ -197,13 +197,16 @@ jobs:
       # 非互動式 CI 無法提示輸入，在 Deploy 前用 gcloud 直接建立/更新 secret version。
       # 所需 GitHub Secrets：
       #   APP_STORE_KEY_ID      — App Store Connect API Key 的 Key ID（10 字元）
-      #   APP_STORE_ISSUER_ID   — App Store Connect Issuer ID（UUID）
-      #   APP_STORE_PRIVATE_KEY — .p8 私鑰完整內容（含 BEGIN/END PRIVATE KEY 標頭）
+      #   APP_STORE_CONNECT_ISSUER_ID — App Store Connect Issuer ID（UUID）
+      #   APP_STORE_CONNECT_API_KEY   — .p8 私鑰完整內容（含 BEGIN/END PRIVATE KEY 標頭）
+      #   （Firebase Secret Manager 內部名稱為 APP_STORE_KEY_ID / APP_STORE_ISSUER_ID /
+      #     APP_STORE_PRIVATE_KEY，由下方 provision_secret 對應寫入）
       - name: Provision Firebase Secrets via gcloud
         env:
-          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
-          APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
-          APP_STORE_PRIVATE_KEY: ${{ secrets.APP_STORE_PRIVATE_KEY }}
+          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > /tmp/sa.json
           gcloud auth activate-service-account --key-file=/tmp/sa.json
@@ -213,16 +216,28 @@ jobs:
           provision_secret() {
             local NAME="$1"
             local VALUE="$2"
-            if [ -z "$VALUE" ]; then
-              echo "⚠️  $NAME GitHub secret is not set — skipping"
-              return
-            fi
+            # 確保 Secret Manager 中的 secret 存在（Firebase deploy 需要此 secret 存在才不會報錯）
             gcloud secrets describe "$NAME" --project="$PROJECT" > /dev/null 2>&1 || \
               gcloud secrets create "$NAME" --replication-policy="automatic" --project="$PROJECT"
-            printf '%s' "$VALUE" | gcloud secrets versions add "$NAME" --data-file=- --project="$PROJECT"
-            echo "✅ $NAME provisioned"
+            if [ -z "$VALUE" ]; then
+              # GitHub Secret 未設定：若 Secret Manager 中已有 version 則不動，
+              # 否則加入 placeholder 讓 Firebase deploy 不會因「no value」中止。
+              NVER=$(gcloud secrets versions list "$NAME" --project="$PROJECT" \
+                       --format="value(name)" 2>/dev/null | wc -l)
+              if [ "$NVER" -eq 0 ]; then
+                echo "⚠️  $NAME not configured — adding placeholder (set real value in GitHub Secrets)"
+                printf '%s' "NOT_CONFIGURED" | \
+                  gcloud secrets versions add "$NAME" --data-file=- --project="$PROJECT"
+              else
+                echo "ℹ️  $NAME GitHub secret not set — existing Secret Manager version retained"
+              fi
+            else
+              printf '%s' "$VALUE" | gcloud secrets versions add "$NAME" --data-file=- --project="$PROJECT"
+              echo "✅ $NAME provisioned"
+            fi
           }
 
+          provision_secret GEMINI_API_KEY       "$GEMINI_API_KEY"
           provision_secret APP_STORE_KEY_ID     "$APP_STORE_KEY_ID"
           provision_secret APP_STORE_ISSUER_ID  "$APP_STORE_ISSUER_ID"
           provision_secret APP_STORE_PRIVATE_KEY "$APP_STORE_PRIVATE_KEY"
