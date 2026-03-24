@@ -193,6 +193,42 @@ jobs:
       - name: Build Functions
         run: cd functions && npm run build
 
+      # Firebase defineSecret() 會在部署時要求 secret 已存在於 Secret Manager。
+      # 非互動式 CI 無法提示輸入，在 Deploy 前用 gcloud 直接建立/更新 secret version。
+      # 所需 GitHub Secrets：
+      #   APP_STORE_KEY_ID      — App Store Connect API Key 的 Key ID（10 字元）
+      #   APP_STORE_ISSUER_ID   — App Store Connect Issuer ID（UUID）
+      #   APP_STORE_PRIVATE_KEY — .p8 私鑰完整內容（含 BEGIN/END PRIVATE KEY 標頭）
+      - name: Provision Firebase Secrets via gcloud
+        env:
+          APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
+          APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
+          APP_STORE_PRIVATE_KEY: ${{ secrets.APP_STORE_PRIVATE_KEY }}
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > /tmp/sa.json
+          gcloud auth activate-service-account --key-file=/tmp/sa.json
+          gcloud config set project ${{ secrets.FIREBASE_PROJECT_ID }}
+          PROJECT=${{ secrets.FIREBASE_PROJECT_ID }}
+
+          provision_secret() {
+            local NAME="$1"
+            local VALUE="$2"
+            if [ -z "$VALUE" ]; then
+              echo "⚠️  $NAME GitHub secret is not set — skipping"
+              return
+            fi
+            gcloud secrets describe "$NAME" --project="$PROJECT" > /dev/null 2>&1 || \
+              gcloud secrets create "$NAME" --replication-policy="automatic" --project="$PROJECT"
+            printf '%s' "$VALUE" | gcloud secrets versions add "$NAME" --data-file=- --project="$PROJECT"
+            echo "✅ $NAME provisioned"
+          }
+
+          provision_secret APP_STORE_KEY_ID     "$APP_STORE_KEY_ID"
+          provision_secret APP_STORE_ISSUER_ID  "$APP_STORE_ISSUER_ID"
+          provision_secret APP_STORE_PRIVATE_KEY "$APP_STORE_PRIVATE_KEY"
+
+          rm -f /tmp/sa.json
+
       - name: Deploy Functions
         uses: w9jds/firebase-action@master
         with:
