@@ -407,12 +407,18 @@ jobs:
   # ─── iOS Build & TestFlight ───────────────────────────────────
   ios-build:
     name: iOS Build & TestFlight
-    runs-on: macos-latest
+    runs-on: macos-15
     if: |
       startsWith(github.ref, 'refs/tags/v') ||
       github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
+
+      # Apple 要求 2026/04/28 起所有 iOS/iPadOS App 必須以 iOS 26 SDK（Xcode 26）建置
+      - name: Select Xcode 26
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26'
 
       - uses: subosito/flutter-action@v2
         with:
