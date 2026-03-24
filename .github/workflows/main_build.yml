@@ -474,6 +474,18 @@ jobs:
             -c "Add :CFBundleVersion string ${{ github.run_number }}" \
             ios/Runner/Info.plist
           echo "✅ Bundle: com.magicsticker.magic-sticker, iOS 15.0+, build=${{ github.run_number }}"
+          # AdMob App ID — 有設定 secret 則用正式 ID，否則沿用 Info.plist 內的測試 ID
+          if [ -n "${{ secrets.IOS_ADMOB_APP_ID }}" ]; then
+            /usr/libexec/PlistBuddy \
+              -c "Set :GADApplicationIdentifier ${{ secrets.IOS_ADMOB_APP_ID }}" \
+              ios/Runner/Info.plist 2>/dev/null || \
+            /usr/libexec/PlistBuddy \
+              -c "Add :GADApplicationIdentifier string ${{ secrets.IOS_ADMOB_APP_ID }}" \
+              ios/Runner/Info.plist
+            echo "✅ GADApplicationIdentifier injected from secret"
+          else
+            echo "⚠️  IOS_ADMOB_APP_ID secret 未設定，使用 Info.plist 預設 Test App ID"
+          fi
 
       - name: Generate launcher icons
         run: dart run flutter_launcher_icons
