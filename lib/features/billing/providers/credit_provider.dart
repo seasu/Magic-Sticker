@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../models/credit_history_entry.dart';
 
 /// 每次看廣告獲得的點數
 const int kCreditsPerAd = 1;
