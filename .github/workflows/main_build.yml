@@ -206,6 +206,7 @@ jobs:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > /tmp/sa.json
           gcloud auth activate-service-account --key-file=/tmp/sa.json
@@ -236,6 +237,7 @@ jobs:
             fi
           }
 
+          provision_secret GEMINI_API_KEY       "$GEMINI_API_KEY"
           provision_secret APP_STORE_KEY_ID     "$APP_STORE_KEY_ID"
           provision_secret APP_STORE_ISSUER_ID  "$APP_STORE_ISSUER_ID"
           provision_secret APP_STORE_PRIVATE_KEY "$APP_STORE_PRIVATE_KEY"
