@@ -201,6 +201,24 @@ jobs:
       #   APP_STORE_CONNECT_API_KEY   — .p8 私鑰完整內容（含 BEGIN/END PRIVATE KEY 標頭）
       #   （Firebase Secret Manager 內部名稱為 APP_STORE_KEY_ID / APP_STORE_ISSUER_ID /
       #     APP_STORE_PRIVATE_KEY，由下方 provision_secret 對應寫入）
+      #
+      # ⚠️  若 CI 報 secretmanager.versions.add PERMISSION_DENIED，請在 GCP Console：
+      #      IAM & Admin → IAM → firebase-adminsdk-fbsvc@<project>.iam.gserviceaccount.com
+      #      → 新增角色：Secret Manager Admin (roles/secretmanager.admin)
+      - name: Grant Secret Manager Admin to Firebase SA (idempotent)
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > /tmp/sa.json
+          gcloud auth activate-service-account --key-file=/tmp/sa.json
+          gcloud config set project ${{ secrets.FIREBASE_PROJECT_ID }}
+          SA_EMAIL=$(python3 -c "import json; print(json.load(open('/tmp/sa.json'))['client_email'])")
+          gcloud projects add-iam-policy-binding ${{ secrets.FIREBASE_PROJECT_ID }} \
+            --member="serviceAccount:${SA_EMAIL}" \
+            --role="roles/secretmanager.admin" \
+            --condition=None \
+            2>&1 && echo "✅ roles/secretmanager.admin granted" \
+                 || echo "⚠️  IAM grant failed — please grant roles/secretmanager.admin manually in GCP Console"
+          rm -f /tmp/sa.json
+
       - name: Provision Firebase Secrets via gcloud
         env:
           APP_STORE_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
