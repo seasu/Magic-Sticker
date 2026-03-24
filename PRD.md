@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.12.5+364 |
+| 目前版本 | v3.12.6+365 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.12.6 | 2026-03-24 | **fix(ensureShareCode-index)**：修正 `ensureShareCode` CF 呼叫時 `[firebase_functions/internal] INTERNAL` 錯誤——根本原因為 `challenges` collection 複合查詢（`ownerUid` + `templateType` + `isActive` + `createdAt >=`）缺少 Firestore composite index；新增 `firestore.indexes.json` 並於 `firebase.json` 補上 `"indexes"` 路徑；CF 查詢加入 try-catch 降級：索引未就緒時跳過重用邏輯直接建立新 code，避免 INTERNAL 錯誤中斷分享流程。 |
 | v3.12.5 | 2026-03-24 | **feat(ios-iap-receipt-verify)**：Cloud Functions `verifyProPurchase` 與 `fulfillCreditPurchase` 新增 iOS 收據驗證分支——接受 `platform` 參數（`'ios'`/`'android'`）；iOS 端呼叫 Apple App Store `verifyReceipt` API（含 Production→Sandbox 自動 retry）驗證 `serverVerificationData`（base64 receipt）；冪等 key 改用 `transactionId` 避免大型 receipt blob 超出 Firestore doc ID 上限；Android 路徑維持原 Google Play API 驗證不變；新增 `APPLE_SHARED_SECRET` Firebase Secret（需在 App Store Connect 取得 App-Specific Shared Secret 並設定）；Flutter `iap_service.dart` 的 CF 呼叫加入 `platform` 欄位。 |
 | v3.12.1 | 2026-03-24 | **fix(ios-bootstrap-yaml)**：修正 `ios_bootstrap.yml` 中 `git commit -m` 多行訊息縮排為 0 導致 YAML 區塊純量（block scalar）提前結束、workflow 解析失敗（0s Failure）的問題；改用 `{ echo ...; } > /tmp/commit_msg.txt && git commit -F` 方式撰寫，確保所有行都在正確縮排內。 |
 | v3.12.0 | 2026-03-24 | **ci(ios-bootstrap)**：新增 `ios_bootstrap.yml` 一次性 workflow——在 macOS runner 上執行 `flutter create --platforms=ios`、設定 Bundle ID（`com.magicsticker.magic-sticker`）、Deployment Target iOS 15.0+、Display Name、隱私權描述（相簿讀寫/相機）、`ITSAppUsesNonExemptEncryption: false`，並自動 commit ios/ 目錄回分支；版本升至 3.12.0 標誌 iOS 支援啟動。 |

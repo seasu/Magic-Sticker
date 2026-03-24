@@ -1109,18 +1109,27 @@ export const ensureShareCode = onCall(
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     // ── 嘗試重用 24h 內的有效 code ──────────────────────────────────────────
-    const existing = await challengesRef
-      .where("ownerUid", "==", uid)
-      .where("templateType", "==", templateType)
-      .where("isActive", "==", true)
-      .where("createdAt", ">=", cutoff)
-      .limit(1)
-      .get();
+    // 需要 firestore.indexes.json 的 challenges 複合索引。
+    // 若索引尚未建立完成，query 會拋出 9 FAILED_PRECONDITION；
+    // catch 後降級：直接建立新 code（冪等性由 code 碰撞重試保證）。
+    try {
+      const existing = await challengesRef
+        .where("ownerUid", "==", uid)
+        .where("templateType", "==", templateType)
+        .where("isActive", "==", true)
+        .where("createdAt", ">=", cutoff)
+        .limit(1)
+        .get();
 
-    if (!existing.empty) {
-      const code = existing.docs[0].id;
-      log("ensureShareCode: reusing existing code", {uid, code});
-      return {code, deepLink: `${kDomainBase}/c/${code}`, reused: true};
+      if (!existing.empty) {
+        const code = existing.docs[0].id;
+        log("ensureShareCode: reusing existing code", {uid, code});
+        return {code, deepLink: `${kDomainBase}/c/${code}`, reused: true};
+      }
+    } catch (e) {
+      warn("ensureShareCode: reuse query failed (index missing?), will create new code", {
+        error: String(e),
+      });
     }
 
     // ── 建立新 code（碰撞重試最多 5 次）────────────────────────────────────
