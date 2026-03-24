@@ -127,16 +127,19 @@ jobs:
           if git diff --cached --quiet; then
             echo "⚠️  沒有需要 commit 的變更（ios/ 可能已存在且未變動）"
           else
-            git commit -m "chore: generate iOS platform (flutter create --platforms=ios)
-
-- Bundle ID: com.magicsticker.magic-sticker
-- Deployment target: iOS 15.0+
-- Display name: Magic Sticker
-- Privacy descriptions: 相簿讀寫 + 相機
-- ITSAppUsesNonExemptEncryption: false
-- Launcher icons generated
-
-https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            {
+              echo "chore: generate iOS platform (flutter create --platforms=ios)"
+              echo ""
+              echo "- Bundle ID: com.magicsticker.magic-sticker"
+              echo "- Deployment target: iOS 15.0+"
+              echo "- Display name: Magic Sticker"
+              echo "- Privacy descriptions: 相簿讀寫 + 相機"
+              echo "- ITSAppUsesNonExemptEncryption: false"
+              echo "- Launcher icons generated"
+              echo ""
+              echo "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            } > /tmp/commit_msg.txt
+            git commit -F /tmp/commit_msg.txt
 
             git push origin HEAD:${{ github.event.inputs.branch || github.ref_name }}
             echo "✅ ios/ committed and pushed"
