@@ -537,11 +537,131 @@ function generateAppStoreJWT(): string {
 }
 
 /**
- * 向 App Store Server API 查詢單筆交易，驗證 productId 與 revocation 狀態。
+ * StoreKit 2 のローカル JWS 検証。
+ * App Store Server API（要 API Key）を使わず、Apple 署名の JWS を直接検証する。
  *
- * @param transactionId Flutter `purchase.purchaseID`（iOS transaction identifier）
- * @param expectedProductId 預期的 productId
+ * 検証手順：
+ * 1. JWS ヘッダーの x5c 証明書チェーンを取得
+ * 2. チェーンの連鎖性を確認（各 cert が次の cert で署名）
+ * 3. ルート cert が自己署名 + Apple Root CA であることを確認
+ * 4. リーフ cert の公開鍵で JWS 署名を検証
+ * 5. ペイロードの bundleId / productId / revocation を確認
  */
+async function verifyAppleJWSLocal(
+  jwsTransaction: string,
+  expectedProductId: string
+): Promise<AppleVerifyResult> {
+  const parts = jwsTransaction.split(".");
+  if (parts.length !== 3) {
+    warn("verifyAppleJWSLocal: invalid JWS format (expected 3 parts)");
+    return {valid: false, status: 0};
+  }
+
+  // 1. ヘッダーの x5c を取得
+  let header: {alg?: string; x5c?: string[]; typ?: string};
+  try {
+    header = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8"));
+  } catch (e) {
+    warn("verifyAppleJWSLocal: failed to parse JWS header", {error: String(e)});
+    return {valid: false, status: 0};
+  }
+
+  if (header.alg !== "ES256" || !header.x5c || header.x5c.length < 2) {
+    warn("verifyAppleJWSLocal: invalid header fields", {alg: header.alg, x5cLen: header.x5c?.length});
+    return {valid: false, status: 0};
+  }
+
+  // 2. DER → X509Certificate
+  let certs: crypto.X509Certificate[];
+  try {
+    certs = header.x5c.map((b64) => new crypto.X509Certificate(Buffer.from(b64, "base64")));
+  } catch (e) {
+    warn("verifyAppleJWSLocal: failed to parse certs", {error: String(e)});
+    return {valid: false, status: 0};
+  }
+
+  // 3. 証明書チェーン検証（certs[i] は certs[i+1] の公開鍵で署名）
+  for (let i = 0; i < certs.length - 1; i++) {
+    try {
+      if (!certs[i].verify(certs[i + 1].publicKey)) {
+        warn("verifyAppleJWSLocal: cert chain broken at index", {i});
+        return {valid: false, status: 0};
+      }
+    } catch (e) {
+      warn("verifyAppleJWSLocal: cert chain verify error", {i, error: String(e)});
+      return {valid: false, status: 0};
+    }
+  }
+
+  // 4. ルート cert が自己署名 + Apple Root CA であることを確認
+  const rootCert = certs[certs.length - 1];
+  try {
+    if (!rootCert.verify(rootCert.publicKey)) {
+      warn("verifyAppleJWSLocal: root cert is not self-signed");
+      return {valid: false, status: 0};
+    }
+  } catch (e) {
+    warn("verifyAppleJWSLocal: root cert self-verify error", {error: String(e)});
+    return {valid: false, status: 0};
+  }
+  if (!rootCert.subject.includes("Apple Root CA")) {
+    warn("verifyAppleJWSLocal: root cert subject is not Apple Root CA", {subject: rootCert.subject});
+    return {valid: false, status: 0};
+  }
+
+  // 5. リーフ cert の公開鍵で JWS 署名を検証（IEEE P1363 形式）
+  const signingInput = Buffer.from(`${parts[0]}.${parts[1]}`);
+  const signature = Buffer.from(parts[2], "base64url");
+  let isSigValid: boolean;
+  try {
+    isSigValid = crypto.verify(
+      "sha256",
+      signingInput,
+      {key: certs[0].publicKey, dsaEncoding: "ieee-p1363"},
+      signature
+    );
+  } catch (e) {
+    warn("verifyAppleJWSLocal: signature verify error", {error: String(e)});
+    return {valid: false, status: 0};
+  }
+  if (!isSigValid) {
+    warn("verifyAppleJWSLocal: JWS signature is invalid");
+    return {valid: false, status: 0};
+  }
+
+  // 6. ペイロードの検証
+  let txPayload: AppStoreTransactionPayload;
+  try {
+    txPayload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+  } catch (e) {
+    warn("verifyAppleJWSLocal: failed to parse JWS payload", {error: String(e)});
+    return {valid: false, status: 0};
+  }
+
+  if (txPayload.bundleId !== kAppleBundleId) {
+    warn("verifyAppleJWSLocal: bundleId mismatch", {expected: kAppleBundleId, got: txPayload.bundleId});
+    return {valid: false, status: 0};
+  }
+  if (txPayload.productId !== expectedProductId) {
+    warn("verifyAppleJWSLocal: productId mismatch", {expected: expectedProductId, got: txPayload.productId});
+    return {valid: false, status: 0};
+  }
+  if (txPayload.revocationDate) {
+    warn("verifyAppleJWSLocal: transaction revoked", {transactionId: txPayload.transactionId});
+    return {valid: false, status: 0};
+  }
+
+  log("verifyAppleJWSLocal: verification OK", {transactionId: txPayload.transactionId, productId: txPayload.productId});
+  return {
+    valid: true,
+    status: 200,
+    productId: txPayload.productId,
+    quantity: txPayload.quantity ?? 1,
+    transactionId: txPayload.transactionId,
+  };
+}
+
+
 async function verifyAppleTransaction(
   transactionId: string,
   expectedProductId: string
@@ -641,10 +761,11 @@ export const verifyProPurchase = onCall(
     const uid = await resolveUid(request);
     log("verifyProPurchase: auth OK", {uid});
 
-    const {purchaseToken, orderId, platform = "android"} = request.data as {
+    const {purchaseToken, orderId, platform = "android", jwsTransaction} = request.data as {
       purchaseToken: string;
       orderId?: string;
       platform?: string;
+      jwsTransaction?: string;
     };
 
     if (!purchaseToken) {
@@ -668,14 +789,37 @@ export const verifyProPurchase = onCall(
     }
 
     if (platform === "ios") {
-      // ── iOS：呼叫 App Store Server API（purchaseToken = iOS transaction ID）──
+      // ── iOS：JWS ローカル検証（優先）→ App Store Server API（フォールバック）──
       let appleResult: AppleVerifyResult;
-      try {
-        appleResult = await verifyAppleTransaction(purchaseToken, kProProductId);
-        log("verifyProPurchase: Apple transaction verified", {uid, status: appleResult.status, valid: appleResult.valid});
-      } catch (e) {
-        warn("verifyProPurchase: Apple API failed", {error: String(e)});
-        throw new HttpsError("unavailable", "Unable to reach Apple API. Please try again.");
+
+      if (jwsTransaction) {
+        // StoreKit 2 の JWS をローカルで検証（API Key 不要）
+        try {
+          appleResult = await verifyAppleJWSLocal(jwsTransaction, kProProductId);
+          log("verifyProPurchase: local JWS verified", {uid, valid: appleResult.valid});
+        } catch (e) {
+          warn("verifyProPurchase: local JWS failed, falling back to API", {error: String(e)});
+          appleResult = {valid: false, status: 0};
+        }
+        // JWS 検証失敗時は App Store Server API にフォールバック
+        if (!appleResult.valid) {
+          try {
+            appleResult = await verifyAppleTransaction(purchaseToken, kProProductId);
+            log("verifyProPurchase: fallback API verified", {uid, status: appleResult.status});
+          } catch (e) {
+            warn("verifyProPurchase: Apple API fallback failed", {error: String(e)});
+            throw new HttpsError("unavailable", "Unable to verify Apple purchase. Please try again.");
+          }
+        }
+      } else {
+        // JWS なし（旧クライアント互換）→ App Store Server API
+        try {
+          appleResult = await verifyAppleTransaction(purchaseToken, kProProductId);
+          log("verifyProPurchase: Apple API verified", {uid, status: appleResult.status, valid: appleResult.valid});
+        } catch (e) {
+          warn("verifyProPurchase: Apple API failed", {error: String(e)});
+          throw new HttpsError("unavailable", "Unable to reach Apple API. Please try again.");
+        }
       }
 
       if (!appleResult.valid) {
@@ -823,10 +967,11 @@ export const fulfillCreditPurchase = onCall(
     const uid = await resolveUid(request);
     log("fulfillCreditPurchase: auth OK", {uid});
 
-    const {purchaseToken, productId, platform = "android"} = request.data as {
+    const {purchaseToken, productId, platform = "android", jwsTransaction} = request.data as {
       purchaseToken: string;
       productId: string;
       platform?: string;
+      jwsTransaction?: string;
     };
 
     if (!purchaseToken || !productId) {
@@ -848,14 +993,37 @@ export const fulfillCreditPurchase = onCall(
     let verifiedTransactionId: string | undefined;
 
     if (platform === "ios") {
-      // iOS：呼叫 App Store Server API（purchaseToken = iOS transaction ID）
+      // iOS：JWS ローカル検証（優先）→ App Store Server API（フォールバック）
       let appleResult: AppleVerifyResult;
-      try {
-        appleResult = await verifyAppleTransaction(purchaseToken, productId);
-        log("fulfillCreditPurchase: Apple transaction verified", {uid, status: appleResult.status, valid: appleResult.valid, productId});
-      } catch (e) {
-        warn("fulfillCreditPurchase: Apple API failed", {error: String(e)});
-        throw new HttpsError("unavailable", "Unable to reach Apple API. Please try again.");
+
+      if (jwsTransaction) {
+        // StoreKit 2 の JWS をローカルで検証（API Key 不要）
+        try {
+          appleResult = await verifyAppleJWSLocal(jwsTransaction, productId);
+          log("fulfillCreditPurchase: local JWS verified", {uid, valid: appleResult.valid, productId});
+        } catch (e) {
+          warn("fulfillCreditPurchase: local JWS failed, falling back to API", {error: String(e)});
+          appleResult = {valid: false, status: 0};
+        }
+        // JWS 検証失敗時は App Store Server API にフォールバック
+        if (!appleResult.valid) {
+          try {
+            appleResult = await verifyAppleTransaction(purchaseToken, productId);
+            log("fulfillCreditPurchase: fallback API verified", {uid, status: appleResult.status, productId});
+          } catch (e) {
+            warn("fulfillCreditPurchase: Apple API fallback failed", {error: String(e)});
+            throw new HttpsError("unavailable", "Unable to verify Apple purchase. Please try again.");
+          }
+        }
+      } else {
+        // JWS なし（旧クライアント互換）→ App Store Server API
+        try {
+          appleResult = await verifyAppleTransaction(purchaseToken, productId);
+          log("fulfillCreditPurchase: Apple API verified", {uid, status: appleResult.status, valid: appleResult.valid, productId});
+        } catch (e) {
+          warn("fulfillCreditPurchase: Apple API failed", {error: String(e)});
+          throw new HttpsError("unavailable", "Unable to reach Apple API. Please try again.");
+        }
       }
 
       if (!appleResult.valid) {
@@ -866,7 +1034,7 @@ export const fulfillCreditPurchase = onCall(
       }
 
       verifiedTransactionId = appleResult.transactionId;
-      log("fulfillCreditPurchase: Apple API verified OK", {uid, productId, transactionId: verifiedTransactionId});
+      log("fulfillCreditPurchase: Apple verified OK", {uid, productId, transactionId: verifiedTransactionId});
     } else {
       // Android：呼叫 Google Play Developer API
       let accessToken: string;
@@ -1061,7 +1229,8 @@ export const initUserSession = onCall(
     const uid = await resolveUid(request);
     log("initUserSession: auth OK", {uid});
 
-    const {anonCredits = 0} = (request.data ?? {}) as {anonCredits?: number};
+    const {anonCredits = 0, anonUid = ""} =
+      (request.data ?? {}) as {anonCredits?: number; anonUid?: string};
     const mergeAmount = Math.max(0, Math.floor(anonCredits));
 
     const userRef = db.collection("users").doc(uid);
@@ -1084,6 +1253,11 @@ export const initUserSession = onCall(
             amount: mergeAmount,
             reason: "anon_merge",
           });
+          // 合併後立即將匿名帳號 credits 歸零，防止重複登出/登入時再次 merge
+          if (anonUid && anonUid !== uid) {
+            const anonRef = db.collection("users").doc(anonUid);
+            tx.set(anonRef, {credits: 0, updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+          }
         }
         return;
       }

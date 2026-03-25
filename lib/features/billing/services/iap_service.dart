@@ -299,7 +299,8 @@ class IAPService {
     }
 
     try {
-      // iOS: App Store Server API 需要 transaction ID（purchase.purchaseID）
+      // iOS: StoreKit 2 JWS（localVerificationData）+ transaction ID をサーバーに送る
+      //      CF は JWS ローカル検証を優先し、失敗時のみ App Store Server API にフォールバック
       // Android: Google Play API 需要 purchaseToken（serverVerificationData）
       final token = Platform.isIOS
           ? (purchase.purchaseID ?? purchase.verificationData.serverVerificationData)
@@ -307,16 +308,23 @@ class IAPService {
               ? purchase.verificationData.serverVerificationData
               : purchase.verificationData.localVerificationData);
 
+      final Map<String, dynamic> payload = {
+        'purchaseToken': token,
+        'productId': purchase.productID,
+        'platform': Platform.isIOS ? 'ios' : 'android',
+      };
+      // iOS: StoreKit 2 の JWS も送る（ローカル検証用）
+      if (Platform.isIOS) {
+        final jws = purchase.verificationData.localVerificationData;
+        if (jws.isNotEmpty) payload['jwsTransaction'] = jws;
+      }
+
       final result = await _fn
           .httpsCallable(
             'fulfillCreditPurchase',
             options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
           )
-          .call<Map<String, dynamic>>({
-        'purchaseToken': token,
-        'productId': purchase.productID,
-        'platform': Platform.isIOS ? 'ios' : 'android',
-      });
+          .call<Map<String, dynamic>>(payload);
 
       final creditsEarned = (result.data['credits'] as num?)?.toInt() ?? pack.credits;
       FirebaseService.log(
@@ -344,13 +352,24 @@ class IAPService {
   }
 
   Future<void> _fulfillPro(PurchaseDetails purchase) async {
-    // iOS: App Store Server API 需要 transaction ID（purchase.purchaseID）
+    // iOS: transaction ID + JWS（localVerificationData）を送る
+    //      CF は JWS ローカル検証を優先し、失敗時のみ App Store Server API にフォールバック
     // Android: Google Play API 需要 purchaseToken（serverVerificationData）
     final token = Platform.isIOS
         ? (purchase.purchaseID ?? purchase.verificationData.serverVerificationData)
         : (purchase.verificationData.serverVerificationData.isNotEmpty
             ? purchase.verificationData.serverVerificationData
             : purchase.verificationData.localVerificationData);
+
+    final Map<String, dynamic> payload = {
+      'purchaseToken': token,
+      'orderId': purchase.purchaseID ?? '',
+      'platform': Platform.isIOS ? 'ios' : 'android',
+    };
+    if (Platform.isIOS) {
+      final jws = purchase.verificationData.localVerificationData;
+      if (jws.isNotEmpty) payload['jwsTransaction'] = jws;
+    }
 
     try {
       FirebaseService.log(
@@ -362,11 +381,7 @@ class IAPService {
             options:
                 HttpsCallableOptions(timeout: const Duration(seconds: 30)),
           )
-          .call<Map<String, dynamic>>({
-        'purchaseToken': token,
-        'orderId': purchase.purchaseID ?? '',
-        'platform': Platform.isIOS ? 'ios' : 'android',
-      });
+          .call<Map<String, dynamic>>(payload);
       FirebaseService.log('IAPService: Pro unlock verified OK');
       // completePurchase 只在 CF 確認成功後才呼叫。
       // 若 CF 失敗（網路逾時、Play API 錯誤等），保留 purchase pending 狀態，

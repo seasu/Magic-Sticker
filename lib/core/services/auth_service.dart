@@ -51,15 +51,23 @@ class AuthService {
 
   /// 呼叫 initUserSession Cloud Function，確保用戶文件存在並取得點數。
   ///
-  /// [anonCredits] > 0 時，CF 會在 Server 端原子性地將匿名點數合併至目標帳號。
-  static Future<int?> _callInitUserSession(String uid, {int anonCredits = 0}) async {
+  /// [anonCredits] > 0 時，CF 會在 Server 端原子性地將匿名點數合併至目標帳號，
+  /// 並將 [anonUid] 對應的匿名帳號 credits 歸零，防止重複 merge。
+  static Future<int?> _callInitUserSession(
+    String uid, {
+    int anonCredits = 0,
+    String? anonUid,
+  }) async {
+    final Map<String, dynamic> payload = {};
+    if (anonCredits > 0) payload['anonCredits'] = anonCredits;
+    if (anonUid != null && anonUid.isNotEmpty) payload['anonUid'] = anonUid;
     final result = await _fn
         .httpsCallable(
           'initUserSession',
           options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
         )
         .call<Map<String, dynamic>>(
-          anonCredits > 0 ? {'anonCredits': anonCredits} : null,
+          payload.isNotEmpty ? payload : null,
         );
     final credits = (result.data['credits'] as num?)?.toInt();
     FirebaseService.log(
@@ -213,7 +221,9 @@ class AuthService {
           rethrow;
         }
         // 現有帳號 → 切換過去並合併點數
-        final anonCredits = (await getCredits(currentUser.uid)) ?? 0;
+        // 先記錄匿名 UID，signInWithCredential 後 currentUser 已換成正式帳號
+        final anonUid = currentUser.uid;
+        final anonCredits = (await getCredits(anonUid)) ?? 0;
         await _auth.signInWithCredential(e.credential ?? credential);
 
         // Force token refresh so subsequent Firestore calls get a valid JWT.
@@ -223,7 +233,7 @@ class AuthService {
 
         final newUid = _auth.currentUser!.uid;
         try {
-          await _callInitUserSession(newUid, anonCredits: anonCredits);
+          await _callInitUserSession(newUid, anonCredits: anonCredits, anonUid: anonUid);
           if (anonCredits > 0) {
             FirebaseService.log(
               'AuthService: merged $anonCredits credits to uid=$newUid',
