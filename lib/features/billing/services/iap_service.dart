@@ -313,9 +313,10 @@ class IAPService {
         'productId': purchase.productID,
         'platform': Platform.isIOS ? 'ios' : 'android',
       };
-      // iOS: StoreKit 2 の JWS も送る（ローカル検証用）
+      // iOS: SK2 では serverVerificationData が JWS Transaction（3-part JWT）。
+      //      localVerificationData は SK2 では JSON payload（JWS ではない）のため使わない。
       if (Platform.isIOS) {
-        final jws = purchase.verificationData.localVerificationData;
+        final jws = purchase.verificationData.serverVerificationData;
         if (jws.isNotEmpty) payload['jwsTransaction'] = jws;
       }
 
@@ -367,7 +368,8 @@ class IAPService {
       'platform': Platform.isIOS ? 'ios' : 'android',
     };
     if (Platform.isIOS) {
-      final jws = purchase.verificationData.localVerificationData;
+      // SK2 では serverVerificationData が JWS Transaction（3-part JWT）。
+      final jws = purchase.verificationData.serverVerificationData;
       if (jws.isNotEmpty) payload['jwsTransaction'] = jws;
     }
 
