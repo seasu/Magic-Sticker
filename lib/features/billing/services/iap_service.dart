@@ -347,22 +347,38 @@ class IAPService {
         'earned=$creditsEarned remaining=$remaining alreadyFulfilled=$alreadyFulfilled',
       );
 
-      // SK2 の restored transactions は pendingCompletePurchase=false だが
-      // completePurchase() を呼ばないと Transaction.finish() が呼ばれず
-      // StoreKit が永遠に再送し続ける。guard を外して常に呼ぶ。
-      FirebaseService.log(
-        'IAPService: calling completePurchase — product=${purchase.productID} '
-        'status=${purchase.status} pending=${purchase.pendingCompletePurchase}',
-      );
-      try {
-        await _iap.completePurchase(purchase);
+      if (Platform.isIOS) {
+        // iOS (StoreKit 2): Transaction.finish() must always be called after
+        // server verification, regardless of pendingCompletePurchase.
+        // SK2 restored/unfinished transactions always have pendingCompletePurchase=false,
+        // but skipping completePurchase() leaves the transaction in Transaction.unfinished
+        // and StoreKit replays it on every app launch.
         FirebaseService.log(
-          'IAPService: completePurchase OK — product=${purchase.productID}',
+          'IAPService: [iOS] calling completePurchase — product=${purchase.productID} '
+          'status=${purchase.status}',
         );
-      } catch (e, stack) {
-        await FirebaseService.recordError(
-          e, stack, reason: 'iap_complete_purchase_failed',
-        );
+        try {
+          await _iap.completePurchase(purchase);
+          FirebaseService.log(
+            'IAPService: [iOS] completePurchase OK — product=${purchase.productID}',
+          );
+        } catch (e, stack) {
+          await FirebaseService.recordError(
+            e, stack, reason: 'iap_complete_purchase_failed',
+          );
+        }
+      } else {
+        // Android (Google Play): pendingCompletePurchase=true means the purchase
+        // needs to be acknowledged/consumed. false means it's already done.
+        if (purchase.pendingCompletePurchase) {
+          try {
+            await _iap.completePurchase(purchase);
+          } catch (e, stack) {
+            await FirebaseService.recordError(
+              e, stack, reason: 'iap_complete_purchase_failed',
+            );
+          }
+        }
       }
       _resultController.add(IapPurchaseResult.success(
         creditsEarned,
@@ -409,11 +425,22 @@ class IAPService {
           )
           .call<Map<String, dynamic>>(payload);
       FirebaseService.log('IAPService: Pro unlock verified OK');
-      // SK2 では pendingCompletePurchase=false でも completePurchase() が必要。
-      try {
-        await _iap.completePurchase(purchase);
-      } catch (e, stack) {
-        await FirebaseService.recordError(e, stack, reason: 'iap_pro_complete_purchase_failed');
+      if (Platform.isIOS) {
+        // iOS (StoreKit 2): always call completePurchase() to finish the transaction.
+        try {
+          await _iap.completePurchase(purchase);
+        } catch (e, stack) {
+          await FirebaseService.recordError(e, stack, reason: 'iap_pro_complete_purchase_failed');
+        }
+      } else {
+        // Android (Google Play): only acknowledge when flagged pending.
+        if (purchase.pendingCompletePurchase) {
+          try {
+            await _iap.completePurchase(purchase);
+          } catch (e, stack) {
+            await FirebaseService.recordError(e, stack, reason: 'iap_pro_complete_purchase_failed');
+          }
+        }
       }
       _proPendingCompleter?.complete(ProUnlockResult.success);
     } catch (e, stack) {

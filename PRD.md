@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.30+397 |
+| 目前版本 | v3.13.31+398 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.31 | 2026-03-26 | **fix(ios/iap): iOS/Android completePurchase 邏輯完全切割**：v3.13.30 以 `Platform.isIOS \|\| pendingCompletePurchase` 混合條件處理兩個平台，不夠清晰。重構為 `if (Platform.isIOS) { ... } else { if (pendingCompletePurchase) { ... } }`：iOS 路徑永遠呼叫 `completePurchase()`（SK2 `Transaction.finish()` 必須，restored 交易 `pendingCompletePurchase` 固定為 `false`）；Android 路徑維持原本語義（`pendingCompletePurchase=true` 才呼叫，`false` = 已 acknowledge）。`_fulfill()` 與 `_fulfillPro()` 均已同步。 |
 | v3.13.30 | 2026-03-26 | **fix(iap): 移除 `pendingCompletePurchase` guard，修正 SK2 restored 交易永遠重送問題**：v3.13.29 日誌確認 SK2 `PurchaseStatus.restored` 交易的 `pendingCompletePurchase` 永遠是 `false`，導致 `completePurchase()` 從未被呼叫，StoreKit 不斷重送相同交易。修法：移除 `_fulfill()` 與 `_fulfillPro()` 成功路徑的 `if (pendingCompletePurchase)` guard，改為無條件呼叫 `completePurchase()`（含 try-catch）；保留 `error`/`canceled` 狀態下的 guard（Android itemAlreadyOwned cast 防護）。 |
 | v3.13.29 | 2026-03-25 | **debug(iap): 新增 completePurchase 前後 log，診斷 restored 交易重複重送問題**：日誌顯示三個商品持續以 `PurchaseStatus.restored` 重送（`alreadyFulfilled=true`），懷疑 `pendingCompletePurchase=false` 導致 `completePurchase()` 被跳過、交易未被 StoreKit 結束。新增 log 區分 `pendingCompletePurchase=true`（呼叫 completePurchase + 記錄結果）與 `false`（記錄跳過原因），以便下一版根據日誌對症下藥。 |
 | v3.13.28 | 2026-03-25 | **fix(iap): 修正冪等命中時顯示誤導性「已獲得 X 點」對話框且點數不增加**：CF `fulfillCreditPurchase` 計算了 `alreadyFulfilled` 但未回傳；Flutter 讀取 `result.data['credits']`（商品面值，固定為 8/24/80）作為 `creditsEarned`，冪等時 0 點入帳但對話框卻顯示「已獲得 8 點」。同時 `reload()` 未被 await，與 UI 更新有競爭條件。修法：① CF 回傳 `{credits, remainingCredits, alreadyFulfilled}`；② `IapPurchaseResult` 新增 `remainingCredits` 與 `alreadyFulfilled` 欄位；③ `_fulfill()` 冪等時設 `creditsEarned = 0`；④ `_onResult()` 冪等時靜默完成（不彈對話框），並直接以 `updateCredits(remainingCredits)` 取代 `reload()`（免去一次 Firestore round-trip）。 |
