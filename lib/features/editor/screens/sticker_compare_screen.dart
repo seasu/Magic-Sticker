@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -127,6 +128,19 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
 
       final shareUrl = codeResult?.deepLink ?? _kFallbackShareUrl;
       final hasLink = codeResult != null;
+
+      // 自動複製 deep link 到剪貼簿，方便用戶分享到 LINE 後貼上
+      // （LINE 透過系統 Share Sheet 分享圖片時不傳遞文字，剪貼簿是唯一可靠方案）
+      await Clipboard.setData(ClipboardData(text: shareUrl));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('連結已複製，分享到 LINE 後貼上即可 ✨'),
+            duration: Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
 
       // ── 漏斗 Event 2：分享按鈕被點擊 ─────────────────────────────────────
       unawaited(AnalyticsService.logShareCompareTapped(
