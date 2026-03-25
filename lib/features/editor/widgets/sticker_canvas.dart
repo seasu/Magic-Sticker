@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
@@ -17,6 +18,20 @@ enum StickerEditTarget { none, image, text }
 // ─── 選取框顏色常數 ───────────────────────────────────────────────────────────
 
 const _kHandleColor = Color(0xFF29B6F6); // Blue-400
+
+// ─── 強制勝出的 ScaleGestureRecognizer ────────────────────────────────────────
+//
+// 編輯模式（enableTextGestures: true）下，showModalBottomSheet isScrollControlled: true
+// 會建立 DraggableScrollableSheet，其 VerticalDragGestureRecognizer 在競技場競爭時
+// 會對垂直方向的單指 pan 勝出，造成畫布單指拖移無效。
+// 覆寫 rejectGesture → acceptGesture 讓此 Recognizer 永遠接受，確保 canvas 優先。
+// 僅用於 enableTextGestures 模式，不影響主卡片的水平滑動手勢。
+class _CanvasScaleGestureRecognizer extends ScaleGestureRecognizer {
+  _CanvasScaleGestureRecognizer({super.debugOwner});
+
+  @override
+  void rejectGesture(int pointer) => acceptGesture(pointer);
+}
 
 /// LINE 貼圖畫布
 ///
@@ -423,18 +438,43 @@ class _StickerCanvasState extends State<StickerCanvas> {
 
   @override
   Widget build(BuildContext context) {
+    final child = AspectRatio(
+      aspectRatio: StickerCanvas.aspectRatio,
+      child: _hasAiImage
+          ? _buildAiImage()
+          : _hasFailed
+              ? _buildFailedPlaceholder()
+              : _buildFallback(),
+    );
+
+    // 編輯模式（enableTextGestures: true）：使用 _CanvasScaleGestureRecognizer
+    // 強制贏得手勢競技場，防止 DraggableScrollableSheet 的 drag recognizer 搶走單指事件。
+    // 主卡片模式（enableTextGestures: false）：使用一般 GestureDetector，
+    // 保留 StickerSwipeCard 的水平滑動能正常觸發。
+    if (widget.enableTextGestures && widget.interactive) {
+      return RawGestureDetector(
+        behavior: HitTestBehavior.opaque,
+        gestures: {
+          _CanvasScaleGestureRecognizer:
+              GestureRecognizerFactoryWithHandlers<_CanvasScaleGestureRecognizer>(
+            () => _CanvasScaleGestureRecognizer(debugOwner: this),
+            (recognizer) {
+              recognizer
+                ..onStart = _onScaleStart
+                ..onUpdate = _onScaleUpdate
+                ..onEnd = _onScaleEnd;
+            },
+          ),
+        },
+        child: child,
+      );
+    }
+
     return GestureDetector(
       onScaleStart: widget.interactive ? _onScaleStart : null,
       onScaleUpdate: widget.interactive ? _onScaleUpdate : null,
       onScaleEnd: widget.interactive ? _onScaleEnd : null,
-      child: AspectRatio(
-        aspectRatio: StickerCanvas.aspectRatio,
-        child: _hasAiImage
-            ? _buildAiImage()
-            : _hasFailed
-                ? _buildFailedPlaceholder()
-                : _buildFallback(),
-      ),
+      child: child,
     );
   }
 

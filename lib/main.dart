@@ -12,6 +12,8 @@ import 'core/services/log_service.dart';
 import 'features/billing/services/iap_service.dart';
 
 Future<void> main() async {
+  // in_app_purchase_storekit ^0.4.4 已將 StoreKit 2 設為預設；
+  // enableStoreKit2() 標記 deprecated，無需顯式呼叫。
   WidgetsFlutterBinding.ensureInitialized();
 
   try {

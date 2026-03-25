@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.16+383 |
+| 目前版本 | v3.13.25+392 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,9 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.25 | 2026-03-25 | **fix(build): 修正 CI `undefined_identifier InAppPurchase2StoreKitPlatform`**：`in_app_purchase_storekit ^0.4.4` 中 StoreKit 2 已為預設，`enableStoreKit2()` 標記 deprecated，且正確類別名稱為 `InAppPurchaseStoreKitPlatform`（非 `InAppPurchase2StoreKitPlatform`）；CI Linux runner 的 dart analyze 回報 `undefined_identifier`。修法：移除 `main.dart` 中已無必要的 `InAppPurchase2StoreKitPlatform.enableStoreKit2()` 呼叫與相關 imports（`dart:io`、`in_app_purchase_storekit`），同時從 `pubspec.yaml` 移除不再直接使用的 `in_app_purchase_storekit: ^0.4.4` 宣告（保留 transitive 依賴即可）。SK2 行為不變，JWS 本地驗證邏輯不受影響。 |
+| v3.13.24 | 2026-03-25 | **fix(editor): 修正編輯模式單指無法拖移圖片**：`showModalBottomSheet(isScrollControlled: true)` 建立 `DraggableScrollableSheet`，即使 `enableDrag: false` 移除了外層拖移手勢，`DraggableScrollableSheet` 內部仍有 `VerticalDragGestureRecognizer` 在競技場中與 `StickerCanvas` 的 `ScaleGestureRecognizer` 競爭，垂直方向的單指 drag 會被 DraggableScrollableSheet 搶走。修法：新增 `_CanvasScaleGestureRecognizer extends ScaleGestureRecognizer`，覆寫 `rejectGesture(int pointer) => acceptGesture(pointer)` 使其強制贏得競技場；僅在 `enableTextGestures: true`（編輯模式）下使用 `RawGestureDetector` + 此 Recognizer，`enableTextGestures: false`（主卡片）仍使用一般 `GestureDetector`，確保水平滑卡手勢不受影響。 |
+| v3.13.23 | 2026-03-25 | **fix(ios/iap): 啟用 StoreKit 2 修正 iOS 購買 401 錯誤**：`in_app_purchase` 套件預設使用 StoreKit 1，`purchase.verificationData.localVerificationData` 回傳 base64-encoded App Store receipt（非 JWS），傳至 CF 的 `verifyAppleJWSLocal` 因 `split(".")` 不足 3 段而失敗，進而 fallback 至 App Store Server API → 401。修法：新增 `in_app_purchase_storekit: ^0.4.4` 依賴，在 `main()` 的 `WidgetsFlutterBinding.ensureInitialized()` 之前呼叫 `InAppPurchase2StoreKitPlatform.enableStoreKit2()`；啟用後 `localVerificationData` 回傳真正的 JWS，本地驗證通過，不再依賴 App Store Connect API Key。 |
 | v3.13.22 | 2026-03-25 | **fix(editor): 修正編輯 Sheet 單指拖移圖片與 Sheet 下拉手勢衝突**：`showModalBottomSheet` 預設 `enableDrag: true`，其 `VerticalDragGestureRecognizer` 與 `StickerCanvas` 的 `ScaleGestureRecognizer`（處理單指拖移）在手勢競技場競爭，導致拖移圖片時 Sheet 同步被拖動。改為 `enableDrag: false` 停用 Sheet 下拉關閉手勢，因為 `StickerEditSheet` 已有「完成」按鈕可關閉，下拉手勢非必要。 |
 | v3.13.21 | 2026-03-25 | **fix(auth): 已綁定 Gmail 重新登入時不再合併匿名點數**：`initUserSession` CF 的 `doc.exists` 分支中，`mergeAmount > 0` 條件缺少帳號狀態檢查，導致登出後自動建立的匿名帳號（1 點）在重新登入時被無條件合併進已綁定的 Google 帳號。修法：將條件改為 `mergeAmount > 0 && doc.data()?.isAnonymous === true`，只有目標帳號仍為匿名狀態才允許合併；已正式綁定的帳號（`isAnonymous: false`）一律拒絕合併。 |
 | v3.13.20 | 2026-03-25 | **fix(share): 自動複製 deep link 到剪貼簿，解決 LINE 分享只收到圖片問題（iOS + Android）**：LINE（及多數社群 App）透過系統 Share Sheet（iOS UIActivityViewController / Android Intent.ACTION_SEND）接收圖片時，`EXTRA_TEXT` / activityItems 中的文字會被 LINE 的 Share Extension／Activity 忽略，導致用戶分享後朋友只看到圖片、收不到 deep link URL，斷開病毒成長迴圈。修法：在 `_share()` 和 `_shareCompare()` 中，`Share.shareXFiles()` 呼叫前先執行 `Clipboard.setData(ClipboardData(text: shareUrl))`，並顯示 SnackBar「連結已複製，分享到 LINE 後貼上即可 ✨」（3 秒浮動提示）。Firebase Dynamic Links 與 goo.gl 均已停止服務（2025/08），現有 `magicsticker.app/c/CODE`（27 字元）為最短可靠方案，不引入額外依賴。 |
