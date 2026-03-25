@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.26+393 |
+| 目前版本 | v3.13.27+394 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.27 | 2026-03-25 | **fix(history): 修正歷史紀錄編輯頁拖移圖片時 Sheet 一起被拖動**：`sticker_replay_screen.dart` 的 `_openEditSheet()` 呼叫 `showModalBottomSheet` 時未設定 `enableDrag: false`，造成 `DraggableScrollableSheet` 的 `VerticalDragGestureRecognizer` 與 Canvas 的 `ScaleGestureRecognizer` 競爭，拖移圖片時 Sheet 整體跟著往下滑。補上 `enableDrag: false`，與 `editor_screen.dart` 的 v3.13.22 修法一致。 |
 | v3.13.26 | 2026-03-25 | **fix(ios/iap): 修正 `jwsTransaction` 傳錯欄位導致 `status=401` 循環**：`in_app_purchase_storekit ^0.4.0+` 將 SK2 設為預設，SK2 下 `verificationData.serverVerificationData` = JWS Transaction（3-part JWT），而 `localVerificationData` = JSON payload（非 JWS）。原本程式碼在 `_fulfill` 和 `_fulfillPro` 皆傳送 `localVerificationData` 作為 `jwsTransaction`，CF `verifyAppleJWSLocal` 收到 JSON 字串後 `split(".")` 得 1 段而非 3 段，立即回傳 `valid: false`，觸發 fallback 至 App Store Server API → 401。修法：改傳 `serverVerificationData`，使 `verifyAppleJWSLocal` 拿到正確的 JWS → 本地驗證通過 → 完全不呼叫 App Store Server API，401 消除。同時解決消耗型商品的 `PurchaseStatus.restored` 循環（CF 失敗 → 未 completePurchase → SK2 重送 → 再次 401）。 |
 | v3.13.25 | 2026-03-25 | **fix(build): 修正 CI `undefined_identifier InAppPurchase2StoreKitPlatform`**：`in_app_purchase_storekit ^0.4.4` 中 StoreKit 2 已為預設，`enableStoreKit2()` 標記 deprecated，且正確類別名稱為 `InAppPurchaseStoreKitPlatform`（非 `InAppPurchase2StoreKitPlatform`）；CI Linux runner 的 dart analyze 回報 `undefined_identifier`。修法：移除 `main.dart` 中已無必要的 `InAppPurchase2StoreKitPlatform.enableStoreKit2()` 呼叫與相關 imports（`dart:io`、`in_app_purchase_storekit`），同時從 `pubspec.yaml` 移除不再直接使用的 `in_app_purchase_storekit: ^0.4.4` 宣告（保留 transitive 依賴即可）。SK2 行為不變，JWS 本地驗證邏輯不受影響。 |
 | v3.13.24 | 2026-03-25 | **fix(editor): 修正編輯模式單指無法拖移圖片**：`showModalBottomSheet(isScrollControlled: true)` 建立 `DraggableScrollableSheet`，即使 `enableDrag: false` 移除了外層拖移手勢，`DraggableScrollableSheet` 內部仍有 `VerticalDragGestureRecognizer` 在競技場中與 `StickerCanvas` 的 `ScaleGestureRecognizer` 競爭，垂直方向的單指 drag 會被 DraggableScrollableSheet 搶走。修法：新增 `_CanvasScaleGestureRecognizer extends ScaleGestureRecognizer`，覆寫 `rejectGesture(int pointer) => acceptGesture(pointer)` 使其強制贏得競技場；僅在 `enableTextGestures: true`（編輯模式）下使用 `RawGestureDetector` + 此 Recognizer，`enableTextGestures: false`（主卡片）仍使用一般 `GestureDetector`，確保水平滑卡手勢不受影響。 |
