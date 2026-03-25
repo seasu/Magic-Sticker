@@ -1,12 +1,9 @@
-import 'dart:io';
-
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 
 import 'app.dart';
 import 'core/services/ads_service.dart';
@@ -15,13 +12,8 @@ import 'core/services/log_service.dart';
 import 'features/billing/services/iap_service.dart';
 
 Future<void> main() async {
-  // 啟用 StoreKit 2：必須在 WidgetsFlutterBinding.ensureInitialized() 之前呼叫。
-  // SK2 使 localVerificationData 回傳 JWS（而非 SK1 的 base64 receipt），
-  // Cloud Function verifyAppleJWSLocal 才能進行本地驗證，不依賴 App Store Server API Key。
-  if (Platform.isIOS) {
-    InAppPurchase2StoreKitPlatform.enableStoreKit2();
-  }
-
+  // in_app_purchase_storekit ^0.4.4 已將 StoreKit 2 設為預設；
+  // enableStoreKit2() 標記 deprecated，無需顯式呼叫。
   WidgetsFlutterBinding.ensureInitialized();
 
   try {

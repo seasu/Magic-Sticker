@@ -1,7 +1,7 @@
 name: magic_sticker
 description: AI 一鍵產 LINE 貼圖 — Magic Sticker
 publish_to: 'none'
-version: 3.13.24+391
+version: 3.13.25+392
 
 environment:
   sdk: '>=3.7.0 <4.0.0'
@@ -52,7 +52,6 @@ dependencies:
   # Ads & Monetization
   google_mobile_ads: ^5.3.0
   in_app_purchase: ^3.2.0
-  in_app_purchase_storekit: ^0.4.4  # 啟用 StoreKit 2（iOS JWS 本地驗證需要）
 
   # Deep Link handling (App Links + Custom Scheme)
   app_links: ^6.3.3
