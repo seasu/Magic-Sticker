@@ -24,14 +24,23 @@ enum ProUnlockResult {
 class IapPurchaseResult {
   final bool success;
   final int? creditsEarned;
+  /// CF 回傳的最新點數餘額，可直接更新 UI（免去一次 Firestore 讀取）
+  final int? remainingCredits;
+  /// true = 冪等命中（點數已於先前入帳），此次未實際加點
+  final bool alreadyFulfilled;
   final String? error;
 
-  const IapPurchaseResult.success(this.creditsEarned)
-      : success = true,
+  const IapPurchaseResult.success(
+    this.creditsEarned, {
+    this.remainingCredits,
+    this.alreadyFulfilled = false,
+  })  : success = true,
         error = null;
   const IapPurchaseResult.failure(this.error)
       : success = false,
-        creditsEarned = null;
+        creditsEarned = null,
+        remainingCredits = null,
+        alreadyFulfilled = false;
 }
 
 /// Pro 自訂輸入 Google Play 商品 ID
@@ -327,16 +336,17 @@ class IAPService {
           )
           .call<Map<String, dynamic>>(payload);
 
-      final creditsEarned = (result.data['credits'] as num?)?.toInt() ?? pack.credits;
+      final data = result.data;
+      final productCredits = (data['credits'] as num?)?.toInt() ?? pack.credits;
+      final remaining = (data['remainingCredits'] as num?)?.toInt();
+      final alreadyFulfilled = data['alreadyFulfilled'] as bool? ?? false;
+      // 實際入帳量：冪等命中時為 0（不顯示「已獲得 X 點」對話框）
+      final creditsEarned = alreadyFulfilled ? 0 : productCredits;
       FirebaseService.log(
-        'IAPService: fulfilled $creditsEarned credits uid=$uid product=${pack.productId}',
+        'IAPService: fulfill result — product=${pack.productId} '
+        'earned=$creditsEarned remaining=$remaining alreadyFulfilled=$alreadyFulfilled',
       );
 
-      // completePurchase は CF 確認後に呼ぶ。
-      // iOS/Android ともに pendingCompletePurchase を確認してから呼ぶ（一貫性）。
-      // completePurchase 失敗は成功通知を妨げない：
-      //   iOS → 次回起動時に再送されるが CF の冪等性で二重入帳しない
-      //   Android → 同様
       if (purchase.pendingCompletePurchase) {
         try {
           await _iap.completePurchase(purchase);
@@ -344,7 +354,11 @@ class IAPService {
           await FirebaseService.recordError(e, stack, reason: 'iap_complete_purchase_failed');
         }
       }
-      _resultController.add(IapPurchaseResult.success(creditsEarned));
+      _resultController.add(IapPurchaseResult.success(
+        creditsEarned,
+        remainingCredits: remaining,
+        alreadyFulfilled: alreadyFulfilled,
+      ));
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack, reason: 'iap_fulfill_failed');
       // CF 失敗 → 不呼叫 completePurchase，保留 pending 狀態讓平台下次啟動重試
