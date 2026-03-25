@@ -347,25 +347,21 @@ class IAPService {
         'earned=$creditsEarned remaining=$remaining alreadyFulfilled=$alreadyFulfilled',
       );
 
-      if (purchase.pendingCompletePurchase) {
+      // SK2 の restored transactions は pendingCompletePurchase=false だが
+      // completePurchase() を呼ばないと Transaction.finish() が呼ばれず
+      // StoreKit が永遠に再送し続ける。guard を外して常に呼ぶ。
+      FirebaseService.log(
+        'IAPService: calling completePurchase — product=${purchase.productID} '
+        'status=${purchase.status} pending=${purchase.pendingCompletePurchase}',
+      );
+      try {
+        await _iap.completePurchase(purchase);
         FirebaseService.log(
-          'IAPService: calling completePurchase — product=${purchase.productID} '
-          'status=${purchase.status}',
+          'IAPService: completePurchase OK — product=${purchase.productID}',
         );
-        try {
-          await _iap.completePurchase(purchase);
-          FirebaseService.log(
-            'IAPService: completePurchase OK — product=${purchase.productID}',
-          );
-        } catch (e, stack) {
-          await FirebaseService.recordError(
-            e, stack, reason: 'iap_complete_purchase_failed',
-          );
-        }
-      } else {
-        FirebaseService.log(
-          'IAPService: pendingCompletePurchase=false, skipping — '
-          'product=${purchase.productID} status=${purchase.status}',
+      } catch (e, stack) {
+        await FirebaseService.recordError(
+          e, stack, reason: 'iap_complete_purchase_failed',
         );
       }
       _resultController.add(IapPurchaseResult.success(
@@ -413,11 +409,11 @@ class IAPService {
           )
           .call<Map<String, dynamic>>(payload);
       FirebaseService.log('IAPService: Pro unlock verified OK');
-      // completePurchase 只在 CF 確認成功後才呼叫。
-      // 若 CF 失敗（網路逾時、Play API 錯誤等），保留 purchase pending 狀態，
-      // Google Play 下次啟動 App 時會重新透過 purchaseStream 送達，可再次觸發驗證。
-      if (purchase.pendingCompletePurchase) {
+      // SK2 では pendingCompletePurchase=false でも completePurchase() が必要。
+      try {
         await _iap.completePurchase(purchase);
+      } catch (e, stack) {
+        await FirebaseService.recordError(e, stack, reason: 'iap_pro_complete_purchase_failed');
       }
       _proPendingCompleter?.complete(ProUnlockResult.success);
     } catch (e, stack) {
