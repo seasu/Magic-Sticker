@@ -348,11 +348,25 @@ class IAPService {
       );
 
       if (purchase.pendingCompletePurchase) {
+        FirebaseService.log(
+          'IAPService: calling completePurchase — product=${purchase.productID} '
+          'status=${purchase.status}',
+        );
         try {
           await _iap.completePurchase(purchase);
+          FirebaseService.log(
+            'IAPService: completePurchase OK — product=${purchase.productID}',
+          );
         } catch (e, stack) {
-          await FirebaseService.recordError(e, stack, reason: 'iap_complete_purchase_failed');
+          await FirebaseService.recordError(
+            e, stack, reason: 'iap_complete_purchase_failed',
+          );
         }
+      } else {
+        FirebaseService.log(
+          'IAPService: pendingCompletePurchase=false, skipping — '
+          'product=${purchase.productID} status=${purchase.status}',
+        );
       }
       _resultController.add(IapPurchaseResult.success(
         creditsEarned,
