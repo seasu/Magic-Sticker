@@ -936,12 +936,7 @@ export const verifyProPurchase = onCall(
   }
 );
 
-// ── fulfillCreditPurchase ─────────────────────────────────────────────────────
-//
-// 1. 驗證 Firebase Auth
-// 2. 呼叫 Google Play Developer API 驗證 purchaseToken
-// 3. 冪等性檢查（防止重複入帳）
-// 4. Firestore Transaction 原子性新增點數 + 寫 creditHistory
+// ── Credit products map ───────────────────────────────────────────────────────
 
 const kCreditProducts: Record<string, number> = {
   credits_08: 8,
@@ -949,7 +944,68 @@ const kCreditProducts: Record<string, number> = {
   credits_80: 80,
 };
 
-export const fulfillCreditPurchase = onCall(
+// ── _addCreditsToAccount ──────────────────────────────────────────────────────
+//
+// 共用輔助函式：冪等性檢查 + 原子性入帳（iOS / Android 共用）
+// idempotencyKey: iOS = transactionId，Android = purchaseToken
+//
+async function _addCreditsToAccount(
+  uid: string,
+  productId: string,
+  credits: number,
+  idempotencyKey: string
+): Promise<{remainingCredits: number; alreadyFulfilled: boolean}> {
+  const tokenRef = db.collection("purchaseTokens").doc(idempotencyKey);
+  const userRef = db.collection("users").doc(uid);
+
+  let remainingCredits = 0;
+  let alreadyFulfilled = false;
+
+  await db.runTransaction(async (tx) => {
+    const tokenDoc = await tx.get(tokenRef);
+    if (tokenDoc.exists) {
+      const userDoc = await tx.get(userRef);
+      remainingCredits = (userDoc.data()?.credits as number) ?? 0;
+      alreadyFulfilled = true;
+      return;
+    }
+
+    const userDoc = await tx.get(userRef);
+    const currentCredits = (userDoc.data()?.credits as number) ?? 0;
+    remainingCredits = currentCredits + credits;
+
+    tx.set(tokenRef, {
+      uid,
+      productId,
+      credits,
+      fulfilledAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    tx.update(userRef, {
+      credits: remainingCredits,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    writeCreditHistory(tx, uid, {
+      type: "earned",
+      amount: credits,
+      reason: "purchase",
+    });
+  });
+
+  return {remainingCredits, alreadyFulfilled};
+}
+
+// ── fulfillCreditPurchaseIOS ──────────────────────────────────────────────────
+//
+// iOS 專用：驗證 StoreKit 2 JWS Transaction → 冪等性入帳
+//
+// 1. 驗證 Firebase Auth
+// 2. JWS 本地驗證（優先，不需 API Key）→ App Store Server API（fallback）
+// 3. 冪等性檢查（防止重複入帳）
+// 4. Firestore Transaction 原子性新增點數 + 寫 creditHistory
+
+export const fulfillCreditPurchaseIOS = onCall(
   {
     region: "asia-east1",
     timeoutSeconds: 30,
@@ -957,191 +1013,185 @@ export const fulfillCreditPurchase = onCall(
     invoker: "public",
     enforceAppCheck: false,
     secrets: [appStoreKeyId, appStoreIssuerId, appStorePrivateKey],
-    serviceAccount: "github-play-store-deployer@magic-sticker-8eaf4.iam.gserviceaccount.com",
   },
   async (request) => {
-    log("fulfillCreditPurchase: invoked", {
+    log("fulfillCreditPurchaseIOS: invoked", {
       hasAuth: !!request.auth,
       hasAppCheck: !!request.app,
     });
     const uid = await resolveUid(request);
-    log("fulfillCreditPurchase: auth OK", {uid});
+    log("fulfillCreditPurchaseIOS: auth OK", {uid});
 
-    const {purchaseToken, productId, platform = "android", jwsTransaction} = request.data as {
+    const {purchaseToken, productId, jwsTransaction} = request.data as {
       purchaseToken: string;
       productId: string;
-      platform?: string;
       jwsTransaction?: string;
     };
 
     if (!purchaseToken || !productId) {
-      throw new HttpsError(
-        "invalid-argument",
-        "purchaseToken and productId are required."
-      );
+      throw new HttpsError("invalid-argument", "purchaseToken and productId are required.");
     }
 
     const credits = kCreditProducts[productId];
     if (credits === undefined) {
+      throw new HttpsError("invalid-argument", `Unknown productId: ${productId}`);
+    }
+
+    // ── Apple 交易驗證 ────────────────────────────────────────────────────────
+    let appleResult: AppleVerifyResult;
+
+    if (jwsTransaction) {
+      // SK2 JWS 本地驗證（不需 API Key）
+      try {
+        appleResult = await verifyAppleJWSLocal(jwsTransaction, productId);
+        log("fulfillCreditPurchaseIOS: local JWS verified", {uid, valid: appleResult.valid, productId});
+      } catch (e) {
+        warn("fulfillCreditPurchaseIOS: local JWS failed, falling back to API", {error: String(e)});
+        appleResult = {valid: false, status: 0};
+      }
+      // 本地驗證失敗 → App Store Server API fallback
+      if (!appleResult.valid) {
+        try {
+          appleResult = await verifyAppleTransaction(purchaseToken, productId);
+          log("fulfillCreditPurchaseIOS: fallback API verified", {uid, status: appleResult.status, productId});
+        } catch (e) {
+          warn("fulfillCreditPurchaseIOS: Apple API fallback failed", {error: String(e)});
+          throw new HttpsError("unavailable", "Unable to verify Apple purchase. Please try again.");
+        }
+      }
+    } else {
+      // 無 JWS（舊版 client 相容）→ App Store Server API
+      try {
+        appleResult = await verifyAppleTransaction(purchaseToken, productId);
+        log("fulfillCreditPurchaseIOS: Apple API verified", {uid, status: appleResult.status, valid: appleResult.valid, productId});
+      } catch (e) {
+        warn("fulfillCreditPurchaseIOS: Apple API failed", {error: String(e)});
+        throw new HttpsError("unavailable", "Unable to reach Apple API. Please try again.");
+      }
+    }
+
+    if (!appleResult.valid) {
       throw new HttpsError(
-        "invalid-argument",
-        `Unknown productId: ${productId}`
+        "failed-precondition",
+        `Apple transaction invalid. status=${appleResult.status}`
       );
     }
 
-    // ── 依 platform 分流驗證 ─────────────────────────────────────────────────
-    let verifiedTransactionId: string | undefined;
+    const transactionId = appleResult.transactionId ?? purchaseToken.slice(0, 1450);
+    log("fulfillCreditPurchaseIOS: Apple verified OK", {uid, productId, transactionId});
 
-    if (platform === "ios") {
-      // iOS：JWS ローカル検証（優先）→ App Store Server API（フォールバック）
-      let appleResult: AppleVerifyResult;
-
-      if (jwsTransaction) {
-        // StoreKit 2 の JWS をローカルで検証（API Key 不要）
-        try {
-          appleResult = await verifyAppleJWSLocal(jwsTransaction, productId);
-          log("fulfillCreditPurchase: local JWS verified", {uid, valid: appleResult.valid, productId});
-        } catch (e) {
-          warn("fulfillCreditPurchase: local JWS failed, falling back to API", {error: String(e)});
-          appleResult = {valid: false, status: 0};
-        }
-        // JWS 検証失敗時は App Store Server API にフォールバック
-        if (!appleResult.valid) {
-          try {
-            appleResult = await verifyAppleTransaction(purchaseToken, productId);
-            log("fulfillCreditPurchase: fallback API verified", {uid, status: appleResult.status, productId});
-          } catch (e) {
-            warn("fulfillCreditPurchase: Apple API fallback failed", {error: String(e)});
-            throw new HttpsError("unavailable", "Unable to verify Apple purchase. Please try again.");
-          }
-        }
-      } else {
-        // JWS なし（旧クライアント互換）→ App Store Server API
-        try {
-          appleResult = await verifyAppleTransaction(purchaseToken, productId);
-          log("fulfillCreditPurchase: Apple API verified", {uid, status: appleResult.status, valid: appleResult.valid, productId});
-        } catch (e) {
-          warn("fulfillCreditPurchase: Apple API failed", {error: String(e)});
-          throw new HttpsError("unavailable", "Unable to reach Apple API. Please try again.");
-        }
-      }
-
-      if (!appleResult.valid) {
-        throw new HttpsError(
-          "failed-precondition",
-          `Apple transaction invalid. status=${appleResult.status}`
-        );
-      }
-
-      verifiedTransactionId = appleResult.transactionId;
-      log("fulfillCreditPurchase: Apple verified OK", {uid, productId, transactionId: verifiedTransactionId});
-    } else {
-      // Android：呼叫 Google Play Developer API
-      let accessToken: string;
-      try {
-        accessToken = await getPlayAccessToken();
-      } catch (e) {
-        warn("fulfillCreditPurchase: Play API auth failed", {error: String(e)});
-        throw new HttpsError(
-          "internal",
-          "Play API authentication unavailable. Please try again later."
-        );
-      }
-
-      const verifyUrl =
-        `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
-        `${kPackageName}/purchases/products/${productId}/tokens/${purchaseToken}`;
-
-      let verifyRes: Response;
-      try {
-        verifyRes = await fetch(verifyUrl, {
-          headers: {Authorization: `Bearer ${accessToken}`},
-          signal: AbortSignal.timeout(15000),
-        });
-      } catch (e) {
-        warn("fulfillCreditPurchase: Play API fetch failed", {error: String(e)});
-        throw new HttpsError("unavailable", "Unable to reach Play API. Please try again.");
-      }
-
-      if (!verifyRes.ok) {
-        const errText = await verifyRes.text();
-        warn("fulfillCreditPurchase: Play API error", {
-          status: verifyRes.status,
-          body: errText.slice(0, 500),
-          uid,
-          productId,
-        });
-        throw new HttpsError(
-          "failed-precondition",
-          `Play API returned ${verifyRes.status}`
-        );
-      }
-
-      const playData = (await verifyRes.json()) as {
-        purchaseState?: number; // 0=Purchased, 1=Canceled, 2=Pending
-        acknowledgementState?: number;
-        consumptionState?: number; // 0=Yet to consume, 1=Consumed
-      };
-
-      if (playData.purchaseState !== 0) {
-        throw new HttpsError(
-          "failed-precondition",
-          `Purchase not valid. state=${playData.purchaseState}`
-        );
-      }
-
-      log("fulfillCreditPurchase: Play API verified OK", {uid, productId});
-    }
-
-    // ── 冪等性檢查 + 原子性入帳 ──────────────────────────────────────────────
-    // purchaseTokens/{token} 作為已處理紀錄，防止重複入帳
-    // iOS：receipt 為大型 base64，使用 transactionId 作為 doc key
-    const idempotencyKey = platform === "ios" ? (verifiedTransactionId ?? purchaseToken.slice(0, 1450)) : purchaseToken;
-    const tokenRef = db.collection("purchaseTokens").doc(idempotencyKey);
-    const userRef = db.collection("users").doc(uid);
-
-    let remainingCredits = 0;
-    let alreadyFulfilled = false;
-
-    await db.runTransaction(async (tx) => {
-      const tokenDoc = await tx.get(tokenRef);
-      if (tokenDoc.exists) {
-        // 已處理過，直接取目前點數回傳（冪等）
-        const userDoc = await tx.get(userRef);
-        remainingCredits = (userDoc.data()?.credits as number) ?? 0;
-        alreadyFulfilled = true;
-        return;
-      }
-
-      const userDoc = await tx.get(userRef);
-      const currentCredits = (userDoc.data()?.credits as number) ?? 0;
-      remainingCredits = currentCredits + credits;
-
-      // 標記 token 已處理
-      tx.set(tokenRef, {
-        uid,
-        productId,
-        credits,
-        fulfilledAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      // 新增點數
-      tx.update(userRef, {
-        credits: remainingCredits,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      writeCreditHistory(tx, uid, {
-        type: "earned",
-        amount: credits,
-        reason: "purchase",
-      });
-    });
+    // ── 冪等性入帳 ────────────────────────────────────────────────────────────
+    const {remainingCredits, alreadyFulfilled} =
+      await _addCreditsToAccount(uid, productId, credits, transactionId);
 
     if (alreadyFulfilled) {
-      log("fulfillCreditPurchase: already fulfilled (idempotent)", {uid, purchaseToken});
+      log("fulfillCreditPurchaseIOS: already fulfilled (idempotent)", {uid, transactionId});
     } else {
-      log("fulfillCreditPurchase: credits added", {uid, productId, credits, remainingCredits});
+      log("fulfillCreditPurchaseIOS: credits added", {uid, productId, credits, remainingCredits});
+    }
+
+    return {credits, remainingCredits, alreadyFulfilled};
+  }
+);
+
+// ── fulfillCreditPurchaseAndroid ──────────────────────────────────────────────
+//
+// Android 專用：驗證 Google Play purchaseToken → 冪等性入帳
+//
+// 1. 驗證 Firebase Auth
+// 2. 呼叫 Google Play Developer API 驗證 purchaseToken
+// 3. 冪等性檢查（防止重複入帳）
+// 4. Firestore Transaction 原子性新增點數 + 寫 creditHistory
+
+export const fulfillCreditPurchaseAndroid = onCall(
+  {
+    region: "asia-east1",
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    invoker: "public",
+    enforceAppCheck: false,
+    serviceAccount: "github-play-store-deployer@magic-sticker-8eaf4.iam.gserviceaccount.com",
+  },
+  async (request) => {
+    log("fulfillCreditPurchaseAndroid: invoked", {
+      hasAuth: !!request.auth,
+      hasAppCheck: !!request.app,
+    });
+    const uid = await resolveUid(request);
+    log("fulfillCreditPurchaseAndroid: auth OK", {uid});
+
+    const {purchaseToken, productId} = request.data as {
+      purchaseToken: string;
+      productId: string;
+    };
+
+    if (!purchaseToken || !productId) {
+      throw new HttpsError("invalid-argument", "purchaseToken and productId are required.");
+    }
+
+    const credits = kCreditProducts[productId];
+    if (credits === undefined) {
+      throw new HttpsError("invalid-argument", `Unknown productId: ${productId}`);
+    }
+
+    // ── Google Play 交易驗證 ──────────────────────────────────────────────────
+    let accessToken: string;
+    try {
+      accessToken = await getPlayAccessToken();
+    } catch (e) {
+      warn("fulfillCreditPurchaseAndroid: Play API auth failed", {error: String(e)});
+      throw new HttpsError("internal", "Play API authentication unavailable. Please try again later.");
+    }
+
+    const verifyUrl =
+      `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
+      `${kPackageName}/purchases/products/${productId}/tokens/${purchaseToken}`;
+
+    let verifyRes: Response;
+    try {
+      verifyRes = await fetch(verifyUrl, {
+        headers: {Authorization: `Bearer ${accessToken}`},
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch (e) {
+      warn("fulfillCreditPurchaseAndroid: Play API fetch failed", {error: String(e)});
+      throw new HttpsError("unavailable", "Unable to reach Play API. Please try again.");
+    }
+
+    if (!verifyRes.ok) {
+      const errText = await verifyRes.text();
+      warn("fulfillCreditPurchaseAndroid: Play API error", {
+        status: verifyRes.status,
+        body: errText.slice(0, 500),
+        uid,
+        productId,
+      });
+      throw new HttpsError("failed-precondition", `Play API returned ${verifyRes.status}`);
+    }
+
+    const playData = (await verifyRes.json()) as {
+      purchaseState?: number; // 0=Purchased, 1=Canceled, 2=Pending
+      acknowledgementState?: number;
+      consumptionState?: number; // 0=Yet to consume, 1=Consumed
+    };
+
+    if (playData.purchaseState !== 0) {
+      throw new HttpsError(
+        "failed-precondition",
+        `Purchase not valid. state=${playData.purchaseState}`
+      );
+    }
+
+    log("fulfillCreditPurchaseAndroid: Play API verified OK", {uid, productId});
+
+    // ── 冪等性入帳 ────────────────────────────────────────────────────────────
+    const {remainingCredits, alreadyFulfilled} =
+      await _addCreditsToAccount(uid, productId, credits, purchaseToken);
+
+    if (alreadyFulfilled) {
+      log("fulfillCreditPurchaseAndroid: already fulfilled (idempotent)", {uid, purchaseToken});
+    } else {
+      log("fulfillCreditPurchaseAndroid: credits added", {uid, productId, credits, remainingCredits});
     }
 
     return {credits, remainingCredits, alreadyFulfilled};

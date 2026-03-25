@@ -308,9 +308,8 @@ class IAPService {
     }
 
     try {
-      // iOS: StoreKit 2 JWS（localVerificationData）+ transaction ID をサーバーに送る
-      //      CF は JWS ローカル検証を優先し、失敗時のみ App Store Server API にフォールバック
-      // Android: Google Play API 需要 purchaseToken（serverVerificationData）
+      // iOS: purchaseToken = transactionId（SK2），jwsTransaction = JWS（3-part JWT）
+      // Android: purchaseToken = Google Play purchaseToken（serverVerificationData）
       final token = Platform.isIOS
           ? (purchase.purchaseID ?? purchase.verificationData.serverVerificationData)
           : (purchase.verificationData.serverVerificationData.isNotEmpty
@@ -320,18 +319,19 @@ class IAPService {
       final Map<String, dynamic> payload = {
         'purchaseToken': token,
         'productId': purchase.productID,
-        'platform': Platform.isIOS ? 'ios' : 'android',
       };
-      // iOS: SK2 では serverVerificationData が JWS Transaction（3-part JWT）。
-      //      localVerificationData は SK2 では JSON payload（JWS ではない）のため使わない。
+      // iOS: serverVerificationData = SK2 JWS Transaction（3-part JWT）
       if (Platform.isIOS) {
         final jws = purchase.verificationData.serverVerificationData;
         if (jws.isNotEmpty) payload['jwsTransaction'] = jws;
       }
 
+      final fnName = Platform.isIOS
+          ? 'fulfillCreditPurchaseIOS'
+          : 'fulfillCreditPurchaseAndroid';
       final result = await _fn
           .httpsCallable(
-            'fulfillCreditPurchase',
+            fnName,
             options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
           )
           .call<Map<String, dynamic>>(payload);
@@ -347,15 +347,20 @@ class IAPService {
         'earned=$creditsEarned remaining=$remaining alreadyFulfilled=$alreadyFulfilled',
       );
 
-      if (purchase.pendingCompletePurchase) {
+      if (Platform.isIOS) {
+        // iOS (StoreKit 2): Transaction.finish() must always be called after
+        // server verification, regardless of pendingCompletePurchase.
+        // SK2 restored/unfinished transactions always have pendingCompletePurchase=false,
+        // but skipping completePurchase() leaves the transaction in Transaction.unfinished
+        // and StoreKit replays it on every app launch.
         FirebaseService.log(
-          'IAPService: calling completePurchase — product=${purchase.productID} '
+          'IAPService: [iOS] calling completePurchase — product=${purchase.productID} '
           'status=${purchase.status}',
         );
         try {
           await _iap.completePurchase(purchase);
           FirebaseService.log(
-            'IAPService: completePurchase OK — product=${purchase.productID}',
+            'IAPService: [iOS] completePurchase OK — product=${purchase.productID}',
           );
         } catch (e, stack) {
           await FirebaseService.recordError(
@@ -363,10 +368,17 @@ class IAPService {
           );
         }
       } else {
-        FirebaseService.log(
-          'IAPService: pendingCompletePurchase=false, skipping — '
-          'product=${purchase.productID} status=${purchase.status}',
-        );
+        // Android (Google Play): pendingCompletePurchase=true means the purchase
+        // needs to be acknowledged/consumed. false means it's already done.
+        if (purchase.pendingCompletePurchase) {
+          try {
+            await _iap.completePurchase(purchase);
+          } catch (e, stack) {
+            await FirebaseService.recordError(
+              e, stack, reason: 'iap_complete_purchase_failed',
+            );
+          }
+        }
       }
       _resultController.add(IapPurchaseResult.success(
         creditsEarned,
@@ -413,11 +425,22 @@ class IAPService {
           )
           .call<Map<String, dynamic>>(payload);
       FirebaseService.log('IAPService: Pro unlock verified OK');
-      // completePurchase 只在 CF 確認成功後才呼叫。
-      // 若 CF 失敗（網路逾時、Play API 錯誤等），保留 purchase pending 狀態，
-      // Google Play 下次啟動 App 時會重新透過 purchaseStream 送達，可再次觸發驗證。
-      if (purchase.pendingCompletePurchase) {
-        await _iap.completePurchase(purchase);
+      if (Platform.isIOS) {
+        // iOS (StoreKit 2): always call completePurchase() to finish the transaction.
+        try {
+          await _iap.completePurchase(purchase);
+        } catch (e, stack) {
+          await FirebaseService.recordError(e, stack, reason: 'iap_pro_complete_purchase_failed');
+        }
+      } else {
+        // Android (Google Play): only acknowledge when flagged pending.
+        if (purchase.pendingCompletePurchase) {
+          try {
+            await _iap.completePurchase(purchase);
+          } catch (e, stack) {
+            await FirebaseService.recordError(e, stack, reason: 'iap_pro_complete_purchase_failed');
+          }
+        }
       }
       _proPendingCompleter?.complete(ProUnlockResult.success);
     } catch (e, stack) {
