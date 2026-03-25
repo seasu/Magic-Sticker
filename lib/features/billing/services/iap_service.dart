@@ -192,7 +192,12 @@ class IAPService {
 
   Future<void> _onPurchaseUpdate(List<PurchaseDetails> purchases) async {
     for (final purchase in purchases) {
-      await _handlePurchase(purchase);
+      try {
+        await _handlePurchase(purchase);
+      } catch (e, stack) {
+        await FirebaseService.recordError(e, stack, reason: 'iap_handle_purchase_uncaught');
+        _resultController.add(IapPurchaseResult.failure(e.toString()));
+      }
     }
   }
 
@@ -280,14 +285,16 @@ class IAPService {
 
     if (pack == null) {
       FirebaseService.log('IAPService: unknown productID=${purchase.productID}');
-      await _iap.completePurchase(purchase);
+      if (purchase.pendingCompletePurchase) await _iap.completePurchase(purchase);
+      _resultController.add(const IapPurchaseResult.failure('unknown_product'));
       return;
     }
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       FirebaseService.log('IAPService: fulfill called but no current user');
-      await _iap.completePurchase(purchase);
+      // 不呼叫 completePurchase：保留 pending 狀態，等下次啟動 auth 就緒後重試
+      _resultController.add(const IapPurchaseResult.failure('not_authenticated'));
       return;
     }
 
@@ -316,14 +323,22 @@ class IAPService {
         'IAPService: fulfilled $creditsEarned credits uid=$uid product=${pack.productId}',
       );
 
-      // completePurchase 只在 CF 確認成功後才呼叫。
-      // 若 CF 失敗（網路逾時等），保留 purchase pending 狀態，
-      // Google Play 下次啟動 App 時會重新透過 purchaseStream 送達，可再次觸發驗證。
-      await _iap.completePurchase(purchase);
+      // completePurchase は CF 確認後に呼ぶ。
+      // iOS/Android ともに pendingCompletePurchase を確認してから呼ぶ（一貫性）。
+      // completePurchase 失敗は成功通知を妨げない：
+      //   iOS → 次回起動時に再送されるが CF の冪等性で二重入帳しない
+      //   Android → 同様
+      if (purchase.pendingCompletePurchase) {
+        try {
+          await _iap.completePurchase(purchase);
+        } catch (e, stack) {
+          await FirebaseService.recordError(e, stack, reason: 'iap_complete_purchase_failed');
+        }
+      }
       _resultController.add(IapPurchaseResult.success(creditsEarned));
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack, reason: 'iap_fulfill_failed');
-      // 不呼叫 completePurchase，讓 Google Play 在下次啟動時重試
+      // CF 失敗 → 不呼叫 completePurchase，保留 pending 狀態讓平台下次啟動重試
       _resultController.add(IapPurchaseResult.failure(e.toString()));
     }
   }
