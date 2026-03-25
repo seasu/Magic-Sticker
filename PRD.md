@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.5+372 |
+| 目前版本 | v3.13.16+383 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,8 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.16 | 2026-03-25 | **fix(ios/iap): 修正 iOS 付費後點數未加且無成功訊息**：根本原因為 App Store Server API JWT 401（Firebase Secret Manager 中 APP_STORE_KEY_ID / APP_STORE_ISSUER_ID / APP_STORE_PRIVATE_KEY 未正確設定）。同步修正三個 code 層級 bug：①`_fulfill` 中 `completePurchase` 失敗會蓋掉 CF 成功，改為獨立 try-catch，`completePurchase` 失敗不阻斷成功通知；②`pack == null` / `uid == null` 時改為 emit failure 而非靜默 return；③`_onPurchaseUpdate` 加外層 try-catch 防止未預期例外吞掉結果通知。 |
+| v3.13.15 | 2026-03-24 | **fix(ios/share): XFile 加上 mimeType 修正 iOS 分享失敗**：`share_plus` v10+ 在 iOS 上，`XFile` 缺少 `mimeType` 時 `UIActivityViewController` 無法辨識檔案類型，導致按下「分享我的貼圖成果」後拋出例外（被 `catch` 吞掉，顯示「分享失敗」snackbar）。改為 `XFile(tmp.path, mimeType: 'image/png')`，同時在 catch 加上 Crashlytics 記錄以便日後追蹤。 |
 | v3.13.14 | 2026-03-24 | **fix(build): 修正 credit_provider.dart 遺漏的 CreditHistoryEntry import**：v3.13.12 移除 `addCredits` 時誤刪 `credit_history_entry.dart` import，導致 `creditHistoryProvider` 的 `CreditHistoryEntry` 型別無法解析，CI `dart analyze` 回報 2 個 error。補回 import 修正編譯錯誤。 |
 | v3.13.13 | 2026-03-24 | **fix(credits): 移除前端直接扣點的死碼**：`AuthService.consumeCredit()` 及 `CreditProvider.consumeCredit()` 直寫 Firestore `credits` 欄位，被 Security Rules 封鎖且無任何呼叫者。實際扣點邏輯已在 `generateStickerImage` CF Server 端原子完成，CF 回傳 `remainingCredits`，`editor_provider` 呼叫 `updateCredits()` 同步 UI。刪除這兩個無效方法，防止未來誤用。 |
 | v3.13.12 | 2026-03-24 | **feat(auth): 移除 Apple ID 登入**：移除 `AuthService.signInWithApple()`、`_generateNonce()`、`_sha256()` 及相關 imports（`dart:convert`、`dart:math`、`crypto`、`sign_in_with_apple`）；從 `LoginBottomSheet` 移除 Apple 按鈕、`loadingApple` 狀態與 `_loginWithApple()` 方法；從 `pubspec.yaml` 移除 `sign_in_with_apple: ^6.1.2` 與 `crypto: ^3.0.3`。登入頁面現在只保留 Google 登入。 |
