@@ -280,6 +280,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.white,
+      enableDrag: false, // 停用 sheet 下拉手勢，避免與 Canvas 單指拖移衝突
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

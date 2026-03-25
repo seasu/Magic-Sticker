@@ -1242,7 +1242,9 @@ export const initUserSession = onCall(
       if (doc.exists) {
         credits = (doc.data()?.credits as number) ?? 0;
         // 合併匿名帳號點數（帳號切換時由 App 傳入）
-        if (mergeAmount > 0) {
+        // 僅允許目標帳號仍為匿名狀態（isAnonymous: true）時合併；
+        // 已綁定的正式帳號（isAnonymous: false）不接受合併，防止重複登出/登入刷點。
+        if (mergeAmount > 0 && doc.data()?.isAnonymous === true) {
           credits += mergeAmount;
           tx.update(userRef, {
             credits,
