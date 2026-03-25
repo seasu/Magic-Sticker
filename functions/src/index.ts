@@ -1061,7 +1061,8 @@ export const initUserSession = onCall(
     const uid = await resolveUid(request);
     log("initUserSession: auth OK", {uid});
 
-    const {anonCredits = 0} = (request.data ?? {}) as {anonCredits?: number};
+    const {anonCredits = 0, anonUid = ""} =
+      (request.data ?? {}) as {anonCredits?: number; anonUid?: string};
     const mergeAmount = Math.max(0, Math.floor(anonCredits));
 
     const userRef = db.collection("users").doc(uid);
@@ -1084,6 +1085,11 @@ export const initUserSession = onCall(
             amount: mergeAmount,
             reason: "anon_merge",
           });
+          // 合併後立即將匿名帳號 credits 歸零，防止重複登出/登入時再次 merge
+          if (anonUid && anonUid !== uid) {
+            const anonRef = db.collection("users").doc(anonUid);
+            tx.set(anonRef, {credits: 0, updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+          }
         }
         return;
       }
