@@ -1144,7 +1144,7 @@ export const fulfillCreditPurchase = onCall(
       log("fulfillCreditPurchase: credits added", {uid, productId, credits, remainingCredits});
     }
 
-    return {credits, remainingCredits};
+    return {credits, remainingCredits, alreadyFulfilled};
   }
 );
 

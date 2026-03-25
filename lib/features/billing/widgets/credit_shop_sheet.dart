@@ -52,10 +52,16 @@ class _CreditShopSheetState extends ConsumerState<CreditShopSheet> {
     ref.read(iapPurchasingProvider.notifier).state = null;
 
     if (result.success) {
-      // 立即同步點數（在 pop 前執行，確保 ref 有效）
-      ref.read(creditProvider.notifier).reload();
-      // 顯示置中成功畫面，2 秒後自動關閉 dialog + sheet
-      _showSuccessDialog(result.creditsEarned ?? 0);
+      // CF 回傳最新餘額時直接更新（免去 Firestore round-trip）；否則重新讀取
+      if (result.remainingCredits != null) {
+        ref.read(creditProvider.notifier).updateCredits(result.remainingCredits!);
+      } else {
+        ref.read(creditProvider.notifier).reload();
+      }
+      // 冪等命中（點數已於先前入帳）→ 靜默完成，不顯示「已獲得 X 點」對話框
+      if (!result.alreadyFulfilled) {
+        _showSuccessDialog(result.creditsEarned ?? 0);
+      }
     } else if (result.error != 'canceled') {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(

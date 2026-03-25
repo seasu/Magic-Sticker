@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.27+394 |
+| 目前版本 | v3.13.28+395 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.28 | 2026-03-25 | **fix(iap): 修正冪等命中時顯示誤導性「已獲得 X 點」對話框且點數不增加**：CF `fulfillCreditPurchase` 計算了 `alreadyFulfilled` 但未回傳；Flutter 讀取 `result.data['credits']`（商品面值，固定為 8/24/80）作為 `creditsEarned`，冪等時 0 點入帳但對話框卻顯示「已獲得 8 點」。同時 `reload()` 未被 await，與 UI 更新有競爭條件。修法：① CF 回傳 `{credits, remainingCredits, alreadyFulfilled}`；② `IapPurchaseResult` 新增 `remainingCredits` 與 `alreadyFulfilled` 欄位；③ `_fulfill()` 冪等時設 `creditsEarned = 0`；④ `_onResult()` 冪等時靜默完成（不彈對話框），並直接以 `updateCredits(remainingCredits)` 取代 `reload()`（免去一次 Firestore round-trip）。 |
 | v3.13.27 | 2026-03-25 | **fix(history): 修正歷史紀錄編輯頁拖移圖片時 Sheet 一起被拖動**：`sticker_replay_screen.dart` 的 `_openEditSheet()` 呼叫 `showModalBottomSheet` 時未設定 `enableDrag: false`，造成 `DraggableScrollableSheet` 的 `VerticalDragGestureRecognizer` 與 Canvas 的 `ScaleGestureRecognizer` 競爭，拖移圖片時 Sheet 整體跟著往下滑。補上 `enableDrag: false`，與 `editor_screen.dart` 的 v3.13.22 修法一致。 |
 | v3.13.26 | 2026-03-25 | **fix(ios/iap): 修正 `jwsTransaction` 傳錯欄位導致 `status=401` 循環**：`in_app_purchase_storekit ^0.4.0+` 將 SK2 設為預設，SK2 下 `verificationData.serverVerificationData` = JWS Transaction（3-part JWT），而 `localVerificationData` = JSON payload（非 JWS）。原本程式碼在 `_fulfill` 和 `_fulfillPro` 皆傳送 `localVerificationData` 作為 `jwsTransaction`，CF `verifyAppleJWSLocal` 收到 JSON 字串後 `split(".")` 得 1 段而非 3 段，立即回傳 `valid: false`，觸發 fallback 至 App Store Server API → 401。修法：改傳 `serverVerificationData`，使 `verifyAppleJWSLocal` 拿到正確的 JWS → 本地驗證通過 → 完全不呼叫 App Store Server API，401 消除。同時解決消耗型商品的 `PurchaseStatus.restored` 循環（CF 失敗 → 未 completePurchase → SK2 重送 → 再次 401）。 |
 | v3.13.25 | 2026-03-25 | **fix(build): 修正 CI `undefined_identifier InAppPurchase2StoreKitPlatform`**：`in_app_purchase_storekit ^0.4.4` 中 StoreKit 2 已為預設，`enableStoreKit2()` 標記 deprecated，且正確類別名稱為 `InAppPurchaseStoreKitPlatform`（非 `InAppPurchase2StoreKitPlatform`）；CI Linux runner 的 dart analyze 回報 `undefined_identifier`。修法：移除 `main.dart` 中已無必要的 `InAppPurchase2StoreKitPlatform.enableStoreKit2()` 呼叫與相關 imports（`dart:io`、`in_app_purchase_storekit`），同時從 `pubspec.yaml` 移除不再直接使用的 `in_app_purchase_storekit: ^0.4.4` 宣告（保留 transitive 依賴即可）。SK2 行為不變，JWS 本地驗證邏輯不受影響。 |
