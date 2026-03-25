@@ -65,6 +65,7 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
   double _splitFraction = 0.5;
   bool _isSharing = false;
   final _repaintKey = GlobalKey();
+  final _shareButtonKey = GlobalKey();
 
   late final String _abVariant;
   late final String _shapeLabel;
@@ -145,9 +146,16 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
       // 分享
       // iOS：XFile 必須帶 mimeType，否則 UIActivityViewController 無法識別
       // 檔案類型，導致分享失敗。
+      // iOS：sharePositionOrigin 必須傳入分享按鈕的 Rect，否則 iPad 上
+      // UIActivityViewController popover 無法定位，導致 PlatformException。
+      final box = _shareButtonKey.currentContext?.findRenderObject() as RenderBox?;
+      final origin = box != null
+          ? box.localToGlobal(Offset.zero) & box.size
+          : Rect.fromLTWH(0, 0, 1, 1);
       final result = await Share.shareXFiles(
         [XFile(tmp.path, mimeType: 'image/png')],
         text: '我用 Magic Sticker 做了這個！試試同款 👇\n$shareUrl',
+        sharePositionOrigin: origin,
       );
 
       if (await tmp.exists()) await tmp.delete();
@@ -388,6 +396,7 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                   // 分享按鈕（A/B 文案）
                   Expanded(
                     child: OutlinedButton.icon(
+                      key: _shareButtonKey,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white,
                         side: const BorderSide(color: Colors.white38),

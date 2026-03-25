@@ -62,6 +62,7 @@ class _OriginalCompareOverlayState extends State<OriginalCompareOverlay> {
   static const _hintPrefKey = 'compare_hint_shown';
 
   final _compareRepaintKey = GlobalKey();
+  final _shareButtonKey = GlobalKey();
 
   @override
   void dispose() {
@@ -152,9 +153,14 @@ class _OriginalCompareOverlayState extends State<OriginalCompareOverlay> {
       final tmpFile = File(
           '${tmpDir.path}/compare_${DateTime.now().millisecondsSinceEpoch}.png');
       await tmpFile.writeAsBytes(bytes);
+      final box = _shareButtonKey.currentContext?.findRenderObject() as RenderBox?;
+      final origin = box != null
+          ? box.localToGlobal(Offset.zero) & box.size
+          : Rect.fromLTWH(0, 0, 1, 1);
       await Share.shareXFiles(
         [XFile(tmpFile.path)],
         text: '用 Magic Sticker AI 生成的貼圖 ✨',
+        sharePositionOrigin: origin,
       );
       await tmpFile.delete();
     } catch (_) {
@@ -499,6 +505,7 @@ class _OriginalCompareOverlayState extends State<OriginalCompareOverlay> {
       );
 
   Widget _buildShareButton() => GestureDetector(
+        key: _shareButtonKey,
         onTap: _isSharing ? null : _shareCompare,
         child: Container(
           width: 36,
