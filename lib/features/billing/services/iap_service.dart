@@ -308,9 +308,8 @@ class IAPService {
     }
 
     try {
-      // iOS: StoreKit 2 JWS（localVerificationData）+ transaction ID をサーバーに送る
-      //      CF は JWS ローカル検証を優先し、失敗時のみ App Store Server API にフォールバック
-      // Android: Google Play API 需要 purchaseToken（serverVerificationData）
+      // iOS: purchaseToken = transactionId（SK2），jwsTransaction = JWS（3-part JWT）
+      // Android: purchaseToken = Google Play purchaseToken（serverVerificationData）
       final token = Platform.isIOS
           ? (purchase.purchaseID ?? purchase.verificationData.serverVerificationData)
           : (purchase.verificationData.serverVerificationData.isNotEmpty
@@ -320,18 +319,19 @@ class IAPService {
       final Map<String, dynamic> payload = {
         'purchaseToken': token,
         'productId': purchase.productID,
-        'platform': Platform.isIOS ? 'ios' : 'android',
       };
-      // iOS: SK2 では serverVerificationData が JWS Transaction（3-part JWT）。
-      //      localVerificationData は SK2 では JSON payload（JWS ではない）のため使わない。
+      // iOS: serverVerificationData = SK2 JWS Transaction（3-part JWT）
       if (Platform.isIOS) {
         final jws = purchase.verificationData.serverVerificationData;
         if (jws.isNotEmpty) payload['jwsTransaction'] = jws;
       }
 
+      final fnName = Platform.isIOS
+          ? 'fulfillCreditPurchaseIOS'
+          : 'fulfillCreditPurchaseAndroid';
       final result = await _fn
           .httpsCallable(
-            'fulfillCreditPurchase',
+            fnName,
             options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
           )
           .call<Map<String, dynamic>>(payload);
