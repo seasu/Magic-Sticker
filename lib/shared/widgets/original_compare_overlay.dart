@@ -153,6 +153,19 @@ class _OriginalCompareOverlayState extends State<OriginalCompareOverlay> {
       final tmpFile = File(
           '${tmpDir.path}/compare_${DateTime.now().millisecondsSinceEpoch}.png');
       await tmpFile.writeAsBytes(bytes);
+      // 自動複製下載連結到剪貼簿（LINE 分享圖片時文字會被忽略，剪貼簿為補充）
+      await Clipboard.setData(
+        const ClipboardData(text: 'https://magicsticker.app/download'),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('連結已複製，分享到 LINE 後貼上即可 ✨'),
+            duration: Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
       final box = _shareButtonKey.currentContext?.findRenderObject() as RenderBox?;
       final origin = box != null
           ? box.localToGlobal(Offset.zero) & box.size
