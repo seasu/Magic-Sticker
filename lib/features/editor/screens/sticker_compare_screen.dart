@@ -17,7 +17,6 @@ import '../../../core/services/firebase_service.dart';
 import '../../../core/services/share_code_service.dart';
 import '../../../core/services/share_reward_service.dart';
 import '../../../core/theme/app_colors.dart';
-import '../widgets/sticker_canvas_frame.dart';
 
 // ── A/B 測試文案 ─────────────────────────────────────────────────────────────
 

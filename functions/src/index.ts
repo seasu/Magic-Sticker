@@ -1239,8 +1239,11 @@ export const fulfillCreditPurchaseAndroid = onCall(
 // App 端無法直接寫 Firestore（Security Rules 封鎖），一律透過此 CF。
 //
 // 1. 驗證 Firebase Auth
-// 2. Firestore Transaction 原子性加 1 點 + 寫 creditHistory
-// 3. 回傳最新點數
+// 2. Server-side 每日上限（台灣時區，2 次/日）via dailyRewardSummary
+// 3. Firestore Transaction 原子性加 1 點 + 寫 creditHistory
+// 4. 回傳 { granted, credits }
+
+const kDailyAdLimit = 2;
 
 export const rewardAdCredit = onCall(
   {
@@ -1258,13 +1261,34 @@ export const rewardAdCredit = onCall(
     const uid = await resolveUid(request);
     log("rewardAdCredit: auth OK", {uid});
 
+    const dateKey = todayKeyTW();
+    const dailyRef = db
+      .collection("users")
+      .doc(uid)
+      .collection("dailyRewardSummary")
+      .doc(dateKey);
     const userRef = db.collection("users").doc(uid);
+
+    let granted = false;
     let remainingCredits = 0;
 
     await db.runTransaction(async (tx) => {
-      const doc = await tx.get(userRef);
-      const current = (doc.data()?.credits as number) ?? 0;
-      remainingCredits = current + 1;
+      const [dailyDoc, userDoc] = await Promise.all([
+        tx.get(dailyRef),
+        tx.get(userRef),
+      ]);
+
+      const adCount = (dailyDoc.data()?.adCount as number) ?? 0;
+      remainingCredits = (userDoc.data()?.credits as number) ?? 0;
+
+      if (adCount >= kDailyAdLimit) {
+        log("rewardAdCredit: daily limit reached", {uid, adCount});
+        return; // 今日已達上限，冪等回傳
+      }
+
+      remainingCredits += 1;
+      granted = true;
+
       tx.set(
         userRef,
         {
@@ -1278,10 +1302,18 @@ export const rewardAdCredit = onCall(
         amount: 1,
         reason: "rewarded_ad",
       });
+      tx.set(
+        dailyRef,
+        {
+          adCount: adCount + 1,
+          adLastGrantedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        {merge: true}
+      );
     });
 
-    log("rewardAdCredit: +1 credit OK", {uid, remainingCredits});
-    return {credits: remainingCredits};
+    log("rewardAdCredit: done", {uid, granted, remainingCredits});
+    return {granted, credits: remainingCredits};
   }
 );
 
