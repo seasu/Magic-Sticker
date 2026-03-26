@@ -40,9 +40,10 @@ class EditorScreen extends ConsumerStatefulWidget {
   final String imagePath;
   final int styleIndex;
   final StickerShape stickerShape;
-  final List<String>? categoryIds;    // 由 EmotionSelectionScreen 傳入
-  final String? customStyleDesc;      // Pro 自訂風格
-  final String? customEmotionDesc;    // Pro 自訂情緒
+  final List<String>? categoryIds;       // 由 EmotionSelectionScreen 傳入
+  final String? customStyleDesc;         // Pro 自訂風格
+  final String? customEmotionDesc;       // Pro 自訂情緒
+  final bool enhancePersonFeatures;      // Pro 人物特徵強化
 
   const EditorScreen({
     super.key,
@@ -52,6 +53,7 @@ class EditorScreen extends ConsumerStatefulWidget {
     this.categoryIds,
     this.customStyleDesc,
     this.customEmotionDesc,
+    this.enhancePersonFeatures = false,
   });
 
   @override
@@ -77,6 +79,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             initialCategoryIds: widget.categoryIds,
             customStyleDesc: widget.customStyleDesc,
             customEmotionDesc: widget.customEmotionDesc,
+            enhancePersonFeatures: widget.enhancePersonFeatures,
           );
     });
   }

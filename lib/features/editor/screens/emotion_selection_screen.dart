@@ -41,6 +41,7 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
   late final List<String> _selected;
   late final AnimationController _entryCtrl;
   final _proEmotionCtrl = TextEditingController();
+  bool _enhanceFeatures = false;
 
   static const _kMin = 1;
   static const _kMax = 12;
@@ -98,6 +99,7 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
     HapticFeedback.mediumImpact();
     final customEmotionDesc = _proEmotionCtrl.text.trim();
     final hasCustomEmotion = customEmotionDesc.isNotEmpty;
+    final isPro = ref.read(isProUnlockedProvider).valueOrNull ?? false;
     context.push(
       '/editor',
       extra: EditorArgs(
@@ -110,6 +112,7 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
             : List<String>.from(_selected),
         customStyleDesc: widget.customStyleDesc,
         customEmotionDesc: hasCustomEmotion ? customEmotionDesc : null,
+        enhancePersonFeatures: isPro && _enhanceFeatures,
       ),
     );
   }
@@ -223,6 +226,14 @@ class _EmotionSelectionScreenState extends ConsumerState<EmotionSelectionScreen>
                 isPro: isPro,
                 controller: _proEmotionCtrl,
                 hint: '輸入任意情緒，例：淡定無語、興奮尖叫',
+                onLockedTap: () => ProUnlockSheet.show(context),
+              ),
+              const SizedBox(height: 8),
+              // Pro 人物特徵強化 toggle
+              _FeatureEnhanceToggle(
+                isPro: isPro,
+                value: _enhanceFeatures,
+                onChanged: (v) => setState(() => _enhanceFeatures = v),
                 onLockedTap: () => ProUnlockSheet.show(context),
               ),
               const SizedBox(height: 12),
@@ -518,6 +529,119 @@ class _ProCustomEmotionCard extends StatelessWidget {
             else
               const Icon(Icons.lock_outline_rounded,
                   size: 18, color: Colors.black38),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Pro 人物特徵強化 Toggle ──────────────────────────────────────────────────
+
+class _FeatureEnhanceToggle extends StatelessWidget {
+  final bool isPro;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final VoidCallback onLockedTap;
+
+  const _FeatureEnhanceToggle({
+    required this.isPro,
+    required this.value,
+    required this.onChanged,
+    required this.onLockedTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isPro ? null : onLockedTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        decoration: BoxDecoration(
+          color: isPro
+              ? (value ? const Color(0xFFFAFAF5) : AppColors.surface)
+              : AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isPro && value ? const Color(0xFFC9A84C) : Colors.black12,
+            width: isPro && value ? 1.5 : 1,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: isPro
+                    ? const LinearGradient(
+                        colors: [Color(0xFFC9A84C), Color(0xFFA07828)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: isPro ? null : const Color(0xFFE0E0E0),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.face_retouching_natural_rounded,
+                size: 20,
+                color: isPro ? Colors.white : Colors.black38,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: isPro
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '強化人物特徵',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'AI 分析眼鼻嘴輪廓髮型，貼圖更像你',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.black38,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Pro 強化人物特徵',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black45,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          '點擊解鎖，NT\$49 · 一次性永久使用',
+                          style: TextStyle(fontSize: 11, color: Colors.black38),
+                        ),
+                      ],
+                    ),
+            ),
+            if (isPro)
+              Switch(
+                value: value,
+                onChanged: onChanged,
+                activeColor: const Color(0xFFC9A84C),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              )
+            else
+              const Icon(Icons.lock_outline_rounded, size: 18, color: Colors.black38),
           ],
         ),
       ),
