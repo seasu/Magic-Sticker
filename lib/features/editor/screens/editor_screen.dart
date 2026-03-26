@@ -559,6 +559,21 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     ),
                   ),
 
+                  // ── 點擊提示（貼圖已生成時顯示）─────────────────────
+                  if (!isNotGeneratedSentinel(state.generatedImages[_currentIndex]) &&
+                      state.generatedImages[_currentIndex] != null &&
+                      state.generatedImages[_currentIndex]!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '點擊貼圖可編輯文字與樣式',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.black38,
+                        ),
+                      ),
+                    ),
+
                   // ── 底部按鈕 ──────────────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16),

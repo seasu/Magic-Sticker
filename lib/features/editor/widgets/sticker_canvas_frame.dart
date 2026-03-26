@@ -96,40 +96,12 @@ class StickerCanvasFrame extends StatelessWidget {
       );
     }
 
-    // ── 步驟 4：右上角編輯按鈕（Card 模式）──────────────────────────────
+    // ── 步驟 4：整張卡片可點擊開啟編輯（Card 模式）─────────────────────────
     if (onEditTap != null) {
-      return Stack(
-        clipBehavior: Clip.none,
-        children: [
-          content,
-          Positioned(
-            top: 10,
-            right: 8,
-            child: GestureDetector(
-              onTap: onEditTap,
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.18),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.edit_rounded,
-                  size: 18,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
-          ),
-        ],
+      return GestureDetector(
+        onTap: onEditTap,
+        behavior: HitTestBehavior.opaque,
+        child: content,
       );
     }
 
