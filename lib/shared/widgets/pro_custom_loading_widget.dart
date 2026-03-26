@@ -160,14 +160,22 @@ class _ProCustomLoadingWidgetState extends State<ProCustomLoadingWidget>
         return GestureDetector(
           onTapDown: (d) => _throwBall(d.localPosition),
           behavior: HitTestBehavior.opaque,
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFFAFAF5), Color(0xFFF5EDD8)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
+          child: AnnotatedRegion<SystemUiOverlayStyle>(
+            value: const SystemUiOverlayStyle(
+              statusBarColor: Color(0xFFFAFAF5),
+              statusBarIconBrightness: Brightness.dark,
+              statusBarBrightness: Brightness.light,
+              systemNavigationBarColor: Color(0xFFF5EDD8),
+              systemNavigationBarIconBrightness: Brightness.dark,
             ),
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFFFAFAF5), Color(0xFFF5EDD8)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
             child: AnimatedBuilder(
               animation: Listenable.merge(
                   [_runCtrl, _moveCtrl, _playCtrl, _ballCtrl]),
@@ -309,6 +317,7 @@ class _ProCustomLoadingWidgetState extends State<ProCustomLoadingWidget>
               },
             ),
           ),
+        ),
         );
       },
     );
