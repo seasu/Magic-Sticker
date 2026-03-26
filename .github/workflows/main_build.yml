@@ -27,6 +27,10 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Flutter pub get
         run: flutter pub get
 
@@ -54,6 +58,10 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Flutter pub get
         run: flutter pub get
 
@@ -62,8 +70,12 @@ jobs:
 
       - name: Generate small app icon for runtime (128×128)
         run: |
-          pip install Pillow --quiet
-          python3 - <<'EOF'
+          python3 -m venv .venv-icon
+          . .venv-icon/bin/activate
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet Pillow
+          python -c "from PIL import Image; print('✅ Pillow import ok (venv)')"
+          python - <<'EOF'
           from PIL import Image
           img = Image.open('assets/app_icon.png').resize((128, 128), Image.LANCZOS)
           img.save('assets/images/app_icon_small.png')
@@ -520,6 +532,10 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Flutter pub get
         run: flutter pub get
 
@@ -586,8 +602,12 @@ jobs:
 
       - name: Generate small app icon for runtime (128×128)
         run: |
-          pip install Pillow --quiet
-          python3 - <<'EOF'
+          python3 -m venv .venv-icon
+          . .venv-icon/bin/activate
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet Pillow
+          python -c "from PIL import Image; print('✅ Pillow import ok (venv)')"
+          python - <<'EOF'
           from PIL import Image
           img = Image.open('assets/app_icon.png').resize((128, 128), Image.LANCZOS)
           img.save('assets/images/app_icon_small.png')
