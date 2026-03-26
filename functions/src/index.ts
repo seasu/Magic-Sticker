@@ -1375,7 +1375,7 @@ function todayKeyTW(): string {
   return tw.toISOString().slice(0, 10).replace(/-/g, "");
 }
 
-const kDomainBase = "https://magicsticker.app";
+const kDomainBase = process.env.DOMAIN_BASE ?? "https://magic-sticker-8eaf4.web.app";
 
 // ── ensureShareCode ───────────────────────────────────────────────────────────
 //

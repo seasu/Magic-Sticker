@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>下載 Magic Sticker — AI 一鍵貼圖生成器</title>
+  <meta name="description" content="用 AI 把照片變成 LINE 貼圖，只需幾秒鐘。立即下載 Magic Sticker。" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #FF9F43 0%, #FF6B6B 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      color: #fff;
+    }
+    .card {
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(16px);
+      border-radius: 24px;
+      padding: 40px 32px;
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+    }
+    .emoji { font-size: 64px; margin-bottom: 20px; display: block; }
+    h1 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+    .tagline { font-size: 15px; opacity: 0.9; line-height: 1.6; margin-bottom: 32px; }
+    .btn {
+      display: block;
+      background: #fff;
+      color: #FF6B6B;
+      border-radius: 14px;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 700;
+      text-decoration: none;
+      margin-bottom: 12px;
+    }
+    .btn-secondary {
+      background: transparent;
+      color: #fff;
+      border: 2px solid rgba(255,255,255,0.6);
+      font-size: 14px;
+    }
+    .hint { font-size: 12px; opacity: 0.7; margin-top: 16px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="emoji">✨</span>
+    <h1>Magic Sticker</h1>
+    <p class="tagline">AI 一鍵把照片變成 LINE 貼圖<br>免費下載，立即體驗</p>
+    <a class="btn" id="btnPrimary" href="#">立即下載</a>
+    <a class="btn btn-secondary" id="btnSecondary" href="#">前往另一平台</a>
+    <p class="hint">支援 Android &amp; iOS</p>
+  </div>
+
+  <script>
+    const pkg         = 'com.magicsticker.magic_sticker';
+    const playUrl     = 'https://play.google.com/store/apps/details?id=' + pkg;
+    const appStoreUrl = 'https://apps.apple.com/app/magic-sticker'; // TODO: 上架後填入正確 App Store 連結
+
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    const primary   = document.getElementById('btnPrimary');
+    const secondary = document.getElementById('btnSecondary');
+
+    if (isIOS) {
+      primary.href        = appStoreUrl;
+      primary.textContent = '前往 App Store 下載';
+      secondary.href        = playUrl;
+      secondary.textContent = '前往 Google Play';
+    } else {
+      primary.href        = playUrl;
+      primary.textContent = '前往 Google Play 下載';
+      secondary.href        = appStoreUrl;
+      secondary.textContent = '前往 App Store';
+    }
+  </script>
+</body>
+</html>

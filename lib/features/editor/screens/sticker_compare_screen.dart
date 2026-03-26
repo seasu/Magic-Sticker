@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/constants/app_urls.dart';
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/services/analytics_service.dart';
 import '../../../core/services/firebase_service.dart';
@@ -24,9 +25,6 @@ const _kShareLabelA = '分享比對圖';
 const _kShareLabelB = '分享我的貼圖成果';
 
 String _pickAbVariant() => Random().nextBool() ? 'A' : 'B';
-
-// ── 降級用 Landing Page URL ──────────────────────────────────────────────────
-const _kFallbackShareUrl = 'https://magicsticker.app/download';
 
 // ── 尺寸常數 ─────────────────────────────────────────────────────────────────
 
@@ -125,7 +123,7 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
         codeResult = null; // 靜默降級：分享文案用 fallback URL
       }
 
-      final shareUrl = codeResult?.deepLink ?? _kFallbackShareUrl;
+      final shareUrl = codeResult?.deepLink ?? AppUrls.download;
       final hasLink = codeResult != null;
 
       // 自動複製 deep link 到剪貼簿，方便用戶分享到 LINE 後貼上
