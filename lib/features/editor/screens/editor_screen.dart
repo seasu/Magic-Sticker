@@ -418,6 +418,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final isCustomEmotionMode = widget.customEmotionDesc != null;
     final isDirectGenerateMode =
         widget.customStyleDesc != null && widget.customEmotionDesc != null;
+    // 任何 Pro 功能啟用 → 金香檳 Loading
+    final isProMode = widget.customStyleDesc != null ||
+        widget.customEmotionDesc != null ||
+        widget.enhancePersonFeatures;
     // 全客製確認頁：state=ready，圖片仍是 sentinel（使用者尚未按確認）
     final isDirectConfirmPending = isDirectGenerateMode &&
         isReady &&
@@ -463,7 +467,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
     return Scaffold(
       backgroundColor: (isLoading || isCurrentImageLoading)
-          ? (isCustomEmotionMode
+          ? (isProMode
               ? const Color(0xFFFAFAF5)   // ProCustomLoadingWidget 漸層頂色
               : CatColorScheme.pink.bg)   // CatLoadingWidget 背景色
           : _kBg,
@@ -481,7 +485,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
                 if (isLoading)
                   Expanded(
-                    child: isCustomEmotionMode
+                    child: isProMode
                         ? ProCustomLoadingWidget(
                             emotionDesc: widget.customEmotionDesc,
                             styleDesc: widget.customStyleDesc,
@@ -585,7 +589,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
             // ── 圖片生成中：全畫面遮罩（GestureDetector.opaque 鎖定操作，允許丟球互動）
             if (isCurrentImageLoading)
-              isCustomEmotionMode
+              isProMode
                   ? ProCustomLoadingWidget(
                       emotionDesc: widget.customEmotionDesc,
                       styleDesc: widget.customStyleDesc,
