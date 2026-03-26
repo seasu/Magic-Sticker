@@ -11,6 +11,9 @@ import '../models/sticker_record.dart';
 import '../providers/sticker_history_provider.dart';
 import '../services/sticker_archive_service.dart';
 
+// 歷史紀錄頁背景 — 比純白更有層次感的淺灰
+const _kPageBg = Color(0xFFF2F2F7);
+
 class StickerHistoryScreen extends ConsumerWidget {
   const StickerHistoryScreen({super.key});
 
@@ -19,18 +22,20 @@ class StickerHistoryScreen extends ConsumerWidget {
     final historyAsync = ref.watch(stickerHistoryProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: _kPageBg,
       appBar: AppBar(
         title: Text(
           '生成紀錄',
-          style: TextStyle(fontFamily: 'OpenHuninn',
+          style: TextStyle(
+            fontFamily: 'OpenHuninn',
             fontWeight: FontWeight.w800,
             fontSize: 18,
             color: AppColors.textPrimary,
           ),
         ),
-        backgroundColor: AppColors.background,
+        backgroundColor: _kPageBg,
         elevation: 0,
+        scrolledUnderElevation: 0,
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
       body: historyAsync.when(
@@ -38,7 +43,10 @@ class StickerHistoryScreen extends ConsumerWidget {
         error: (_, __) => Center(
           child: Text(
             '載入失敗，請稍後再試',
-            style: TextStyle(fontFamily: 'OpenHuninn',color: AppColors.textSecondary),
+            style: TextStyle(
+              fontFamily: 'OpenHuninn',
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
         data: (records) {
@@ -55,7 +63,8 @@ class StickerHistoryScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Text(
                     '還沒有生成過任何貼圖',
-                    style: TextStyle(fontFamily: 'OpenHuninn',
+                    style: TextStyle(
+                      fontFamily: 'OpenHuninn',
                       fontSize: 16,
                       color: AppColors.textSecondary,
                     ),
@@ -63,7 +72,8 @@ class StickerHistoryScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   Text(
                     '消耗點數生成貼圖後，圖片將自動存檔於此',
-                    style: TextStyle(fontFamily: 'OpenHuninn',
+                    style: TextStyle(
+                      fontFamily: 'OpenHuninn',
                       fontSize: 13,
                       color: AppColors.textSecondary,
                     ),
@@ -76,12 +86,12 @@ class StickerHistoryScreen extends ConsumerWidget {
           return RefreshIndicator(
             onRefresh: () => ref.refresh(stickerHistoryProvider.future),
             child: GridView.builder(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 1,
+                childAspectRatio: 0.82,  // 為底部資訊列保留空間
               ),
               itemCount: records.length,
               itemBuilder: (_, i) => _StickerCard(
@@ -105,9 +115,9 @@ class _StickerCard extends StatelessWidget {
   const _StickerCard({required this.record, required this.onDeleted});
 
   String _formatDate(DateTime dt) {
-    final mm = dt.month.toString().padLeft(2, '0');
-    final dd = dt.day.toString().padLeft(2, '0');
-    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm  = dt.month.toString().padLeft(2, '0');
+    final dd  = dt.day.toString().padLeft(2, '0');
+    final hh  = dt.hour.toString().padLeft(2, '0');
     final min = dt.minute.toString().padLeft(2, '0');
     return '$mm/$dd $hh:$min';
   }
@@ -126,19 +136,20 @@ class _StickerCard extends StatelessWidget {
         SnackBar(
           content: Text(
             '已儲存至相簿',
-            style: TextStyle(fontFamily: 'OpenHuninn',),
+            style: TextStyle(fontFamily: 'OpenHuninn'),
           ),
           duration: const Duration(seconds: 2),
         ),
       );
     } catch (e, s) {
-      await FirebaseService.recordError(e, s, reason: 'sticker_history_save_failed');
+      await FirebaseService.recordError(e, s,
+          reason: 'sticker_history_save_failed');
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             '儲存失敗，請稍後再試',
-            style: TextStyle(fontFamily: 'OpenHuninn',),
+            style: TextStyle(fontFamily: 'OpenHuninn'),
           ),
           backgroundColor: AppColors.nope,
           duration: const Duration(seconds: 2),
@@ -151,21 +162,30 @@ class _StickerCard extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('刪除紀錄', style: TextStyle(fontFamily: 'OpenHuninn',fontWeight: FontWeight.w700)),
+        title: Text(
+          '刪除紀錄',
+          style: TextStyle(
+            fontFamily: 'OpenHuninn',
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         content: Text(
           '確定要刪除這張貼圖的存檔嗎？此操作無法還原。',
-          style: TextStyle(fontFamily: 'OpenHuninn',),
+          style: TextStyle(fontFamily: 'OpenHuninn'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('取消', style: TextStyle(fontFamily: 'OpenHuninn',)),
+            child: Text('取消', style: TextStyle(fontFamily: 'OpenHuninn')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(
               '刪除',
-              style: TextStyle(fontFamily: 'OpenHuninn',color: AppColors.nope),
+              style: TextStyle(
+                fontFamily: 'OpenHuninn',
+                color: AppColors.nope,
+              ),
             ),
           ),
         ],
@@ -184,85 +204,104 @@ class _StickerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCircle = record.shapeStr == 'circle';
     final file = File(record.filePath);
+    final styleName = _styleName(record.styleIndex);
 
     return GestureDetector(
       onTap: () => _openReplay(context),
       onLongPress: () => _confirmDelete(context),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(isCircle ? 200 : 16),
-        child: Stack(
-          fit: StackFit.expand,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 貼圖圖片
-            file.existsSync()
-                ? Image.file(file, fit: BoxFit.cover)
-                : Container(
-                    color: AppColors.surface,
-                    child: const Icon(
-                      Icons.broken_image_outlined,
-                      color: AppColors.divider,
-                      size: 40,
-                    ),
-                  ),
 
-            // 底部半透明資訊條
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(8, 20, 4, 6),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [Color(0xCC000000), Colors.transparent],
-                  ),
+            // ── 圖片區 ────────────────────────────────────────────────────
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            record.stickerText,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontFamily: 'OpenHuninn',
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
+                child: file.existsSync()
+                    ? (isCircle
+                        // 圓形貼圖：留白邊距讓圓形「浮」在白卡上
+                        ? Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+                            child: ClipOval(
+                              child: Image.file(file, fit: BoxFit.cover),
                             ),
-                          ),
-                          Text(
-                            '${_styleName(record.styleIndex)} · ${_formatDate(record.createdAt)}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontFamily: 'OpenHuninn',
-                              fontSize: 10,
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // 儲存至相簿按鈕
-                    GestureDetector(
-                      onTap: () => _saveToGallery(context),
-                      child: const Padding(
-                        padding: EdgeInsets.all(4),
+                          )
+                        // 方形貼圖：填滿圖片區
+                        : Image.file(file, fit: BoxFit.cover))
+                    : const ColoredBox(
+                        color: AppColors.surface,
                         child: Icon(
-                          Icons.download_rounded,
-                          color: Colors.white,
-                          size: 20,
+                          Icons.broken_image_outlined,
+                          color: AppColors.divider,
+                          size: 40,
                         ),
                       ),
+              ),
+            ),
+
+            // ── 資訊列（圖片外，不再遮蓋貼圖）────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 5, 4, 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (styleName.isNotEmpty)
+                          Text(
+                            styleName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'OpenHuninn',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF555555),
+                            ),
+                          ),
+                        Text(
+                          _formatDate(record.createdAt),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'OpenHuninn',
+                            fontSize: 10,
+                            color: Color(0xFFAAAAAA),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  // 下載按鈕
+                  GestureDetector(
+                    onTap: () => _saveToGallery(context),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.download_rounded,
+                        color: Color(0xFFCCCCCC),
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

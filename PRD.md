@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.45+412 |
+| 目前版本 | v3.13.46+413 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.46 | 2026-03-26 | **feat(history-ui): 生成紀錄頁 UI/UX 全面升級**：① 背景色 white → `Color(0xFFF2F2F7)`（iOS 系統淺灰，增加層次感）；② 卡片改為白底圓角卡片（16px radius + shadow），圖片與資訊列分離；③ 移除圖片內的 dark gradient 文字 overlay（`stickerText` 已 baked-in 於 PNG，不重複顯示）；④ 圓形貼圖加 12px padding 讓圓形「浮」在白卡上，方形貼圖填滿圖片區頂部；⑤ 資訊列（風格名 + 日期 + 下載鍵）移至卡片底部外側，清晰可讀；⑥ `childAspectRatio` 1.0 → 0.82，為底部資訊列保留空間；⑦ Pro Loading Scaffold 底色 `#FAFAF5` → `#F5EDD8`（漸層底色），修正 iOS home indicator 區域白條問題。 |
 | v3.13.45 | 2026-03-26 | **fix(credits): 調降免費點數防止薅羊毛 + 補廣告 server-side 每日上限**：① `kLoginBonusCredits` 5→3（訪客升級獎勵，訪客 1+升級 3=4pt 仍足體驗 3 張）；② `kDailyAdLimit` 3→2（客戶端）；③ CF `rewardAdCredit` 新增 server-side 每日 2 次上限（`dailyRewardSummary/{dateKey}.adCount`，台灣時區），修補原本僅靠 SharedPreferences 可被繞過的漏洞；④ 移除 `sticker_compare_screen.dart` 的 unused import `sticker_canvas_frame.dart`（CI analyze 警告）。每日最大免費點數：4pt/日 → 3pt/日（廣告 2 + 分享 1）。 |
 | v3.13.44 | 2026-03-26 | **feat(pro-loading): 任何 Pro 功能啟用均顯示金香檳 Loading**：原判斷條件 `isCustomEmotionMode`（`customEmotionDesc != null`）改為 `isProMode`（`customStyleDesc != null \|\| customEmotionDesc != null \|\| enhancePersonFeatures`）。影響三處：Scaffold 背景色、初始分析 Loading widget、圖片生成遮罩 Loading widget。`isCustomEmotionMode` 保留，仍用於張數限制、EmotionHeader、CompletionView 等邏輯。 |
 | v3.13.43 | 2026-03-26 | **fix(pro-prompt): 修正特徵強化構圖截切 + 聚焦眼神**：① 構圖規則移至 prompt 最前方並標注「最先執行，任何指令不得覆蓋」，防止特徵誇大指令覆蓋邊距規則；② 邊距加大（上緣 10%→18%、下緣 8%→12%）；③ 特徵強化範圍由全身特徵縮小至眼神專項（眼形、眼神表情、眼部細節），其他五官與體型改為 Q 版自然呈現，不過度強調。 |
