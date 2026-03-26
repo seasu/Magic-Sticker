@@ -148,11 +148,19 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        _stackSize = Size(constraints.maxWidth, constraints.maxHeight);
-        // 首次：初始化貓咪位置在畫面中央偏下
-        _catPos ??= Offset(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: CatColorScheme.pink.bg,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: CatColorScheme.pink.bg,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          _stackSize = Size(constraints.maxWidth, constraints.maxHeight);
+          // 首次：初始化貓咪位置在畫面中央偏下
+          _catPos ??= Offset(
           constraints.maxWidth  / 2,
           constraints.maxHeight * 0.58,
         );
@@ -282,8 +290,9 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
               },
             ),
           ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
