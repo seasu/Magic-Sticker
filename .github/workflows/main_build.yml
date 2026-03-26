@@ -62,7 +62,7 @@ jobs:
 
       - name: Generate small app icon for runtime (128×128)
         run: |
-          pip install Pillow --quiet
+          python3 -m pip install Pillow --quiet
           python3 - <<'EOF'
           from PIL import Image
           img = Image.open('assets/app_icon.png').resize((128, 128), Image.LANCZOS)
@@ -586,7 +586,7 @@ jobs:
 
       - name: Generate small app icon for runtime (128×128)
         run: |
-          pip install Pillow --quiet
+          python3 -m pip install Pillow --quiet
           python3 - <<'EOF'
           from PIL import Image
           img = Image.open('assets/app_icon.png').resize((128, 128), Image.LANCZOS)
