@@ -17,7 +17,6 @@ import '../../../core/services/firebase_service.dart';
 import '../../../core/services/share_code_service.dart';
 import '../../../core/services/share_reward_service.dart';
 import '../../../core/theme/app_colors.dart';
-import '../widgets/sticker_canvas_frame.dart';
 
 // ── A/B 測試文案 ─────────────────────────────────────────────────────────────
 
@@ -29,7 +28,7 @@ String _pickAbVariant() => Random().nextBool() ? 'A' : 'B';
 // ── 尺寸常數 ─────────────────────────────────────────────────────────────────
 
 const double _kDividerHeight = 28.0;
-const double _kBrandFooterHeight = 48.0;
+const double _kBrandFooterHeight = 56.0;
 
 /// 儲存貼圖成功後顯示的全螢幕上下比對頁。
 /// 上半：原圖；下半：貼圖（棋盤格背景）。
@@ -282,7 +281,7 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                               child: Stack(
                                 fit: StackFit.expand,
                                 children: [
-                                  ColoredBox(color: Colors.grey.shade900),
+                                  const ColoredBox(color: Color(0xFF1C1C1E)),
                                   GestureDetector(
                                     onDoubleTap: () =>
                                         _topCtrl.value = Matrix4.identity(),
@@ -328,11 +327,18 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                               color: Colors.black,
                               child: Center(
                                 child: Container(
-                                  width: 48,
-                                  height: 4,
+                                  width: 56,
+                                  height: 5,
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.7),
-                                    borderRadius: BorderRadius.circular(2),
+                                    gradient: AppColors.gradient,
+                                    borderRadius: BorderRadius.circular(3),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFFFD297B)
+                                            .withValues(alpha: 0.5),
+                                        blurRadius: 8,
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -351,8 +357,7 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                               child: Stack(
                                 fit: StackFit.expand,
                                 children: [
-                                  const CustomPaint(
-                                      painter: CheckerboardPainter()),
+                                  const ColoredBox(color: Color(0xFFF8F8F8)),
                                   GestureDetector(
                                     onDoubleTap: () =>
                                         _bottomCtrl.value = Matrix4.identity(),
@@ -381,7 +386,7 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
                                     top: 10,
                                     left: 10,
                                     child: IgnorePointer(
-                                      child: _Chip(label: '貼圖'),
+                                      child: _Chip(label: '貼圖', gradient: true),
                                     ),
                                   ),
                                 ],
@@ -497,11 +502,12 @@ class _BrandFooter extends StatelessWidget {
           ),
           const Spacer(),
           const Text(
-            'AI 一鍵生成 LINE 貼圖  免費下載 →',
+            'AI 生成 LINE 貼圖 · 免費下載 →',
             style: TextStyle(
               color: Colors.white,
               fontSize: 11,
               fontWeight: FontWeight.w500,
+              letterSpacing: 0.2,
             ),
           ),
         ],
@@ -514,16 +520,24 @@ class _BrandFooter extends StatelessWidget {
 
 class _Chip extends StatelessWidget {
   final String label;
+  final bool gradient;
 
-  const _Chip({required this.label});
+  const _Chip({required this.label, this.gradient = false});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.55),
+        gradient: gradient ? AppColors.gradient : null,
+        color: gradient ? null : Colors.black.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(20),
+        border: gradient
+            ? null
+            : Border.all(
+                color: Colors.white.withValues(alpha: 0.25),
+                width: 1,
+              ),
       ),
       child: Text(
         label,

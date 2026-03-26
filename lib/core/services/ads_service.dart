@@ -18,7 +18,7 @@ class AdsService {
   static final instance = AdsService._();
 
   // ── 每日廣告上限 ───────────────────────────────────────────────────────────
-  static const int kDailyAdLimit = 3;
+  static const int kDailyAdLimit = 2;
   static const _kPrefDate  = 'ad_date';
   static const _kPrefCount = 'ad_count';
 
