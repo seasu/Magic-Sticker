@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.48+415 |
+| 目前版本 | v3.13.49+416 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.49 | 2026-03-26 | **feat(credit-history-ui): 點數紀錄頁 UI/UX 全面升級**：① 背景色 white → `Color(0xFFF2F2F7)`（與生成紀錄頁一致）；② AppBar `scrolledUnderElevation: 0`；③ 列表結構從 Divider List 改為白底圓角卡片（radius 14 + shadow）；④ Icon container 40 → 48px，`earned` 綠底、`spent` 品牌漸層背景白色 icon、`refund` 暖橙底；⑤ 金額顯示改為圓角 Pill Badge（正數綠底、負數紅底）；⑥ 新增日期分組 Section Header（今天 / 昨天 / MM/DD）；⑦ Empty state 補充說明文字，圖示 64 → 72px。 |
 | v3.13.48 | 2026-03-26 | **fix(prompt): 所有貼圖風格統一增加邊距防止人物截切**：四種貼圖 prompt（方形 Chroma Key、方形彩色背景、圓形白底、圓形彩色背景）均更新構圖規則：① 定位改為「正中央（水平、垂直皆置中），角色高度不超過 70%」（原：中央偏上 65%）；② 上邊距 10% → ≥15%；③ 下邊距 5% → ≥12%；④ 新增「角色左右兩側各保留 ≥10% 空白」獨立條目；⑤ 截斷禁令保留並統一措詞，明確列舉頭頂、耳朵、手臂、腳。 |
 | v3.13.47 | 2026-03-26 | **fix(pro-loading): 修正 Loading 頂部色塊突兀 + App 全域香檳金問題**：Scaffold 背景色在 Pro Loading 時從 `#F5EDD8`（漸層底色）改回 `#FAFAF5`（漸層頂色）。根本原因：`_TopBar` 背景透明，顯示的是 Scaffold 背景色；改用底色後 TopBar 與漸層頂部有可見色差，狀態列後方也透出暖金色讓整個頁面偏金。改回頂色後 TopBar 區域與漸層無縫銜接，視覺一致。 |
 | v3.13.46 | 2026-03-26 | **feat(history-ui): 生成紀錄頁 UI/UX 全面升級**：① 背景色 white → `Color(0xFFF2F2F7)`（iOS 系統淺灰，增加層次感）；② 卡片改為白底圓角卡片（16px radius + shadow），圖片與資訊列分離；③ 移除圖片內的 dark gradient 文字 overlay（`stickerText` 已 baked-in 於 PNG，不重複顯示）；④ 圓形貼圖加 12px padding 讓圓形「浮」在白卡上，方形貼圖填滿圖片區頂部；⑤ 資訊列（風格名 + 日期 + 下載鍵）移至卡片底部外側，清晰可讀；⑥ `childAspectRatio` 1.0 → 0.82，為底部資訊列保留空間；⑦ Pro Loading Scaffold 底色 `#FAFAF5` → `#F5EDD8`（漸層底色），修正 iOS home indicator 區域白條問題。 |
