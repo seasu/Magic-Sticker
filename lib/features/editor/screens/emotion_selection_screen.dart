@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../app.dart';
 import '../../../core/models/emotion_category.dart';
@@ -504,7 +503,7 @@ class _ProCustomEmotionCard extends StatelessWidget {
                       children: [
                         Text(
                           'Pro 自訂情緒',
-                          style: GoogleFonts.notoSansTc(
+                          style: TextStyle(fontFamily: 'OpenHuninn',
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                             color: Colors.black45,

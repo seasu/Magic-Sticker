@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
 
@@ -96,7 +95,7 @@ class _PickImageButtonState extends State<PickImageButton>
             const SizedBox(width: 8),
             Text(
               widget.label,
-              style: GoogleFonts.notoSansTc(
+              style: TextStyle(fontFamily: 'OpenHuninn',
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
@@ -123,7 +122,7 @@ class _PickImageButtonState extends State<PickImageButton>
             const SizedBox(width: 8),
             Text(
               widget.label,
-              style: GoogleFonts.notoSansTc(
+              style: TextStyle(fontFamily: 'OpenHuninn',
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary,

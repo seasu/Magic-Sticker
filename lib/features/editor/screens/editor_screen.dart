@@ -11,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/services/firebase_service.dart';
@@ -560,6 +559,21 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                     ),
                   ),
 
+                  // ── 點擊提示（貼圖已生成時顯示）─────────────────────
+                  if (!isNotGeneratedSentinel(state.generatedImages[_currentIndex]) &&
+                      state.generatedImages[_currentIndex] != null &&
+                      state.generatedImages[_currentIndex]!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '點擊貼圖可編輯文字與樣式',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.black38,
+                        ),
+                      ),
+                    ),
+
                   // ── 底部按鈕 ──────────────────────────────────────────
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -641,7 +655,7 @@ class _TopBar extends ConsumerWidget {
                 const SizedBox(width: 3),
                 Text(
                   '$credits',
-                  style: GoogleFonts.notoSansTc(
+                  style: TextStyle(fontFamily: 'OpenHuninn',
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                     color: AppColors.textPrimary,
@@ -1317,7 +1331,7 @@ class _CompletionViewState extends State<_CompletionView>
             const SizedBox(height: 24),
             Text(
               hasKept ? '儲存了 ${widget.keptCount} 張貼圖 🎉' : '全部跳過',
-              style: GoogleFonts.notoSansTc(
+              style: TextStyle(fontFamily: 'OpenHuninn',
                 fontSize: 26,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
@@ -1327,7 +1341,7 @@ class _CompletionViewState extends State<_CompletionView>
             const SizedBox(height: 8),
             Text(
               hasKept ? '貼圖已存入相簿（370×320 px PNG）' : '試試重新生成？',
-              style: GoogleFonts.notoSansTc(
+              style: TextStyle(fontFamily: 'OpenHuninn',
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
                 color: AppColors.textSecondary,
@@ -1337,7 +1351,7 @@ class _CompletionViewState extends State<_CompletionView>
               const SizedBox(height: 6),
               Text(
                 '已儲存 LINE 貼圖，可至 LINE Creators Market 上架',
-                style: GoogleFonts.notoSansTc(
+                style: TextStyle(fontFamily: 'OpenHuninn',
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textSecondary.withValues(alpha: 0.6),
@@ -1372,7 +1386,7 @@ class _CompletionViewState extends State<_CompletionView>
                         const SizedBox(width: 8),
                         Text(
                           '重新生成',
-                          style: GoogleFonts.notoSansTc(
+                          style: TextStyle(fontFamily: 'OpenHuninn',
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
@@ -1389,7 +1403,7 @@ class _CompletionViewState extends State<_CompletionView>
               onPressed: widget.onFinish,
               child: Text(
                 '回到首頁',
-                style: GoogleFonts.notoSansTc(
+                style: TextStyle(fontFamily: 'OpenHuninn',
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textSecondary,

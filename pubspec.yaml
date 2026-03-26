@@ -1,7 +1,7 @@
 name: magic_sticker
 description: AI 一鍵產 LINE 貼圖 — Magic Sticker
 publish_to: 'none'
-version: 3.13.36+403
+version: 3.13.38+405
 
 environment:
   sdk: '>=3.7.0 <4.0.0'
@@ -36,7 +36,6 @@ dependencies:
   gap: ^3.0.1
   flutter_animate: ^4.5.0
   cached_network_image: ^3.4.1
-  google_fonts: ^6.2.1
 
   # Storage & export
   shared_preferences: ^2.3.2
@@ -81,7 +80,6 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
   assets:
-    - assets/
     - assets/images/
 
   # ── 本地繁體中文字型（全部 SIL OFL 授權）────────────────────────────────────

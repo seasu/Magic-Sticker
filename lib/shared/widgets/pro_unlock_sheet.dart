@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/services/firebase_service.dart';
 import '../../core/theme/app_colors.dart';
@@ -150,7 +149,7 @@ class _ProUnlockSheetState extends ConsumerState<ProUnlockSheet> {
                 children: [
                   Text(
                     'Pro 自訂輸入',
-                    style: GoogleFonts.notoSansTc(
+                    style: TextStyle(fontFamily: 'OpenHuninn',
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                       color: Colors.black87,
@@ -268,7 +267,7 @@ class _ProUnlockSheetState extends ConsumerState<ProUnlockSheet> {
                             const SizedBox(width: 8),
                             Text(
                               '立即解鎖 · NT\$49',
-                              style: GoogleFonts.notoSansTc(
+                              style: TextStyle(fontFamily: 'OpenHuninn',
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,

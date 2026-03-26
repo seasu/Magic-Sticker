@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/credit_history_entry.dart';
 import '../providers/credit_provider.dart';
@@ -17,7 +16,7 @@ class CreditHistoryScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(
           '點數紀錄',
-          style: GoogleFonts.notoSansTc(
+          style: TextStyle(fontFamily: 'OpenHuninn',
             fontWeight: FontWeight.w800,
             fontSize: 18,
             color: AppColors.textPrimary,
@@ -32,7 +31,7 @@ class CreditHistoryScreen extends ConsumerWidget {
         error: (e, _) => Center(
           child: Text(
             '載入失敗，請稍後再試',
-            style: GoogleFonts.notoSansTc(color: AppColors.textSecondary),
+            style: TextStyle(fontFamily: 'OpenHuninn',color: AppColors.textSecondary),
           ),
         ),
         data: (entries) {
@@ -46,7 +45,7 @@ class CreditHistoryScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Text(
                     '還沒有點數紀錄',
-                    style: GoogleFonts.notoSansTc(
+                    style: TextStyle(fontFamily: 'OpenHuninn',
                       fontSize: 16,
                       color: AppColors.textSecondary,
                     ),
@@ -118,7 +117,7 @@ class _HistoryTile extends StatelessWidget {
               children: [
                 Text(
                   entry.reasonLabel,
-                  style: GoogleFonts.notoSansTc(
+                  style: TextStyle(fontFamily: 'OpenHuninn',
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
@@ -127,7 +126,7 @@ class _HistoryTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   _formatDate(entry.createdAt),
-                  style: GoogleFonts.notoSansTc(
+                  style: TextStyle(fontFamily: 'OpenHuninn',
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
@@ -137,7 +136,7 @@ class _HistoryTile extends StatelessWidget {
           ),
           Text(
             amountText,
-            style: GoogleFonts.notoSansTc(
+            style: TextStyle(fontFamily: 'OpenHuninn',
               fontSize: 16,
               fontWeight: FontWeight.w900,
               color: amountColor,

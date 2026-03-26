@@ -2,7 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/services/auth_service.dart';
 import '../../core/theme/app_colors.dart';
@@ -66,7 +65,7 @@ class _GuestBadge extends StatelessWidget {
             const SizedBox(width: 3),
             Text(
               '$credits',
-              style: GoogleFonts.notoSansTc(
+              style: TextStyle(fontFamily: 'OpenHuninn',
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
                 color: AppColors.textSecondary,
@@ -130,7 +129,7 @@ class _LoggedInBadge extends ConsumerWidget {
             const SizedBox(width: 2),
             Text(
               '$credits',
-              style: GoogleFonts.notoSansTc(
+              style: TextStyle(fontFamily: 'OpenHuninn',
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
                 color: isLow ? AppColors.textSecondary : Colors.white,
@@ -289,7 +288,7 @@ class _UserAccountSheet extends ConsumerWidget {
           if (displayName != null && displayName.isNotEmpty)
             Text(
               displayName,
-              style: GoogleFonts.notoSansTc(
+              style: TextStyle(fontFamily: 'OpenHuninn',
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary,
@@ -300,7 +299,7 @@ class _UserAccountSheet extends ConsumerWidget {
           if (email.isNotEmpty)
             Text(
               email,
-              style: GoogleFonts.notoSansTc(
+              style: TextStyle(fontFamily: 'OpenHuninn',
                 fontSize: 13,
                 color: AppColors.textSecondary,
               ),
@@ -320,7 +319,7 @@ class _UserAccountSheet extends ConsumerWidget {
               children: [
                 Text(
                   '剩餘點數',
-                  style: GoogleFonts.notoSansTc(
+                  style: TextStyle(fontFamily: 'OpenHuninn',
                     fontSize: 14,
                     color: AppColors.textSecondary,
                   ),
@@ -336,7 +335,7 @@ class _UserAccountSheet extends ConsumerWidget {
                     const SizedBox(width: 4),
                     Text(
                       '$credits',
-                      style: GoogleFonts.notoSansTc(
+                      style: TextStyle(fontFamily: 'OpenHuninn',
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: AppColors.textPrimary,
@@ -370,7 +369,7 @@ class _UserAccountSheet extends ConsumerWidget {
                     const SizedBox(width: 8),
                     Text(
                       '購買點數',
-                      style: GoogleFonts.notoSansTc(
+                      style: TextStyle(fontFamily: 'OpenHuninn',
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
@@ -401,7 +400,7 @@ class _UserAccountSheet extends ConsumerWidget {
               ),
               child: Text(
                 '查看點數紀錄',
-                style: GoogleFonts.notoSansTc(
+                style: TextStyle(fontFamily: 'OpenHuninn',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
@@ -427,7 +426,7 @@ class _UserAccountSheet extends ConsumerWidget {
               ),
               child: Text(
                 '登出',
-                style: GoogleFonts.notoSansTc(
+                style: TextStyle(fontFamily: 'OpenHuninn',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppColors.nope,
