@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -148,7 +147,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               shaderCallback: (b) => AppColors.gradient.createShader(b),
               child: Text(
                 'Magic Sticker',
-                style: GoogleFonts.notoSansTc(
+                style: TextStyle(fontFamily: 'OpenHuninn',
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
                   color: Colors.white,
@@ -200,7 +199,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Text(
                       'Magic Sticker',
-                      style: GoogleFonts.notoSansTc(
+                      style: TextStyle(fontFamily: 'OpenHuninn',
                         fontSize: 38,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
@@ -212,7 +211,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 Text(
                   '一鍵生成專屬 LINE 貼圖',
-                  style: GoogleFonts.notoSansTc(
+                  style: TextStyle(fontFamily: 'OpenHuninn',
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: AppColors.textPrimary,
@@ -271,7 +270,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             Text(
               '步驟 1／3　選一張照片，開始製作專屬貼圖',
               textAlign: TextAlign.center,
-              style: GoogleFonts.notoSansTc(
+              style: TextStyle(fontFamily: 'OpenHuninn',
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textSecondary,
@@ -299,7 +298,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Text(
                     _version,
-                    style: GoogleFonts.notoSansTc(
+                    style: TextStyle(fontFamily: 'OpenHuninn',
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                       color: AppColors.textSecondary.withValues(alpha: 0.45),
@@ -360,7 +359,7 @@ class _StepChip extends StatelessWidget {
         children: [
           Text(
             number,
-            style: GoogleFonts.notoSansTc(
+            style: TextStyle(fontFamily: 'OpenHuninn',
               fontSize: 10,
               fontWeight: FontWeight.w700,
               color: AppColors.textSecondary,
@@ -370,7 +369,7 @@ class _StepChip extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: GoogleFonts.notoSansTc(
+            style: TextStyle(fontFamily: 'OpenHuninn',
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -532,7 +531,7 @@ class _MiniStickerCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             data.text,
-            style: GoogleFonts.notoSansTc(
+            style: TextStyle(fontFamily: 'OpenHuninn',
               fontSize: 13,
               fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,

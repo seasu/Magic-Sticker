@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/services/auth_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -223,7 +222,7 @@ class _InitialView extends StatelessWidget {
           shaderCallback: (b) => AppColors.gradient.createShader(b),
           child: Text(
             '登入獲得 5 點',
-            style: GoogleFonts.notoSansTc(
+            style: TextStyle(fontFamily: 'OpenHuninn',
               fontSize: 26,
               fontWeight: FontWeight.w900,
               color: Colors.white,
@@ -233,7 +232,7 @@ class _InitialView extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           '登入帳號可跨裝置同步點數\n首次登入獲得 5 點初始獎勵 🎉',
-          style: GoogleFonts.notoSansTc(
+          style: TextStyle(fontFamily: 'OpenHuninn',
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: AppColors.textSecondary,
@@ -272,7 +271,7 @@ class _InitialView extends StatelessWidget {
           onPressed: onGuest,
           child: Text(
             '繼續以訪客身份使用',
-            style: GoogleFonts.notoSansTc(
+            style: TextStyle(fontFamily: 'OpenHuninn',
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppColors.textSecondary,
@@ -390,7 +389,7 @@ class _SuccessView extends StatelessWidget {
         // ── 歡迎文字 ────────────────────────────────────────────────
         Text(
           '歡迎，$userName！',
-          style: GoogleFonts.notoSansTc(
+          style: TextStyle(fontFamily: 'OpenHuninn',
             fontSize: 22,
             fontWeight: FontWeight.w900,
             color: AppColors.textPrimary,
@@ -402,7 +401,7 @@ class _SuccessView extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           '已成功登入 Google 帳號',
-          style: GoogleFonts.notoSansTc(
+          style: TextStyle(fontFamily: 'OpenHuninn',
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: AppColors.textSecondary,
@@ -437,7 +436,7 @@ class _SuccessView extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     '+$bonusCredits 點 已入帳',
-                    style: GoogleFonts.notoSansTc(
+                    style: TextStyle(fontFamily: 'OpenHuninn',
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
@@ -476,7 +475,7 @@ class _SuccessView extends StatelessWidget {
             child: Center(
               child: Text(
                 '太棒了，開始使用 🚀',
-                style: GoogleFonts.notoSansTc(
+                style: TextStyle(fontFamily: 'OpenHuninn',
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,
@@ -531,7 +530,7 @@ class _ErrorView extends StatelessWidget {
         // ── 標題 ────────────────────────────────────────────────────
         Text(
           '哎呀，登入失敗了',
-          style: GoogleFonts.notoSansTc(
+          style: TextStyle(fontFamily: 'OpenHuninn',
             fontSize: 22,
             fontWeight: FontWeight.w900,
             color: AppColors.textPrimary,
@@ -540,7 +539,7 @@ class _ErrorView extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           message,
-          style: GoogleFonts.notoSansTc(
+          style: TextStyle(fontFamily: 'OpenHuninn',
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: AppColors.textSecondary,
@@ -579,7 +578,7 @@ class _ErrorView extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     '重試登入',
-                    style: GoogleFonts.notoSansTc(
+                    style: TextStyle(fontFamily: 'OpenHuninn',
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
@@ -595,7 +594,7 @@ class _ErrorView extends StatelessWidget {
           onPressed: onGuest,
           child: Text(
             '繼續以訪客身份使用',
-            style: GoogleFonts.notoSansTc(
+            style: TextStyle(fontFamily: 'OpenHuninn',
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppColors.textSecondary,
@@ -654,7 +653,7 @@ class _FeatureChip extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: GoogleFonts.notoSansTc(
+            style: TextStyle(fontFamily: 'OpenHuninn',
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -725,7 +724,7 @@ class _SocialLoginButton extends StatelessWidget {
                   const SizedBox(width: 10),
                   Text(
                     label,
-                    style: GoogleFonts.notoSansTc(
+                    style: TextStyle(fontFamily: 'OpenHuninn',
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: foregroundColor,

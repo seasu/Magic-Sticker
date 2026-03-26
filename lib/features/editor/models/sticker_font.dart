@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// 貼圖文字字型選項
 ///
@@ -20,11 +19,8 @@ class StickerFont {
         // jf 開放粉圓 2.1 — 台灣最流行 TC 圓體，親切溫暖
         '粉圓' => base.copyWith(fontFamily: 'OpenHuninn'),
 
-        // Noto Serif TC ExtraBold — Google 官方 TC 明體，典雅端正
-        // 動態下載，支援完整繁體字集（CNS11643）
-        '宋體' => GoogleFonts.notoSerifTc(
-            textStyle: base.copyWith(fontWeight: FontWeight.w800),
-          ),
+        // 芫荽（Iansui）楷書風 — 手寫感明體，支援完整繁體字集
+        '宋體' => base.copyWith(fontFamily: 'Iansui', fontWeight: FontWeight.w800),
 
         // Cubic 11 — 像素方塊圓角體，活潑俏皮感
         '活潑' => base.copyWith(fontFamily: 'Cubic11'),

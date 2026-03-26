@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -66,7 +65,7 @@ class _CreditShopSheetState extends ConsumerState<CreditShopSheet> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
           '購買失敗，請稍後再試',
-          style: GoogleFonts.notoSansTc(fontSize: 13),
+          style: TextStyle(fontFamily: 'OpenHuninn',fontSize: 13),
         ),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
@@ -117,7 +116,7 @@ class _CreditShopSheetState extends ConsumerState<CreditShopSheet> {
                 const SizedBox(height: 20),
                 Text(
                   '購買成功！',
-                  style: GoogleFonts.notoSansTc(
+                  style: TextStyle(fontFamily: 'OpenHuninn',
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
                     color: AppColors.textPrimary,
@@ -126,7 +125,7 @@ class _CreditShopSheetState extends ConsumerState<CreditShopSheet> {
                 const SizedBox(height: 8),
                 Text(
                   '已獲得 $creditsEarned 點 ⚡',
-                  style: GoogleFonts.notoSansTc(
+                  style: TextStyle(fontFamily: 'OpenHuninn',
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF34C759),
@@ -162,7 +161,7 @@ class _CreditShopSheetState extends ConsumerState<CreditShopSheet> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
             '商店連線失敗，請確認網路後重試',
-            style: GoogleFonts.notoSansTc(fontSize: 13),
+            style: TextStyle(fontFamily: 'OpenHuninn',fontSize: 13),
           ),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
@@ -177,7 +176,7 @@ class _CreditShopSheetState extends ConsumerState<CreditShopSheet> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
           '已提交恢復購買請求',
-          style: GoogleFonts.notoSansTc(fontSize: 13),
+          style: TextStyle(fontFamily: 'OpenHuninn',fontSize: 13),
         ),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
@@ -227,7 +226,7 @@ class _CreditShopSheetState extends ConsumerState<CreditShopSheet> {
                 const SizedBox(width: 8),
                 Text(
                   '購買點數包',
-                  style: GoogleFonts.notoSansTc(
+                  style: TextStyle(fontFamily: 'OpenHuninn',
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
                     color: AppColors.textPrimary,
@@ -268,7 +267,7 @@ class _CreditShopSheetState extends ConsumerState<CreditShopSheet> {
             onPressed: _onRestore,
             child: Text(
               '恢復購買',
-              style: GoogleFonts.notoSansTc(
+              style: TextStyle(fontFamily: 'OpenHuninn',
                 fontSize: 13,
                 color: AppColors.textSecondary,
               ),
@@ -329,7 +328,7 @@ class _PackCard extends StatelessWidget {
                       children: [
                         Text(
                           pack.label,
-                          style: GoogleFonts.notoSansTc(
+                          style: TextStyle(fontFamily: 'OpenHuninn',
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
                             color: AppColors.textPrimary,
@@ -338,7 +337,7 @@ class _PackCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           '上架 ${pack.sets} 組貼圖  ·  ${pack.credits} 點',
-                          style: GoogleFonts.notoSansTc(
+                          style: TextStyle(fontFamily: 'OpenHuninn',
                             fontSize: 12,
                             color: AppColors.textSecondary,
                           ),
@@ -346,7 +345,7 @@ class _PackCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           pack.perCreditLabel,
-                          style: GoogleFonts.notoSansTc(
+                          style: TextStyle(fontFamily: 'OpenHuninn',
                             fontSize: 11,
                             color: AppColors.textSecondary.withValues(alpha: 0.7),
                           ),
@@ -361,7 +360,7 @@ class _PackCard extends StatelessWidget {
                     children: [
                       Text(
                         priceText,
-                        style: GoogleFonts.notoSansTc(
+                        style: TextStyle(fontFamily: 'OpenHuninn',
                           fontSize: 17,
                           fontWeight: FontWeight.w900,
                           color: isPopular
@@ -396,7 +395,7 @@ class _PackCard extends StatelessWidget {
                                 )
                               : Text(
                                   '購買',
-                                  style: GoogleFonts.notoSansTc(
+                                  style: TextStyle(fontFamily: 'OpenHuninn',
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
                                     color: isPopular
@@ -428,7 +427,7 @@ class _PackCard extends StatelessWidget {
                   ),
                   child: Text(
                     pack.badge,
-                    style: GoogleFonts.notoSansTc(
+                    style: TextStyle(fontFamily: 'OpenHuninn',
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,

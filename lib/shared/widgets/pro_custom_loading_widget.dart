@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'cat_loading_widget.dart';
 
@@ -237,7 +236,7 @@ class _ProCustomLoadingWidgetState extends State<ProCustomLoadingWidget>
                       child: Text(
                         title,
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.notoSansTc(
+                        style: TextStyle(fontFamily: 'OpenHuninn',
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
                           color: _kProTitle,
@@ -277,7 +276,7 @@ class _ProCustomLoadingWidgetState extends State<ProCustomLoadingWidget>
                               child: Text(
                                 '「$desc」',
                                 textAlign: TextAlign.center,
-                                style: GoogleFonts.notoSansTc(
+                                style: TextStyle(fontFamily: 'OpenHuninn',
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
                                   color: _kProCardText,
@@ -289,7 +288,7 @@ class _ProCustomLoadingWidgetState extends State<ProCustomLoadingWidget>
                           // 時間估算
                           Text(
                             '正在創作 · 約 15~25 秒',
-                            style: GoogleFonts.notoSansTc(
+                            style: TextStyle(fontFamily: 'OpenHuninn',
                               fontSize: 13,
                               color: _kProSubtitle,
                             ),
@@ -302,7 +301,7 @@ class _ProCustomLoadingWidgetState extends State<ProCustomLoadingWidget>
                               opacity: hintAlpha,
                               child: Text(
                                 '點畫面丟球，陪貓咪玩 🐾',
-                                style: GoogleFonts.notoSansTc(
+                                style: TextStyle(fontFamily: 'OpenHuninn',
                                   fontSize: 12,
                                   color: _kProTitle.withValues(alpha: 0.80),
                                 ),

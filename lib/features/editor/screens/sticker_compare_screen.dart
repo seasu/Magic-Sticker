@@ -483,7 +483,7 @@ class _BrandFooter extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: Image.asset('assets/app_icon.png', width: 24, height: 24),
+            child: Image.asset('assets/images/app_icon_small.png', width: 24, height: 24),
           ),
           const SizedBox(width: 8),
           const Text(

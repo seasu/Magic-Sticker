@@ -1,7 +1,6 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/services/ads_service.dart';
 import '../../core/theme/app_colors.dart';
@@ -64,7 +63,7 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('廣告載入中，請稍後再試',
-                style: GoogleFonts.notoSansTc(fontSize: 13)),
+                style: TextStyle(fontFamily: 'OpenHuninn',fontSize: 13)),
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),
           ));
@@ -148,7 +147,7 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
             // ── 標題 ────────────────────────────────────────────────
             Text(
               '點數不足',
-              style: GoogleFonts.notoSansTc(
+              style: TextStyle(fontFamily: 'OpenHuninn',
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
                 color: AppColors.textPrimary,
@@ -157,7 +156,7 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
             const SizedBox(height: 8),
             Text(
               '生成 1 張貼圖需要 1 點\n透過下列方式免費取得：',
-              style: GoogleFonts.notoSansTc(
+              style: TextStyle(fontFamily: 'OpenHuninn',
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: AppColors.textSecondary,
@@ -187,7 +186,7 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     child: Text(
                       '或',
-                      style: GoogleFonts.notoSansTc(
+                      style: TextStyle(fontFamily: 'OpenHuninn',
                         fontSize: 12,
                         color: AppColors.textSecondary,
                       ),
@@ -238,7 +237,7 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
                   isLoading ? null : () => Navigator.of(context).pop(false),
               child: Text(
                 '取消',
-                style: GoogleFonts.notoSansTc(
+                style: TextStyle(fontFamily: 'OpenHuninn',
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textSecondary,
@@ -319,7 +318,7 @@ class _OptionButton extends StatelessWidget {
                         children: [
                           Text(
                             label,
-                            style: GoogleFonts.notoSansTc(
+                            style: TextStyle(fontFamily: 'OpenHuninn',
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
                               color: foregroundColor,
@@ -327,7 +326,7 @@ class _OptionButton extends StatelessWidget {
                           ),
                           Text(
                             sublabel,
-                            style: GoogleFonts.notoSansTc(
+                            style: TextStyle(fontFamily: 'OpenHuninn',
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                               color: foregroundColor.withValues(alpha: 0.65),

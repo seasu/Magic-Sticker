@@ -60,6 +60,16 @@ jobs:
       - name: Generate launcher icons
         run: dart run flutter_launcher_icons -f flutter_launcher_icons_android.yaml
 
+      - name: Generate small app icon for runtime (128×128)
+        run: |
+          pip install Pillow --quiet
+          python3 - <<'EOF'
+          from PIL import Image
+          img = Image.open('assets/app_icon.png').resize((128, 128), Image.LANCZOS)
+          img.save('assets/images/app_icon_small.png')
+          print(f"✅ app_icon_small.png created: {img.size}")
+          EOF
+
       - name: Write google-services.json
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON_ANDROID }}
@@ -94,12 +104,17 @@ jobs:
       - name: Build APK (release)
         run: |
           flutter build apk --release \
+            --split-per-abi \
+            --obfuscate \
+            --split-debug-info=build/symbols/android \
             --dart-define=STICKER_BG_TRANSPARENT=${{ vars.STICKER_BG_TRANSPARENT || 'true' }} \
             --dart-define=DOMAIN_BASE=${{ vars.DOMAIN_BASE || 'https://magic-sticker-8eaf4.web.app' }}
 
       - name: Build AAB (release)
         run: |
           flutter build appbundle --release \
+            --obfuscate \
+            --split-debug-info=build/symbols/android \
             --dart-define=STICKER_BG_TRANSPARENT=${{ vars.STICKER_BG_TRANSPARENT || 'true' }} \
             --dart-define=DOMAIN_BASE=${{ vars.DOMAIN_BASE || 'https://magic-sticker-8eaf4.web.app' }}
 
@@ -107,7 +122,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
@@ -120,6 +135,13 @@ jobs:
         with:
           name: android-mapping
           path: build/app/outputs/mapping/release/mapping.txt
+
+      - name: Upload Android debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-symbols
+          path: build/symbols/android/
+          retention-days: 90
 
   # ─── GitHub Release ───────────────────────────────────────────
   release:
@@ -145,7 +167,7 @@ jobs:
           path: dist/
 
       - name: Rename APK with version
-        run: mv dist/app-release.apk "dist/MagicSticker-${{ steps.ver.outputs.raw }}.apk"
+        run: mv dist/app-arm64-v8a-release.apk "dist/MagicSticker-${{ steps.ver.outputs.raw }}.apk"
 
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
@@ -373,7 +395,7 @@ jobs:
           appId: ${{ secrets.FIREBASE_APP_ID_ANDROID }}
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           groups: testers
-          file: app-release.apk
+          file: app-arm64-v8a-release.apk
           releaseNotes: |
             ${{ github.event.inputs.release_notes != '' && github.event.inputs.release_notes || github.ref_name }}
 
@@ -562,6 +584,16 @@ jobs:
       - name: Generate launcher icons
         run: dart run flutter_launcher_icons
 
+      - name: Generate small app icon for runtime (128×128)
+        run: |
+          pip install Pillow --quiet
+          python3 - <<'EOF'
+          from PIL import Image
+          img = Image.open('assets/app_icon.png').resize((128, 128), Image.LANCZOS)
+          img.save('assets/images/app_icon_small.png')
+          print(f"✅ app_icon_small.png created: {img.size}")
+          EOF
+
       - name: Write GoogleService-Info.plist
         env:
           GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
@@ -688,6 +720,8 @@ jobs:
         run: |
           flutter build ipa --release \
             --no-codesign \
+            --obfuscate \
+            --split-debug-info=build/symbols/ios \
             --dart-define=STICKER_BG_TRANSPARENT=${{ vars.STICKER_BG_TRANSPARENT || 'true' }} \
             --dart-define=DOMAIN_BASE=${{ vars.DOMAIN_BASE || 'https://magic-sticker-8eaf4.web.app' }}
 
@@ -705,6 +739,13 @@ jobs:
         with:
           name: ios-ipa
           path: build/ios/ipa/*.ipa
+
+      - name: Upload iOS debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-debug-symbols
+          path: build/symbols/ios/
+          retention-days: 90
 
       - name: Resolve IPA path
         id: ipa

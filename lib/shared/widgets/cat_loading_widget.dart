@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 // ─── 互動狀態機 ───────────────────────────────────────────────────────────────
 enum _CatState { idle, chasing, playing }
@@ -198,7 +197,7 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
                             Text(
                               widget.title!,
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.notoSansTc(
+                              style: TextStyle(fontFamily: 'OpenHuninn',
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
                                 color: const Color(0xFF21262E),
@@ -210,7 +209,7 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
                             Text(
                               widget.subtitle!,
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.notoSansTc(
+                              style: TextStyle(fontFamily: 'OpenHuninn',
                                 fontSize: 13,
                                 color: const Color(0xFFFF5864),
                               ),
@@ -277,7 +276,7 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
                             opacity: hintAlpha,
                             child: Text(
                               '點畫面丟球，陪貓咪玩 🐾',
-                              style: GoogleFonts.notoSansTc(
+                              style: TextStyle(fontFamily: 'OpenHuninn',
                                 fontSize: 12,
                                 color: const Color(0xFFFD297B),
                               ),

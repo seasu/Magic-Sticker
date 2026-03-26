@@ -7,7 +7,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../core/models/sticker_shape.dart';
@@ -251,7 +250,7 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
       appBar: AppBar(
         title: Text(
           '編輯貼圖',
-          style: GoogleFonts.notoSansTc(
+          style: TextStyle(fontFamily: 'OpenHuninn',
             fontWeight: FontWeight.w800,
             fontSize: 18,
             color: AppColors.textPrimary,
@@ -319,7 +318,7 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
             // ── 提示文字 ──────────────────────────────────────────────────
             Text(
               '點擊貼圖可調整文字、位置與字型',
-              style: GoogleFonts.notoSansTc(
+              style: TextStyle(fontFamily: 'OpenHuninn',
                 fontSize: 13,
                 color: AppColors.textSecondary,
               ),
@@ -344,7 +343,7 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
                       : const Icon(Icons.download_rounded),
                   label: Text(
                     _isExporting ? '儲存中...' : '儲存至相簿',
-                    style: GoogleFonts.notoSansTc(
+                    style: TextStyle(fontFamily: 'OpenHuninn',
                         fontWeight: FontWeight.w700, fontSize: 16),
                   ),
                   style: ElevatedButton.styleFrom(

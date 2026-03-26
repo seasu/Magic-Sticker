@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
@@ -15,14 +14,14 @@ class AppTheme {
           brightness: Brightness.light,
         ),
         scaffoldBackgroundColor: AppColors.background,
-        // Noto Sans TC：繁體中文 + Latin 全覆蓋，避免 Nunito 缺字回落亂字
-        textTheme: GoogleFonts.notoSansTcTextTheme(),
+        fontFamily: 'OpenHuninn',
         appBarTheme: AppBarTheme(
           backgroundColor: AppColors.background,
           elevation: 0,
           scrolledUnderElevation: 0,
           systemOverlayStyle: SystemUiOverlayStyle.dark,
-          titleTextStyle: GoogleFonts.notoSansTc(
+          titleTextStyle: const TextStyle(
+            fontFamily: 'OpenHuninn',
             fontSize: 18,
             fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
@@ -41,7 +40,8 @@ class AppTheme {
             borderRadius: BorderRadius.circular(12),
           ),
           backgroundColor: AppColors.textPrimary,
-          contentTextStyle: GoogleFonts.notoSansTc(
+          contentTextStyle: const TextStyle(
+            fontFamily: 'OpenHuninn',
             color: Colors.white,
             fontWeight: FontWeight.w600,
           ),
@@ -72,6 +72,6 @@ class AppTheme {
           seedColor: _brandSeed,
           brightness: Brightness.dark,
         ),
-        textTheme: GoogleFonts.notoSansTcTextTheme(ThemeData.dark().textTheme),
+        fontFamily: 'OpenHuninn',
       );
 }

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/models/sticker_style.dart';
 import '../../../core/services/firebase_service.dart';
@@ -24,7 +23,7 @@ class StickerHistoryScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(
           '生成紀錄',
-          style: GoogleFonts.notoSansTc(
+          style: TextStyle(fontFamily: 'OpenHuninn',
             fontWeight: FontWeight.w800,
             fontSize: 18,
             color: AppColors.textPrimary,
@@ -39,7 +38,7 @@ class StickerHistoryScreen extends ConsumerWidget {
         error: (_, __) => Center(
           child: Text(
             '載入失敗，請稍後再試',
-            style: GoogleFonts.notoSansTc(color: AppColors.textSecondary),
+            style: TextStyle(fontFamily: 'OpenHuninn',color: AppColors.textSecondary),
           ),
         ),
         data: (records) {
@@ -56,7 +55,7 @@ class StickerHistoryScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Text(
                     '還沒有生成過任何貼圖',
-                    style: GoogleFonts.notoSansTc(
+                    style: TextStyle(fontFamily: 'OpenHuninn',
                       fontSize: 16,
                       color: AppColors.textSecondary,
                     ),
@@ -64,7 +63,7 @@ class StickerHistoryScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   Text(
                     '消耗點數生成貼圖後，圖片將自動存檔於此',
-                    style: GoogleFonts.notoSansTc(
+                    style: TextStyle(fontFamily: 'OpenHuninn',
                       fontSize: 13,
                       color: AppColors.textSecondary,
                     ),
@@ -127,7 +126,7 @@ class _StickerCard extends StatelessWidget {
         SnackBar(
           content: Text(
             '已儲存至相簿',
-            style: GoogleFonts.notoSansTc(),
+            style: TextStyle(fontFamily: 'OpenHuninn',),
           ),
           duration: const Duration(seconds: 2),
         ),
@@ -139,7 +138,7 @@ class _StickerCard extends StatelessWidget {
         SnackBar(
           content: Text(
             '儲存失敗，請稍後再試',
-            style: GoogleFonts.notoSansTc(),
+            style: TextStyle(fontFamily: 'OpenHuninn',),
           ),
           backgroundColor: AppColors.nope,
           duration: const Duration(seconds: 2),
@@ -152,21 +151,21 @@ class _StickerCard extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('刪除紀錄', style: GoogleFonts.notoSansTc(fontWeight: FontWeight.w700)),
+        title: Text('刪除紀錄', style: TextStyle(fontFamily: 'OpenHuninn',fontWeight: FontWeight.w700)),
         content: Text(
           '確定要刪除這張貼圖的存檔嗎？此操作無法還原。',
-          style: GoogleFonts.notoSansTc(),
+          style: TextStyle(fontFamily: 'OpenHuninn',),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('取消', style: GoogleFonts.notoSansTc()),
+            child: Text('取消', style: TextStyle(fontFamily: 'OpenHuninn',)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(
               '刪除',
-              style: GoogleFonts.notoSansTc(color: AppColors.nope),
+              style: TextStyle(fontFamily: 'OpenHuninn',color: AppColors.nope),
             ),
           ),
         ],
@@ -232,7 +231,7 @@ class _StickerCard extends StatelessWidget {
                             record.stickerText,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.notoSansTc(
+                            style: TextStyle(fontFamily: 'OpenHuninn',
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
@@ -242,7 +241,7 @@ class _StickerCard extends StatelessWidget {
                             '${_styleName(record.styleIndex)} · ${_formatDate(record.createdAt)}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.notoSansTc(
+                            style: TextStyle(fontFamily: 'OpenHuninn',
                               fontSize: 10,
                               color: Colors.white70,
                             ),
