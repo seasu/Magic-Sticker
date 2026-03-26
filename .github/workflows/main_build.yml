@@ -60,9 +60,14 @@ jobs:
       - name: Generate launcher icons
         run: dart run flutter_launcher_icons -f flutter_launcher_icons_android.yaml
 
+      - name: Set up Python (for Pillow image resize)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Generate small app icon for runtime (128×128)
         run: |
-          python3 -m pip install Pillow --quiet
+          pip install Pillow --quiet
           python3 - <<'EOF'
           from PIL import Image
           img = Image.open('assets/app_icon.png').resize((128, 128), Image.LANCZOS)
@@ -584,9 +589,14 @@ jobs:
       - name: Generate launcher icons
         run: dart run flutter_launcher_icons
 
+      - name: Set up Python (for Pillow image resize)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Generate small app icon for runtime (128×128)
         run: |
-          python3 -m pip install Pillow --quiet
+          pip install Pillow --quiet
           python3 - <<'EOF'
           from PIL import Image
           img = Image.open('assets/app_icon.png').resize((128, 128), Image.LANCZOS)
