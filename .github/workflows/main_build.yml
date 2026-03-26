@@ -61,14 +61,7 @@ jobs:
         run: dart run flutter_launcher_icons -f flutter_launcher_icons_android.yaml
 
       - name: Generate small app icon for runtime (128×128)
-        run: |
-          pip install Pillow --quiet
-          python3 - <<'EOF'
-          from PIL import Image
-          img = Image.open('assets/app_icon.png').resize((128, 128), Image.LANCZOS)
-          img.save('assets/images/app_icon_small.png')
-          print(f"✅ app_icon_small.png created: {img.size}")
-          EOF
+        run: dart run tool/generate_small_app_icon.dart
 
       - name: Write google-services.json
         env:
@@ -585,14 +578,7 @@ jobs:
         run: dart run flutter_launcher_icons
 
       - name: Generate small app icon for runtime (128×128)
-        run: |
-          pip install Pillow --quiet
-          python3 - <<'EOF'
-          from PIL import Image
-          img = Image.open('assets/app_icon.png').resize((128, 128), Image.LANCZOS)
-          img.save('assets/images/app_icon_small.png')
-          print(f"✅ app_icon_small.png created: {img.size}")
-          EOF
+        run: dart run tool/generate_small_app_icon.dart
 
       - name: Write GoogleService-Info.plist
         env:
