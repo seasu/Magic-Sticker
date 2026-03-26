@@ -460,7 +460,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         state.generatedImages[_currentIndex] == null;
 
     return Scaffold(
-      backgroundColor: _kBg,
+      backgroundColor: (isLoading || isCurrentImageLoading)
+          ? (isCustomEmotionMode
+              ? const Color(0xFFFAFAF5)   // ProCustomLoadingWidget 漸層頂色
+              : CatColorScheme.pink.bg)   // CatLoadingWidget 背景色
+          : _kBg,
       body: SafeArea(
         child: Stack(
           children: [
