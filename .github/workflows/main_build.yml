@@ -70,10 +70,12 @@ jobs:
 
       - name: Generate small app icon for runtime (128×128)
         run: |
-          python3 -m pip install --quiet --upgrade pip
-          python3 -m pip install --quiet Pillow
-          python3 -c "from PIL import Image; print('✅ Pillow import ok')"
-          python3 - <<'EOF'
+          python3 -m venv .venv-icon
+          . .venv-icon/bin/activate
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet Pillow
+          python -c "from PIL import Image; print('✅ Pillow import ok (venv)')"
+          python - <<'EOF'
           from PIL import Image
           img = Image.open('assets/app_icon.png').resize((128, 128), Image.LANCZOS)
           img.save('assets/images/app_icon_small.png')
@@ -600,10 +602,12 @@ jobs:
 
       - name: Generate small app icon for runtime (128×128)
         run: |
-          python3 -m pip install --quiet --upgrade pip
-          python3 -m pip install --quiet Pillow
-          python3 -c "from PIL import Image; print('✅ Pillow import ok')"
-          python3 - <<'EOF'
+          python3 -m venv .venv-icon
+          . .venv-icon/bin/activate
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet Pillow
+          python -c "from PIL import Image; print('✅ Pillow import ok (venv)')"
+          python - <<'EOF'
           from PIL import Image
           img = Image.open('assets/app_icon.png').resize((128, 128), Image.LANCZOS)
           img.save('assets/images/app_icon_small.png')

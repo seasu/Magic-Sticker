@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.41+408 |
+| 目前版本 | v3.13.42+409 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.42 | 2026-03-26 | **fix(ci-python-pep668)**：修正 macOS runner 的 `externally-managed-environment`（PEP 668）導致 `python3 -m pip install Pillow` 失敗。`main_build.yml` 兩個 icon 生成步驟改為先建立並啟用虛擬環境（`python3 -m venv .venv-icon`），再於 venv 內安裝 Pillow 與執行 resize script，完全避免寫入系統 Python。 |
 | v3.13.41 | 2026-03-26 | **fix(ci-python-runtime-hardening)**：補強 GitHub Actions Python 執行環境一致性。Android / iOS build job 新增 `actions/setup-python@v5 (python-version: 3.11)`，並在產生 `app_icon_small.png` 前改為 `python3 -m pip install --upgrade pip`、`python3 -m pip install Pillow`，加上 `python3 -c "from PIL import Image"` 健康檢查，避免 runner 預設 Python/Pip 映像漂移造成 `No module named 'PIL'`。 |
 | v3.13.40 | 2026-03-26 | **fix(ci-python-pillow)**：修正 `main_build.yml` 在 GitHub Actions 可能出現 `ModuleNotFoundError: No module named 'PIL'` 的環境差異問題。將兩處「Generate small app icon for runtime」步驟由 `pip install Pillow --quiet` 改為 `python3 -m pip install Pillow --quiet`，確保安裝與執行使用同一個 Python interpreter，避免 `pip` / `python3` 指向不同環境造成 Pillow 安裝後仍無法 import。 |
 | v3.13.32 | 2026-03-25 | **refactor(iap/cf): 將 `fulfillCreditPurchase` 切割為 iOS / Android 專用 CF**：原 `fulfillCreditPurchase` 在同一函式內以 `if (platform === "ios")` 混合 App Store secrets（`appStoreKeyId/IssuerId/PrivateKey`）與 Play Store `serviceAccount`，職責不清且每個平台都持有對方不需要的憑證。重構：①提取共用的冪等入帳邏輯為 `_addCreditsToAccount(uid, productId, credits, idempotencyKey)` 私有函式；②建立 `fulfillCreditPurchaseIOS`（僅含 App Store secrets，無 serviceAccount）；③建立 `fulfillCreditPurchaseAndroid`（僅含 Play serviceAccount，無 App Store secrets）；④移除舊 `fulfillCreditPurchase`。Flutter `_fulfill()` 同步更新：移除 `platform` 欄位，改依 `Platform.isIOS` 呼叫對應 CF 名稱，payload 對 Android 不再傳送 `jwsTransaction`。 |
