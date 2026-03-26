@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.46+413 |
+| 目前版本 | v3.13.47+414 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.47 | 2026-03-26 | **fix(pro-loading): 修正 Loading 頂部色塊突兀 + App 全域香檳金問題**：Scaffold 背景色在 Pro Loading 時從 `#F5EDD8`（漸層底色）改回 `#FAFAF5`（漸層頂色）。根本原因：`_TopBar` 背景透明，顯示的是 Scaffold 背景色；改用底色後 TopBar 與漸層頂部有可見色差，狀態列後方也透出暖金色讓整個頁面偏金。改回頂色後 TopBar 區域與漸層無縫銜接，視覺一致。 |
 | v3.13.46 | 2026-03-26 | **feat(history-ui): 生成紀錄頁 UI/UX 全面升級**：① 背景色 white → `Color(0xFFF2F2F7)`（iOS 系統淺灰，增加層次感）；② 卡片改為白底圓角卡片（16px radius + shadow），圖片與資訊列分離；③ 移除圖片內的 dark gradient 文字 overlay（`stickerText` 已 baked-in 於 PNG，不重複顯示）；④ 圓形貼圖加 12px padding 讓圓形「浮」在白卡上，方形貼圖填滿圖片區頂部；⑤ 資訊列（風格名 + 日期 + 下載鍵）移至卡片底部外側，清晰可讀；⑥ `childAspectRatio` 1.0 → 0.82，為底部資訊列保留空間；⑦ Pro Loading Scaffold 底色 `#FAFAF5` → `#F5EDD8`（漸層底色），修正 iOS home indicator 區域白條問題。 |
 | v3.13.45 | 2026-03-26 | **fix(credits): 調降免費點數防止薅羊毛 + 補廣告 server-side 每日上限**：① `kLoginBonusCredits` 5→3（訪客升級獎勵，訪客 1+升級 3=4pt 仍足體驗 3 張）；② `kDailyAdLimit` 3→2（客戶端）；③ CF `rewardAdCredit` 新增 server-side 每日 2 次上限（`dailyRewardSummary/{dateKey}.adCount`，台灣時區），修補原本僅靠 SharedPreferences 可被繞過的漏洞；④ 移除 `sticker_compare_screen.dart` 的 unused import `sticker_canvas_frame.dart`（CI analyze 警告）。每日最大免費點數：4pt/日 → 3pt/日（廣告 2 + 分享 1）。 |
 | v3.13.44 | 2026-03-26 | **feat(pro-loading): 任何 Pro 功能啟用均顯示金香檳 Loading**：原判斷條件 `isCustomEmotionMode`（`customEmotionDesc != null`）改為 `isProMode`（`customStyleDesc != null \|\| customEmotionDesc != null \|\| enhancePersonFeatures`）。影響三處：Scaffold 背景色、初始分析 Loading widget、圖片生成遮罩 Loading widget。`isCustomEmotionMode` 保留，仍用於張數限制、EmotionHeader、CompletionView 等邏輯。 |
