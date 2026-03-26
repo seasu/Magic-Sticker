@@ -24,6 +24,14 @@ const _kFallbackSpecs = [
   {'categoryId': 'farewell', 'text': '再見囉！',  'emotion': 'waving goodbye with sunglasses',     'bgColor': 'baby blue #ADE8F4'},
 ];
 
+/// `generateStickerSpecs` Cloud Function 回傳結構
+class StickerSpecResult {
+  final List<StickerSpec> specs;
+  final String? personFeatures; // Pro 人物特徵強化：Gemini 分析的英文特徵描述
+
+  const StickerSpecResult({required this.specs, this.personFeatures});
+}
+
 class GeminiService {
   static final _fn = FirebaseFunctions.instanceFor(region: 'asia-east1');
 
@@ -32,12 +40,14 @@ class GeminiService {
   /// [categoryIds] 指定要生成的情感類別（不傳則使用預設 8 種）。
   /// [customStyleDesc] Pro 自訂風格描述（≤15字，傳入 CF 影響 Gemini prompt）。
   /// [customEmotionDesc] Pro 自訂情緒描述（≤15字，傳入 CF 影響 Gemini prompt）。
+  /// [enhancePersonFeatures] Pro 人物特徵強化，Gemini 分析人物外觀特徵注入圖片 prompt。
   /// Spec 預覽免費，不扣點。失敗時回傳 fallback specs。
-  Future<List<StickerSpec>> generateStickerSpecs(
+  Future<StickerSpecResult> generateStickerSpecs(
     Uint8List imageBytes, {
     List<String>? categoryIds,
     String? customStyleDesc,
     String? customEmotionDesc,
+    bool enhancePersonFeatures = false,
   }) async {
     FirebaseService.log('GeminiService.generateStickerSpecs: start');
 
@@ -68,6 +78,9 @@ class GeminiService {
         if (customEmotionDesc != null && customEmotionDesc.isNotEmpty) {
           payload['customEmotionDesc'] = customEmotionDesc;
         }
+        if (enhancePersonFeatures) {
+          payload['enhancePersonFeatures'] = true;
+        }
 
         final result = await callable.call<Map<String, dynamic>>(payload);
 
@@ -77,11 +90,15 @@ class GeminiService {
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
         final specs = rawSpecs.take(ids.length).map(StickerSpec.fromJson).toList();
+        final personFeatures = data['personFeatures'] as String?;
 
-        FirebaseService.log('GeminiService.generateStickerSpecs: done (${specs.length} specs)');
+        FirebaseService.log(
+          'GeminiService.generateStickerSpecs: done (${specs.length} specs)'
+          '${personFeatures != null ? " features=$personFeatures" : ""}',
+        );
         await FirebaseAnalytics.instance.logEvent(name: 'ai_specs_generated');
 
-        return specs;
+        return StickerSpecResult(specs: specs, personFeatures: personFeatures);
       } on FirebaseFunctionsException catch (e, stack) {
         if (e.code == 'unauthenticated' && attempt < maxRetries) {
           if (_isIamBlock(e)) {
@@ -93,7 +110,7 @@ class GeminiService {
               e, stack, reason: 'gemini_specs_fn_iam_blocked',
             );
             await FirebaseAnalytics.instance.logEvent(name: 'ai_specs_fallback');
-            return _buildFallback(ids);
+            return StickerSpecResult(specs: _buildFallback(ids));
           }
 
           FirebaseService.log(
@@ -113,17 +130,17 @@ class GeminiService {
           reason: _isIamBlock(e) ? 'gemini_specs_fn_iam_blocked' : 'gemini_specs_fn_failed',
         );
         await FirebaseAnalytics.instance.logEvent(name: 'ai_specs_fallback');
-        return _buildFallback(ids);
+        return StickerSpecResult(specs: _buildFallback(ids));
       } catch (e, stack) {
         await FirebaseService.recordError(
           e, stack, reason: 'gemini_specs_unexpected_failed',
         );
         await FirebaseAnalytics.instance.logEvent(name: 'ai_specs_fallback');
-        return _buildFallback(ids);
+        return StickerSpecResult(specs: _buildFallback(ids));
       }
     }
 
-    return _buildFallback(ids);
+    return StickerSpecResult(specs: _buildFallback(ids));
   }
 
   // ─── private ──────────────────────────────────────────────────────────────

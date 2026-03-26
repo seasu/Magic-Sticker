@@ -30,6 +30,7 @@ class StickerGenerationService {
     StickerShape shape = StickerShape.circle,
     String? customStyleDesc,
     String? customEmotionDesc,
+    String? personFeatures,
   }) async {
     final style =
         StickerStyle.values[styleIndex.clamp(0, StickerStyle.values.length - 1)];
@@ -57,6 +58,7 @@ class StickerGenerationService {
           spec, style, shape,
           customStyleDesc: customStyleDesc,
           customEmotionDesc: customEmotionDesc,
+          personFeatures: personFeatures,
         );
 
         if (kDebugMode) {
@@ -215,9 +217,10 @@ class StickerGenerationService {
     StickerShape shape, {
     String? customStyleDesc,
     String? customEmotionDesc,
+    String? personFeatures,
   }) {
     // Pro 自訂描述注入段落（最高優先級）
-    final proSection = _buildProSection(customStyleDesc, customEmotionDesc);
+    final proSection = _buildProSection(customStyleDesc, customEmotionDesc, personFeatures);
 
     if (shape == StickerShape.circle) {
       if (kStickerBgChromaKey) {
@@ -318,7 +321,11 @@ $proSection
   }
 
   /// Pro 自訂描述注入段落，空字串則回傳空字串（不影響非 Pro 流程）。
-  String _buildProSection(String? customStyleDesc, String? customEmotionDesc) {
+  String _buildProSection(
+    String? customStyleDesc,
+    String? customEmotionDesc,
+    String? personFeatures,
+  ) {
     final hints = <String>[];
     if (customStyleDesc != null && customStyleDesc.trim().isNotEmpty) {
       hints.add(
@@ -330,8 +337,21 @@ $proSection
         '🎭 情緒氛圍（最高優先，貫穿整張貼圖）：「${customEmotionDesc.trim()}」',
       );
     }
-    if (hints.isEmpty) return '';
-    return '\n【✨ Pro 使用者指定（最高優先級，務必遵循）】\n${hints.join("\n")}\n';
+
+    String featureSection = '';
+    if (personFeatures != null && personFeatures.trim().isNotEmpty) {
+      featureSection =
+          '\n【✨ 人物特徵強化（最高優先）】\n'
+          '請在 Q 版角色設計中強調以下真實人物特徵（以誇張手法呈現，但保留核心辨識度）：\n'
+          '${personFeatures.trim()}\n'
+          '目標：讓看到貼圖的人一眼認出角色就是照片中的同一個人。\n';
+    }
+
+    if (hints.isEmpty && featureSection.isEmpty) return '';
+    final proHints = hints.isEmpty
+        ? ''
+        : '\n【✨ Pro 使用者指定（最高優先級，務必遵循）】\n${hints.join("\n")}\n';
+    return proHints + featureSection;
   }
 
   /// 基礎設施層拒絕的特徵：錯誤碼 unauthenticated，且訊息不含 function 層自訂文字。

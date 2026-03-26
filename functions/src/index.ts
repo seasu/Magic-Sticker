@@ -119,11 +119,13 @@ export const generateStickerSpecs = onCall(
       categoryIds: rawCategoryIds,
       customStyleDesc,
       customEmotionDesc,
+      enhancePersonFeatures,
     } = request.data as {
       photoBase64: string;
       categoryIds?: string[];
       customStyleDesc?: string;
       customEmotionDesc?: string;
+      enhancePersonFeatures?: boolean;
     };
 
     if (!photoBase64) {
@@ -191,6 +193,17 @@ export const generateStickerSpecs = onCall(
       ? `\n\n✨ 使用者特別指定（優先遵循）：\n${proHints.join("\n")}\n`
       : "";
 
+    // Pro 人物特徵強化：要求 Gemini 分析並回傳人物特徵
+    const featureAnalysisSection = enhancePersonFeatures
+      ? `\n\n🔍 人物特徵分析任務（必須執行）：` +
+        `請仔細觀察照片中人物的外觀，分析以下特徵（英文描述，逗號分隔，簡潔）：` +
+        `眼睛大小與形狀、鼻型、嘴唇厚薄、臉型、髮型髮色、其他明顯特徵（耳朵、眉毛等）。` +
+        `\n\n⚠️ 回傳格式必須改為 JSON 物件（非陣列），包含兩個欄位：` +
+        `\n- "specs": 貼圖規格陣列（格式同上）` +
+        `\n- "personFeatures": 人物特徵英文字串（例如："small single-eyelid eyes, flat wide nose, full lips, round face, short wavy black hair"）` +
+        `\n\n範例格式：{"specs":[{"categoryId":"greeting",...}],"personFeatures":"large eyes, high nose, thin lips, oval face, long straight black hair"}\n`
+      : "";
+
     const body = {
       contents: [
         {
@@ -201,9 +214,13 @@ export const generateStickerSpecs = onCall(
                 "設計出最適合的貼圖情感組合。\n\n" +
                 "請仔細觀察照片中人物的外型、氣質、表情與場景，" +
                 "依照以下情感類別清單（按順序），為他們設計專屬的 LINE 貼圖規格。" +
-                proHintSection + "\n\n" +
+                proHintSection +
+                featureAnalysisSection + "\n\n" +
                 `情感類別清單：[${categoryList}]\n\n` +
-                "每個類別設計一張貼圖，輸出格式：僅回傳 JSON 陣列" +
+                "每個類別設計一張貼圖，" +
+                (enhancePersonFeatures
+                  ? "回傳格式：JSON 物件，包含 \"specs\" 陣列與 \"personFeatures\" 字串（見上方要求）。"
+                  : "輸出格式：僅回傳 JSON 陣列") +
                 `（${ids.length} 個物件，順序與清單一致），每個物件包含：\n` +
                 '- "categoryId": 對應情感類別 id（原樣回傳，不可修改）\n' +
                 '- "text": 繁體中文標語（2–6 字，口語化有趣，適合貼圖）\n' +
@@ -246,20 +263,38 @@ export const generateStickerSpecs = onCall(
       ?.map((p) => p.text ?? "")
       .join("") ?? "";
 
-    const match = text.match(/\[[\s\S]*\]/);
-    if (!match) {
-      throw new HttpsError("internal", "Invalid Gemini response format.");
+    if (enhancePersonFeatures) {
+      // 人物特徵強化模式：解析 {"specs":[...],"personFeatures":"..."}
+      const objMatch = text.match(/\{[\s\S]*\}/);
+      if (!objMatch) {
+        throw new HttpsError("internal", "Invalid Gemini response format (expected object).");
+      }
+      const parsed = JSON.parse(objMatch[0]) as {specs?: unknown[]; personFeatures?: string};
+      const specsArr = Array.isArray(parsed.specs) ? parsed.specs : [];
+      if (specsArr.length < ids.length) {
+        throw new HttpsError(
+          "internal",
+          `Gemini returned ${specsArr.length} specs, expected ${ids.length}.`
+        );
+      }
+      return {
+        specs: specsArr.slice(0, ids.length),
+        personFeatures: parsed.personFeatures ?? null,
+      };
+    } else {
+      const match = text.match(/\[[\s\S]*\]/);
+      if (!match) {
+        throw new HttpsError("internal", "Invalid Gemini response format.");
+      }
+      const specs = JSON.parse(match[0]) as unknown[];
+      if (!Array.isArray(specs) || specs.length < ids.length) {
+        throw new HttpsError(
+          "internal",
+          `Gemini returned ${specs.length} specs, expected ${ids.length}.`
+        );
+      }
+      return {specs: specs.slice(0, ids.length)};
     }
-
-    const specs = JSON.parse(match[0]) as unknown[];
-    if (!Array.isArray(specs) || specs.length < ids.length) {
-      throw new HttpsError(
-        "internal",
-        `Gemini returned ${specs.length} specs, expected ${ids.length}.`
-      );
-    }
-
-    return {specs: specs.slice(0, ids.length)};
   }
 );
 

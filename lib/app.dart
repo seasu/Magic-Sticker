@@ -50,9 +50,10 @@ class EditorArgs {
   final String imagePath;
   final int styleIndex;
   final StickerShape stickerShape;
-  final List<String>? categoryIds;    // 由 EmotionSelectionScreen 傳入
-  final String? customStyleDesc;      // Pro 自訂風格描述（≤15字）
-  final String? customEmotionDesc;    // Pro 自訂情緒描述（≤15字）
+  final List<String>? categoryIds;       // 由 EmotionSelectionScreen 傳入
+  final String? customStyleDesc;         // Pro 自訂風格描述（≤15字）
+  final String? customEmotionDesc;       // Pro 自訂情緒描述（≤15字）
+  final bool enhancePersonFeatures;      // Pro 人物特徵強化
 
   const EditorArgs({
     required this.imagePath,
@@ -61,6 +62,7 @@ class EditorArgs {
     this.categoryIds,
     this.customStyleDesc,
     this.customEmotionDesc,
+    this.enhancePersonFeatures = false,
   });
 }
 
@@ -101,6 +103,7 @@ final router = GoRouter(
           categoryIds: args.categoryIds,
           customStyleDesc: args.customStyleDesc,
           customEmotionDesc: args.customEmotionDesc,
+          enhancePersonFeatures: args.enhancePersonFeatures,
         );
       },
     ),

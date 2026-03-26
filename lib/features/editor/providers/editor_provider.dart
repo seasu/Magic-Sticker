@@ -34,6 +34,10 @@ class _EditorFamilyNotifier
   String? _customStyleDesc;
   String? _customEmotionDesc;
 
+  /// Pro 人物特徵強化
+  bool _enhancePersonFeatures = false;
+  String? _personFeatures; // Gemini 分析回傳的特徵描述（英文）
+
   @override
   EditorState build(String arg) => EditorState(originalImagePath: arg);
 
@@ -45,15 +49,18 @@ class _EditorFamilyNotifier
   /// [initialCategoryIds] 由 EmotionSelectionScreen 傳入；null 則沿用 state 預設
   /// [customStyleDesc] Pro 自訂風格描述（≤15字）
   /// [customEmotionDesc] Pro 自訂情緒描述（≤15字）
+  /// [enhancePersonFeatures] Pro 人物特徵強化
   Future<void> initialize({
     int defaultStyleIndex = 0,
     StickerShape stickerShape = StickerShape.circle,
     List<String>? initialCategoryIds,
     String? customStyleDesc,
     String? customEmotionDesc,
+    bool enhancePersonFeatures = false,
   }) async {
     _customStyleDesc = customStyleDesc;
     _customEmotionDesc = customEmotionDesc;
+    _enhancePersonFeatures = enhancePersonFeatures;
     final categoryIds = initialCategoryIds != null
         ? List<String>.from(initialCategoryIds)
         : state.selectedCategoryIds;
@@ -105,12 +112,15 @@ class _EditorFamilyNotifier
           await ImageProcessor.resizeForNative(File(state.originalImagePath));
       _cachedResized = resized;
 
-      final specs = await GeminiService().generateStickerSpecs(
+      final result = await GeminiService().generateStickerSpecs(
         resized,
         categoryIds: state.selectedCategoryIds,
         customStyleDesc: _customStyleDesc,
         customEmotionDesc: _customEmotionDesc,
+        enhancePersonFeatures: _enhancePersonFeatures,
       );
+      _personFeatures = result.personFeatures;
+      final specs = result.specs;
       // 客製情緒模式：只保留第一個 spec
       _specs = _customEmotionDesc != null ? specs.sublist(0, specs.isNotEmpty ? 1 : 0) : specs;
 
@@ -138,16 +148,16 @@ class _EditorFamilyNotifier
       final resized = _cachedResized ??
           await ImageProcessor.resizeForNative(File(state.originalImagePath));
       _cachedResized = resized;
-      final specs = await GeminiService().generateStickerSpecs(
+      final result = await GeminiService().generateStickerSpecs(
         resized,
         categoryIds: state.selectedCategoryIds,
       );
-      _specs = specs;
-      final newCount = specs.length;
-      final texts = specs.map((s) => s.text).toList();
+      _specs = result.specs;
+      final newCount = result.specs.length;
+      final texts = result.specs.map((s) => s.text).toList();
       state = state.copyWith(
         stickerTexts: texts,
-        categoryIds: specs.map((s) => s.categoryId).toList(),
+        categoryIds: result.specs.map((s) => s.categoryId).toList(),
         generatedImages: List.filled(newCount, _kNotGeneratedSentinel),
         imageErrors: List.filled(newCount, null),
         colorSchemeIndices: List.generate(newCount, (i) => i % 8),
@@ -196,13 +206,13 @@ class _EditorFamilyNotifier
       final resized = _cachedResized ??
           await ImageProcessor.resizeForNative(File(state.originalImagePath));
       _cachedResized = resized;
-      final specs = await GeminiService().generateStickerSpecs(resized, categoryIds: ids);
-      _specs = specs;
-      final newCount = specs.length;
-      final texts = specs.map((s) => s.text).toList();
+      final result = await GeminiService().generateStickerSpecs(resized, categoryIds: ids);
+      _specs = result.specs;
+      final newCount = result.specs.length;
+      final texts = result.specs.map((s) => s.text).toList();
       state = state.copyWith(
         stickerTexts: texts,
-        categoryIds: specs.map((s) => s.categoryId).toList(),
+        categoryIds: result.specs.map((s) => s.categoryId).toList(),
         generatedImages: List.filled(newCount, _kNotGeneratedSentinel),
         imageErrors: List.filled(newCount, null),
         colorSchemeIndices: List.generate(newCount, (i) => i % 8),
@@ -263,6 +273,7 @@ class _EditorFamilyNotifier
         shape: state.stickerShape,
         customStyleDesc: _customStyleDesc,
         customEmotionDesc: _customEmotionDesc,
+        personFeatures: _personFeatures,
       );
 
       // 更新 credit（Cloud Function 回傳剩餘點數）
