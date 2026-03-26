@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.41+408 |
+| 目前版本 | v3.13.42+409 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.42 | 2026-03-26 | **feat(compare-ui): 分享比對圖 UI/UX 質感升級**：① 原圖區背景 `Colors.grey.shade900` → `Color(0xFF1C1C1E)`（更深沉的純黑）；② 貼圖區背景 `CheckerboardPainter` → `Color(0xFFF8F8F8)` 純白，去除視覺雜訊；③ 分隔把手 Pill 改為品牌漸層（56×5，radius 3，粉紅光暈 `blurRadius: 8`）；④ `_Chip` 新增 `gradient` 參數：「原圖」採毛玻璃（`black.45` + white border 0.25 alpha）；「貼圖」採品牌漸層背景；⑤ Footer 高度 48 → 56px；⑥ CTA 文案 `'AI 一鍵生成 LINE 貼圖  免費下載 →'` → `'AI 生成 LINE 貼圖 · 免費下載 →'`（加 `letterSpacing: 0.2`）。 |
 | v3.13.40 | 2026-03-26 | **fix(ci-python-pillow)**：修正 `main_build.yml` 在 GitHub Actions 可能出現 `ModuleNotFoundError: No module named 'PIL'` 的環境差異問題。將兩處「Generate small app icon for runtime」步驟由 `pip install Pillow --quiet` 改為 `python3 -m pip install Pillow --quiet`，確保安裝與執行使用同一個 Python interpreter，避免 `pip` / `python3` 指向不同環境造成 Pillow 安裝後仍無法 import。 |
 | v3.13.32 | 2026-03-25 | **refactor(iap/cf): 將 `fulfillCreditPurchase` 切割為 iOS / Android 專用 CF**：原 `fulfillCreditPurchase` 在同一函式內以 `if (platform === "ios")` 混合 App Store secrets（`appStoreKeyId/IssuerId/PrivateKey`）與 Play Store `serviceAccount`，職責不清且每個平台都持有對方不需要的憑證。重構：①提取共用的冪等入帳邏輯為 `_addCreditsToAccount(uid, productId, credits, idempotencyKey)` 私有函式；②建立 `fulfillCreditPurchaseIOS`（僅含 App Store secrets，無 serviceAccount）；③建立 `fulfillCreditPurchaseAndroid`（僅含 Play serviceAccount，無 App Store secrets）；④移除舊 `fulfillCreditPurchase`。Flutter `_fulfill()` 同步更新：移除 `platform` 欄位，改依 `Platform.isIOS` 呼叫對應 CF 名稱，payload 對 Android 不再傳送 `jwsTransaction`。 |
 | v3.13.31 | 2026-03-26 | **fix(ios/iap): iOS/Android completePurchase 邏輯完全切割**：v3.13.30 以 `Platform.isIOS \|\| pendingCompletePurchase` 混合條件處理兩個平台，不夠清晰。重構為 `if (Platform.isIOS) { ... } else { if (pendingCompletePurchase) { ... } }`：iOS 路徑永遠呼叫 `completePurchase()`（SK2 `Transaction.finish()` 必須，restored 交易 `pendingCompletePurchase` 固定為 `false`）；Android 路徑維持原本語義（`pendingCompletePurchase=true` 才呼叫，`false` = 已 acknowledge）。`_fulfill()` 與 `_fulfillPro()` 均已同步。 |
