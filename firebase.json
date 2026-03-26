@@ -25,6 +25,14 @@
     ],
     "rewrites": [
       {
+        "source": "/privacy",
+        "destination": "/privacy.html"
+      },
+      {
+        "source": "/download",
+        "destination": "/download.html"
+      },
+      {
         "source": "/c/**",
         "destination": "/c/index.html"
       }
@@ -36,6 +44,12 @@
           { "key": "X-Content-Type-Options", "value": "nosniff" },
           { "key": "X-Frame-Options", "value": "DENY" },
           { "key": "Cache-Control", "value": "public, max-age=3600" }
+        ]
+      },
+      {
+        "source": "**/*.html",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=300" }
         ]
       },
       {

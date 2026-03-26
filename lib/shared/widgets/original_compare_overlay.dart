@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/constants/app_urls.dart';
 import '../../core/models/sticker_shape.dart';
 import '../../core/theme/app_colors.dart';
 
@@ -155,7 +156,7 @@ class _OriginalCompareOverlayState extends State<OriginalCompareOverlay> {
       await tmpFile.writeAsBytes(bytes);
       // 自動複製下載連結到剪貼簿（LINE 分享圖片時文字會被忽略，剪貼簿為補充）
       await Clipboard.setData(
-        const ClipboardData(text: 'https://magicsticker.app/download'),
+        const ClipboardData(text: AppUrls.download),
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

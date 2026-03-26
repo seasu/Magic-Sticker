@@ -94,12 +94,14 @@ jobs:
       - name: Build APK (release)
         run: |
           flutter build apk --release \
-            --dart-define=STICKER_BG_TRANSPARENT=${{ vars.STICKER_BG_TRANSPARENT || 'true' }}
+            --dart-define=STICKER_BG_TRANSPARENT=${{ vars.STICKER_BG_TRANSPARENT || 'true' }} \
+            --dart-define=DOMAIN_BASE=${{ vars.DOMAIN_BASE || 'https://magic-sticker-8eaf4.web.app' }}
 
       - name: Build AAB (release)
         run: |
           flutter build appbundle --release \
-            --dart-define=STICKER_BG_TRANSPARENT=${{ vars.STICKER_BG_TRANSPARENT || 'true' }}
+            --dart-define=STICKER_BG_TRANSPARENT=${{ vars.STICKER_BG_TRANSPARENT || 'true' }} \
+            --dart-define=DOMAIN_BASE=${{ vars.DOMAIN_BASE || 'https://magic-sticker-8eaf4.web.app' }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -185,6 +187,7 @@ jobs:
           cat > functions/.env <<EOF
           GEMINI_TEXT_MODEL=${{ vars.GEMINI_TEXT_MODEL || 'gemini-2.0-flash-lite' }}
           GEMINI_IMAGE_MODEL=${{ vars.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image' }}
+          DOMAIN_BASE=${{ vars.DOMAIN_BASE || 'https://magic-sticker-8eaf4.web.app' }}
           EOF
           sed -i 's/^[[:space:]]*//' functions/.env
           echo "Generated functions/.env:"
@@ -685,7 +688,8 @@ jobs:
         run: |
           flutter build ipa --release \
             --no-codesign \
-            --dart-define=STICKER_BG_TRANSPARENT=${{ vars.STICKER_BG_TRANSPARENT || 'true' }}
+            --dart-define=STICKER_BG_TRANSPARENT=${{ vars.STICKER_BG_TRANSPARENT || 'true' }} \
+            --dart-define=DOMAIN_BASE=${{ vars.DOMAIN_BASE || 'https://magic-sticker-8eaf4.web.app' }}
 
       - name: Export IPA with signing
         run: |
