@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,6 +18,7 @@ import 'features/home/screens/style_selection_screen.dart';
 import 'features/editor/models/sticker_compare_args.dart';
 import 'features/editor/screens/sticker_compare_screen.dart';
 import 'features/sticker_history/models/sticker_record.dart';
+import 'features/billing/providers/credit_provider.dart';
 import 'features/sticker_history/screens/sticker_history_screen.dart';
 import 'features/sticker_history/screens/sticker_replay_screen.dart';
 
@@ -151,27 +153,38 @@ final router = GoRouter(
   ],
 );
 
-class MagicStickerApp extends StatefulWidget {
+class MagicStickerApp extends ConsumerStatefulWidget {
   const MagicStickerApp({super.key});
 
   @override
-  State<MagicStickerApp> createState() => _MagicStickerAppState();
+  ConsumerState<MagicStickerApp> createState() => _MagicStickerAppState();
 }
 
-class _MagicStickerAppState extends State<MagicStickerApp> {
+class _MagicStickerAppState extends ConsumerState<MagicStickerApp>
+    with WidgetsBindingObserver {
   final _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSub;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initDeepLinks();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _linkSub?.cancel();
     super.dispose();
+  }
+
+  // App 從背景喚醒時，重新拉取 Firestore 點數，確保多設備共用同一帳號時數值同步
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(creditProvider.notifier).reload();
+    }
   }
 
   Future<void> _initDeepLinks() async {
