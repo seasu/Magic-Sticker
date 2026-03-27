@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.51+418 |
+| 目前版本 | v3.13.52+419 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.52 | 2026-03-27 | **feat(web): Firebase Hosting 靜態頁面品牌一致性 + Design Guide**：① 新建 `public/css/brand.css`，集中管理品牌色（`--brand-start: #FD297B`、`--brand-gradient`）、圓角 Token（`--radius-card/glass/btn/pill`）、全頁漸層版型、Glassmorphism 卡片、主次按鈕元件；② `download.html` 與 `c/index.html` 引入 brand.css，移除重複 inline CSS，僅保留頁面特有樣式；③ `privacy.html` 引入 brand.css 取得 CSS 變數，原紫色系全面換為品牌粉色（header 漸層、h2 色、th 背景色、.tag、.highlight、.contact-box）；④ 新建 `docs/DESIGN_GUIDE.md`：整個專案（Flutter App + Firebase Hosting）設計規範唯一來源，包含品牌色彩表（Web CSS var + Flutter Color 雙欄）、漸層規格、字型層級、間距圓角、元件規範（按鈕/卡片/Pill Badge/Highlight）、頁面版型說明、Do/Don't 對照表。 |
 | v3.13.51 | 2026-03-27 | **fix(analyze): 修正 CI dart analyze 3 個 issue**：① `credit_history_screen.dart` 移除 `const Icon(icon, ...)` 中不合法的 `const`（`icon` 為 runtime 變數）；② 移除未使用的 `isRefund` 變數；③ `cat_loading_widget.dart` 移除 refactoring 後不再讀取的 `_hasInteracted` 欄位及其賦值（提示顯示改由 `_hasBeenFed` 控制）。 |
 | v3.13.50 | 2026-03-27 | **feat(loading): Loading 統一元件 + 飢餓互動彩蛋**：① 重構兩個 Loading widget 為單一 `CatLoadingWidget`（新增 `colors`、`backgroundGradient`、`systemUiStyle`、`descCard`、`catPositionRatio` 參數，向後相容）；② `ProCustomLoadingWidget` 改為薄包裝，所有動畫邏輯移入共用元件；③ 新增飢餓彩蛋：等待 9 秒後貓咪頭頂出現「肚子餓了... 🍚」對話框，底部提示切換為「長按上方文字餵貓咪 🍚」，標題文字微脈動提示；長按後觸發飼料粒子動畫（6 顆弧形落下）+ 貓咪旋轉歡慶（2.5 圈 1.2s）；飢餓期間停用丟球互動；彩蛋一次性，fed 後不再觸發。 |
 | v3.13.49 | 2026-03-26 | **feat(credit-history-ui): 點數紀錄頁 UI/UX 全面升級**：① 背景色 white → `Color(0xFFF2F2F7)`（與生成紀錄頁一致）；② AppBar `scrolledUnderElevation: 0`；③ 列表結構從 Divider List 改為白底圓角卡片（radius 14 + shadow）；④ Icon container 40 → 48px，`earned` 綠底、`spent` 品牌漸層背景白色 icon、`refund` 暖橙底；⑤ 金額顯示改為圓角 Pill Badge（正數綠底、負數紅底）；⑥ 新增日期分組 Section Header（今天 / 昨天 / MM/DD）；⑦ Empty state 補充說明文字，圖示 64 → 72px。 |
