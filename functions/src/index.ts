@@ -234,8 +234,9 @@ export const generateStickerSpecs = onCall(
                 '- "text": 繁體中文標語（2–6 字，口語化有趣，適合貼圖）\n' +
                 '- "emotion": 英文情感描述（用於繪製卡通表情，參考 promptHint 但可自由發揮）\n' +
                 '- "bgColor": 背景色描述（英文色名 + hex，例如 "coral red #FF6B6B"）\n\n' +
-                "範例格式（不要照抄，請根據照片創作）：\n" +
-                '[{"categoryId":"greeting","text":"哈囉！","emotion":"cheerfully waving hello","bgColor":"warm peach #F4A261"}]',
+                "⚠️ 重要：每個物件的 emotion 必須完整反映該 categoryId 的情緒特徵（參考 promptHint），不可將不同情緒混用。\n\n" +
+                "範例格式（不要照抄，請根據照片與 promptHint 創作）：\n" +
+                '[{"categoryId":"greeting","text":"哈囉！","emotion":"cheerfully waving hello, big smile","bgColor":"warm peach #F4A261"},{"categoryId":"worried","text":"好擔心","emotion":"anxious sweating, furrowed brows, trembling nervously","bgColor":"pale yellow #FFFACD"},{"categoryId":"angry","text":"哼！","emotion":"angry frowning with flames, clenched fists","bgColor":"fiery red #FF6B6B"}]',
             },
             {
               inlineData: {
@@ -271,6 +272,23 @@ export const generateStickerSpecs = onCall(
       ?.map((p) => p.text ?? "")
       .join("") ?? "";
 
+    // 確保每個 spec 的 categoryId 與請求的 ids[i] 一致；
+    // 若不一致（Gemini 亂序或複製範例 categoryId），強制修正並補回 CATEGORY_HINTS emotion。
+    const normalizeSpecs = (arr: unknown[]): unknown[] =>
+      arr.slice(0, ids.length).map((item, i) => {
+        const spec = item as Record<string, unknown>;
+        const expectedId = ids[i];
+        if (spec["categoryId"] !== expectedId) {
+          log(`normalizeSpecs: fixing spec[${i}] categoryId="${spec["categoryId"]}" → "${expectedId}"`);
+          return {
+            ...spec,
+            categoryId: expectedId,
+            emotion: CATEGORY_HINTS[expectedId] ?? expectedId,
+          };
+        }
+        return spec;
+      });
+
     if (enhancePersonFeatures) {
       // 人物特徵強化模式：解析 {"specs":[...],"personFeatures":"..."}
       const objMatch = text.match(/\{[\s\S]*\}/);
@@ -286,7 +304,7 @@ export const generateStickerSpecs = onCall(
         );
       }
       return {
-        specs: specsArr.slice(0, ids.length),
+        specs: normalizeSpecs(specsArr),
         personFeatures: parsed.personFeatures ?? null,
       };
     } else {
@@ -301,7 +319,7 @@ export const generateStickerSpecs = onCall(
           `Gemini returned ${specs.length} specs, expected ${ids.length}.`
         );
       }
-      return {specs: specs.slice(0, ids.length)};
+      return {specs: normalizeSpecs(specs)};
     }
   }
 );
