@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -304,7 +305,56 @@ class _UserAccountSheet extends ConsumerWidget {
                 color: AppColors.textSecondary,
               ),
             ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
+          // ── UID（debug 用，點擊複製） ──────────────────────────────
+          if (user?.uid != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: GestureDetector(
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: user!.uid));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('UID 已複製'),
+                      duration: const Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                  );
+                },
+                child: Row(
+                  children: [
+                    Text(
+                      'uid  ',
+                      style: TextStyle(
+                        fontFamily: 'OpenHuninn',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        user!.uid,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.copy_rounded,
+                        size: 14,
+                        color: AppColors.textSecondary.withValues(alpha: 0.6)),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 16),
           // ── 點數顯示 ──────────────────────────────────────────────
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 24),
