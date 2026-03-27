@@ -102,6 +102,15 @@ jobs:
             echo "✅ Release keystore configured"
           fi
 
+      # Play Store 要求每次上傳的 versionCode 必須嚴格遞增。
+      # 以 github.run_number 覆蓋 pubspec.yaml 的 +build 部分，
+      # 確保同一 versionName 可多次 CI 構建而不重複（與 iOS CFBundleVersion 邏輯相同）。
+      - name: Set versionCode = run_number
+        run: |
+          VER_NAME=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          sed -i "s/^version:.*/version: ${VER_NAME}+${{ github.run_number }}/" pubspec.yaml
+          echo "✅ pubspec version: $(grep '^version:' pubspec.yaml | awk '{print $2}')"
+
       - name: Build APK (release)
         run: |
           flutter build apk --release \
@@ -496,7 +505,7 @@ jobs:
           packageName: com.magicsticker.magic_sticker
           releaseFiles: dist/app-release.aab
           track: internal
-          status: draft
+          status: completed
           mappingFile: mapping/mapping.txt
 
   # ─── iOS Build & TestFlight（與 android-build 平行執行）─────────
