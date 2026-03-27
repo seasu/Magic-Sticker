@@ -307,12 +307,12 @@ class _UserAccountSheet extends ConsumerWidget {
             ),
           const SizedBox(height: 12),
           // ── UID（debug 用，點擊複製） ──────────────────────────────
-          if (user?.uid != null)
+          if (user?.uid case final String uid)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: GestureDetector(
                 onTap: () {
-                  Clipboard.setData(ClipboardData(text: user.uid));
+                  Clipboard.setData(ClipboardData(text: uid));
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: const Text('UID 已複製'),
@@ -337,7 +337,7 @@ class _UserAccountSheet extends ConsumerWidget {
                     ),
                     Expanded(
                       child: Text(
-                        user.uid,
+                        uid,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: 'monospace',
