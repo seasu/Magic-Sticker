@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.54+421 |
+| 目前版本 | v3.13.56+423 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,8 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.56 | 2026-03-27 | **fix(loading): 修正 iOS Loading 畫面底部 home indicator 白條**：`editor_screen.dart` Scaffold 加入 `extendBody: isLoading \|\| isCurrentImageLoading`，同時 `SafeArea` 加入 `bottom: !(isLoading \|\| isCurrentImageLoading)`；loading 狀態下 body 延伸至 home indicator 底部、SafeArea 不加底部 padding，使 `CatLoadingWidget`／`ProCustomLoadingWidget` 的漸層背景完整填滿至螢幕物理底部，消除白條。非 loading 狀態仍維持原本 `extendBody: false` + `SafeArea(bottom: true)` 行為，`_TopBar` 背景色不受影響。 |
+| v3.13.55 | 2026-03-27 | **fix(prompt): 強化禁止文字指令，防止服裝文字亂碼**：4 種 prompt template（圓形 Chroma Key／彩色、方形 Chroma Key／彩色）的文字禁令統一強化：① 舊指令未禁中文字，模型會嘗試複製參考照片服裝上的漢字導致亂碼；② 新指令明確列舉「中文字、英文字母、數字、符號、Logo、品牌名稱」；③ 新增替代指示「若服裝或配件上有文字圖案，請以純色或簡單幾何紋樣取代，切勿照實重現」，讓模型有明確處理方式，不再嘗試渲染無法正確呈現的文字。 |
 | v3.13.54 | 2026-03-27 | **ci(main_build): 全 job 無條件觸發 + 平行化重構**：① 移除 `dart-analyze` 的 `push main` only 限制，改為所有觸發均執行；② 移除 `android-build` 的 `tag/dispatch` only 限制，改為 `needs: dart-analyze` 確保 analyze 先通過；③ `ios-build` 移除 `if:` 條件，改為 `needs: dart-analyze`，與 `android-build` 平行執行（macos runner）；④ `deploy-functions` 移除 `needs: android-build`，改為完全獨立，與 App build 平行進行；⑤ `deploy-hosting` 同上，不依賴 APK，直接與 App build 平行；⑥ `release`、`firebase-distribute`、`play-store-deploy` 仍 `needs: android-build`（需要 APK/AAB artifact）。最終 DAG：`dart-analyze` → `{android-build, ios-build}` → `{release, firebase-distribute, play-store-deploy}`；`{deploy-functions, deploy-hosting}` 完全平行。 |
 | v3.13.53 | 2026-03-27 | **fix(credit-history-ui): 生成貼圖 icon 統一為減號圓形**：`spent` 類型圖示從 `auto_awesome`（漸層實心圓，視覺辨識度差）改為 `remove_circle_rounded`（淡粉紅底 + 品牌紅色），與 `earned`（綠底 `+`）和 `refund`（橙底 `↺`）的視覺語言完全一致。 |
 | v3.13.52 | 2026-03-27 | **feat(web): Firebase Hosting 靜態頁面品牌一致性 + Design Guide**：① 新建 `public/css/brand.css`，集中管理品牌色（`--brand-start: #FD297B`、`--brand-gradient`）、圓角 Token（`--radius-card/glass/btn/pill`）、全頁漸層版型、Glassmorphism 卡片、主次按鈕元件；② `download.html` 與 `c/index.html` 引入 brand.css，移除重複 inline CSS，僅保留頁面特有樣式；③ `privacy.html` 引入 brand.css 取得 CSS 變數，原紫色系全面換為品牌粉色（header 漸層、h2 色、th 背景色、.tag、.highlight、.contact-box）；④ 新建 `docs/DESIGN_GUIDE.md`：整個專案（Flutter App + Firebase Hosting）設計規範唯一來源，包含品牌色彩表（Web CSS var + Flutter Color 雙欄）、漸層規格、字型層級、間距圓角、元件規範（按鈕/卡片/Pill Badge/Highlight）、頁面版型說明、Do/Don't 對照表。 |
