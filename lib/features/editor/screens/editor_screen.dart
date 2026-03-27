@@ -468,7 +468,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     return Scaffold(
       backgroundColor: (isLoading || isCurrentImageLoading)
           ? (isProMode
-              ? const Color(0xFFF5EDD8)   // ProCustomLoadingWidget 漸層底色（與 home indicator 區域接合）
+              ? const Color(0xFFFAFAF5)   // ProCustomLoadingWidget 漸層頂色（與 TopBar / 狀態列無縫接合）
               : CatColorScheme.pink.bg)   // CatLoadingWidget 背景色
           : _kBg,
       body: SafeArea(

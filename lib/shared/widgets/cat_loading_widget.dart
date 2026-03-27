@@ -1,30 +1,47 @@
+import 'dart:async';
 import 'dart:math';
+import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 // ─── 互動狀態機 ───────────────────────────────────────────────────────────────
-enum _CatState { idle, chasing, playing }
+enum _CatState { idle, chasing, playing, spinning }
 
-/// 全畫面 Loading 動畫。
+/// 全畫面 Loading 動畫（通用版）。
 ///
-/// 使用者可點擊畫面任意位置「丟球」，貓咪會跑過去玩，
-/// 讓等待 AI 生成的時間更有趣。
+/// 支援粉紅（預設）與金香檳（Pro）配色；
+/// 使用者可點擊畫面任意位置「丟球」讓貓咪追趕，
+/// 等待約 9 秒後出現「肚子餓了」彩蛋，長按標題文字可餵飼料。
 ///
-/// 用法（全螢幕）：
+/// 用法（標準）：
 /// ```dart
-/// Expanded(child: CatLoadingWidget(title: 'AI 分析中', subtitle: '約 5~10 秒'))
+/// CatLoadingWidget(title: 'AI 分析中', subtitle: '約 5~10 秒')
 /// ```
 ///
-/// 用法（疊加遮罩，取代舊的 AbsorbPointer 包裹）：
+/// 用法（Pro，透過 ProCustomLoadingWidget 包裝）：
 /// ```dart
-/// CatLoadingWidget(title: 'AI 生成中', subtitle: '約 20~30 秒')
+/// ProCustomLoadingWidget(emotionDesc: '可愛')
 /// ```
 class CatLoadingWidget extends StatefulWidget {
   final String? title;
   final String? subtitle;
+  final String? descCard;              // Pro 描述卡（null = 不顯示）
+  final CatColorScheme colors;         // 配色方案，預設 pink
+  final Gradient? backgroundGradient; // 非 null 則顯示漸層，否則用 colors.bg 純色
+  final SystemUiOverlayStyle? systemUiStyle; // 覆寫狀態列顏色（Pro 用）
+  final double catPositionRatio;       // 貓咪初始 Y 比例，預設 0.55
 
-  const CatLoadingWidget({super.key, this.title, this.subtitle});
+  const CatLoadingWidget({
+    super.key,
+    this.title,
+    this.subtitle,
+    this.descCard,
+    this.colors          = CatColorScheme.pink,
+    this.backgroundGradient,
+    this.systemUiStyle,
+    this.catPositionRatio = 0.55,
+  });
 
   @override
   State<CatLoadingWidget> createState() => _CatLoadingWidgetState();
@@ -33,25 +50,32 @@ class CatLoadingWidget extends StatefulWidget {
 class _CatLoadingWidgetState extends State<CatLoadingWidget>
     with TickerProviderStateMixin {
   // ── 動畫控制器 ────────────────────────────────────────────────────────────
-  late final AnimationController _runCtrl;  // 640ms 跑步循環
-  late final AnimationController _moveCtrl; // 800ms 移動到球
-  late final AnimationController _playCtrl; // 600ms 開心 + 拍球
-  late final AnimationController _ballCtrl; // 球出現(300ms)/消失(500ms)
+  late final AnimationController _runCtrl;    // 640ms 跑步循環
+  late final AnimationController _moveCtrl;   // 800ms 移動到球
+  late final AnimationController _playCtrl;   // 600ms 開心 + 拍球
+  late final AnimationController _ballCtrl;   // 球出現(300ms)/消失(500ms)
+  late final AnimationController _feedCtrl;   // 1200ms：飼料下落 + 旋轉
+  late final AnimationController _speechCtrl; // 400ms：對話框淡入淡出
 
-  // ── 狀態機 ───────────────────────────────────────────────────────────────
-  _CatState _catState = _CatState.idle;
-  Offset? _catPos;              // 貓咪中心（首次 build 後初始化）
-  Offset _catMoveStart = Offset.zero;
-  Offset _catTarget   = Offset.zero;
-  Offset _ballPos     = Offset.zero;
-  bool _facingLeft    = false;
-  bool _hasInteracted = false;
-  Size _stackSize     = Size.zero;
-  int  _generation    = 0; // 取消過期的 Future 回呼
+  // ── 貓咪狀態機 ───────────────────────────────────────────────────────────
+  _CatState _catState    = _CatState.idle;
+  Offset? _catPos;
+  Offset _catMoveStart   = Offset.zero;
+  Offset _catTarget      = Offset.zero;
+  Offset _ballPos        = Offset.zero;
+  bool _facingLeft       = false;
+  Size _stackSize        = Size.zero;
+  int  _generation       = 0;
+
+  // ── 飢餓彩蛋 ─────────────────────────────────────────────────────────────
+  bool _isHungry   = false;
+  bool _hasBeenFed = false;
+  Timer? _hungerTimer;
 
   @override
   void initState() {
     super.initState();
+
     _runCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 640),
@@ -72,6 +96,23 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
       duration: const Duration(milliseconds: 300),
       reverseDuration: const Duration(milliseconds: 500),
     );
+
+    _feedCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+
+    _speechCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+
+    // 9 秒後觸發飢餓彩蛋
+    _hungerTimer = Timer(const Duration(seconds: 9), () {
+      if (!mounted || _hasBeenFed) return;
+      setState(() => _isHungry = true);
+      _speechCtrl.forward();
+    });
   }
 
   @override
@@ -80,40 +121,46 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
     _moveCtrl.dispose();
     _playCtrl.dispose();
     _ballCtrl.dispose();
+    _feedCtrl.dispose();
+    _speechCtrl.dispose();
+    _hungerTimer?.cancel();
     super.dispose();
   }
 
   // ── 貓咪目前渲染位置 ──────────────────────────────────────────────────────
   Offset get _currentCatPos {
     if (_catPos == null) return Offset.zero;
-    if (_catState == _CatState.idle) return _catPos!;
-    if (_catState == _CatState.chasing) {
-      final t = Curves.easeInOut.transform(_moveCtrl.value);
-      return Offset.lerp(_catMoveStart, _catTarget, t)!;
+    switch (_catState) {
+      case _CatState.idle:
+      case _CatState.spinning:
+        return _catPos!;
+      case _CatState.chasing:
+        final t = Curves.easeInOut.transform(_moveCtrl.value);
+        return Offset.lerp(_catMoveStart, _catTarget, t)!;
+      case _CatState.playing:
+        return _catTarget;
     }
-    return _catTarget; // playing：停在球旁
   }
 
   // ── 使用者點擊「丟球」──────────────────────────────────────────────────────
   void _throwBall(Offset tapPos) {
     if (!mounted || _catPos == null) return;
+    if (_isHungry) return; // 飢餓時停用丟球，引導長按標題
+
     HapticFeedback.lightImpact();
 
-    // 夾住目標位置（避免蓋住標題與底部）
     final clampedTarget = Offset(
       tapPos.dx.clamp(60.0, _stackSize.width  - 60.0),
       tapPos.dy.clamp(160.0, _stackSize.height - 80.0),
     );
 
-    // 停止正在進行的動畫
     _moveCtrl.stop();
     _playCtrl.stop();
 
-    final fromPos   = _currentCatPos;
-    final thisGen   = ++_generation;
+    final fromPos = _currentCatPos;
+    final thisGen = ++_generation;
 
     setState(() {
-      _hasInteracted = true;
       _catMoveStart  = fromPos;
       _catTarget     = clampedTarget;
       _ballPos       = clampedTarget;
@@ -121,10 +168,8 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
       _catState      = _CatState.chasing;
     });
 
-    // 球出現（彈跳進場）
     _ballCtrl.forward(from: 0);
 
-    // 貓移動
     _moveCtrl.forward(from: 0).then((_) {
       if (!mounted || _generation != thisGen) return;
       setState(() {
@@ -133,10 +178,9 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
       });
       _playCtrl.forward(from: 0);
 
-      // 2 秒後回到 idle
       Future.delayed(const Duration(milliseconds: 2000), () {
         if (!mounted || _generation != thisGen) return;
-        _ballCtrl.reverse(); // 球淡出
+        _ballCtrl.reverse();
         Future.delayed(const Duration(milliseconds: 500), () {
           if (!mounted || _generation != thisGen) return;
           setState(() => _catState = _CatState.idle);
@@ -145,155 +189,384 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
     });
   }
 
+  // ── 使用者長按標題「餵飼料」─────────────────────────────────────────────
+  void _feedCat() {
+    if (!mounted || !_isHungry || _hasBeenFed) return;
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isHungry   = false;
+      _hasBeenFed = true;
+      _catState   = _CatState.spinning;
+      _facingLeft = false;
+    });
+    _speechCtrl.reverse();
+    _feedCtrl.forward(from: 0).then((_) {
+      if (!mounted) return;
+      setState(() => _catState = _CatState.idle);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 狀態列樣式
+    final uiStyle = widget.systemUiStyle ??
+        SystemUiOverlayStyle(
+          statusBarColor:                    widget.colors.bg,
+          statusBarIconBrightness:           Brightness.dark,
+          statusBarBrightness:               Brightness.light,
+          systemNavigationBarColor:          widget.colors.bg,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        );
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: CatColorScheme.pink.bg,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
-        systemNavigationBarColor: CatColorScheme.pink.bg,
-        systemNavigationBarIconBrightness: Brightness.dark,
-      ),
+      value: uiStyle,
       child: LayoutBuilder(
         builder: (context, constraints) {
           _stackSize = Size(constraints.maxWidth, constraints.maxHeight);
-          // 首次：初始化貓咪位置在畫面中央偏下
           _catPos ??= Offset(
-          constraints.maxWidth  / 2,
-          constraints.maxHeight * 0.58,
-        );
+            constraints.maxWidth  / 2,
+            constraints.maxHeight * widget.catPositionRatio,
+          );
 
-        return GestureDetector(
-          onTapDown: (d) => _throwBall(d.localPosition),
-          behavior: HitTestBehavior.opaque, // 吸收所有觸控，取代外層 AbsorbPointer
-          child: ColoredBox(
-            color: CatColorScheme.pink.bg,
-            child: AnimatedBuilder(
-              animation: Listenable.merge(
-                  [_runCtrl, _moveCtrl, _playCtrl, _ballCtrl]),
-              builder: (context, _) {
-                final currentPos  = _currentCatPos;
-                final isHappy     = _catState == _CatState.playing &&
-                    _playCtrl.value > 0.2;
-                final exciteLevel = _catState == _CatState.playing
-                    ? _playCtrl.value
-                    : 0.0;
-                final hintAlpha   = (sin(_runCtrl.value * 2 * pi) * 0.15 + 0.60)
-                    .clamp(0.45, 0.75);
+          return GestureDetector(
+            onTapDown: (d) => _throwBall(d.localPosition),
+            behavior: HitTestBehavior.opaque,
+            child: _buildBackground(
+              child: AnimatedBuilder(
+                animation: Listenable.merge([
+                  _runCtrl, _moveCtrl, _playCtrl, _ballCtrl,
+                  _feedCtrl, _speechCtrl,
+                ]),
+                builder: (context, _) {
+                  final currentPos  = _currentCatPos;
+                  final isHappy     = (_catState == _CatState.playing &&
+                                          _playCtrl.value > 0.2) ||
+                                      _catState == _CatState.spinning;
+                  final exciteLevel = _catState == _CatState.spinning
+                      ? 1.0
+                      : (_catState == _CatState.playing ? _playCtrl.value : 0.0);
+                  final hintAlpha   = (sin(_runCtrl.value * 2 * pi) * 0.15 + 0.60)
+                      .clamp(0.45, 0.75);
 
-                return Stack(
-                  children: [
-
-                    // ── 標題 / 副標（固定頂部）────────────────────────────
-                    Positioned(
-                      top: 52,
-                      left: 0,
-                      right: 0,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (widget.title != null)
-                            Text(
-                              widget.title!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontFamily: 'OpenHuninn',
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFF21262E),
-                              ),
-                            ),
-                          if (widget.title != null && widget.subtitle != null)
-                            const SizedBox(height: 6),
-                          if (widget.subtitle != null)
-                            Text(
-                              widget.subtitle!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontFamily: 'OpenHuninn',
-                                fontSize: 13,
-                                color: const Color(0xFFFF5864),
-                              ),
-                            ),
-                        ],
-                      ),
+                  // 貓咪 CustomPaint
+                  final catPaint = CustomPaint(
+                    size: const Size(220, 160),
+                    painter: RunningCatPainter(
+                      t:           _runCtrl.value,
+                      colors:      widget.colors,
+                      isHappy:     isHappy,
+                      facingLeft:  _facingLeft,
+                      exciteLevel: exciteLevel,
                     ),
+                  );
 
-                    // ── 球（點擊位置出現）────────────────────────────────
-                    if (_ballCtrl.value > 0)
+                  return Stack(
+                    children: [
+
+                      // ── 貓咪 ─────────────────────────────────────────────
                       Positioned(
-                        left: _ballPos.dx - 14,
-                        top:  _ballPos.dy - 14,
-                        child: Transform.scale(
-                          scale: _ballCtrl.status == AnimationStatus.forward
-                              ? Curves.elasticOut.transform(
-                                  _ballCtrl.value.clamp(0.0, 1.0))
-                              : 1.0,
+                        left: currentPos.dx - 110,
+                        top:  currentPos.dy - 80,
+                        child: _catState == _CatState.spinning
+                            ? Transform.rotate(
+                                angle: _feedCtrl.value * 2 * pi * 2.5,
+                                child: catPaint,
+                              )
+                            : catPaint,
+                      ),
+
+                      // ── 對話框（飢餓彩蛋）─────────────────────────────────
+                      if (_isHungry || _speechCtrl.value > 0)
+                        Positioned(
+                          left: currentPos.dx - 70,
+                          top:  currentPos.dy - 150,
                           child: Opacity(
-                            opacity: _ballCtrl.value,
+                            opacity: _speechCtrl.value,
+                            child: _SpeechBubble(colors: widget.colors),
+                          ),
+                        ),
+
+                      // ── 飼料粒子 ──────────────────────────────────────────
+                      if (_feedCtrl.value > 0)
+                        Positioned.fill(
+                          child: IgnorePointer(
                             child: CustomPaint(
-                              size: const Size(28, 28),
-                              painter:
-                                  _BallPainter(color: CatColorScheme.pink.ball),
+                              painter: _KibblePainter(
+                                t:      _feedCtrl.value,
+                                fromY:  78.0,
+                                catPos: currentPos,
+                                width:  _stackSize.width,
+                                color:  widget.colors.ball,
+                              ),
                             ),
                           ),
                         ),
-                      ),
 
-                    // ── 貓咪（可在畫面上移動）────────────────────────────
-                    Positioned(
-                      left: currentPos.dx - 110,
-                      top:  currentPos.dy - 80,
-                      child: CustomPaint(
-                        size: const Size(220, 160),
-                        painter: RunningCatPainter(
-                          t:           _runCtrl.value,
-                          colors:      CatColorScheme.pink,
-                          isHappy:     isHappy,
-                          facingLeft:  _facingLeft,
-                          exciteLevel: exciteLevel,
+                      // ── 球 ────────────────────────────────────────────────
+                      if (_ballCtrl.value > 0)
+                        Positioned(
+                          left: _ballPos.dx - 14,
+                          top:  _ballPos.dy - 14,
+                          child: Transform.scale(
+                            scale: _ballCtrl.status == AnimationStatus.forward
+                                ? Curves.elasticOut.transform(
+                                    _ballCtrl.value.clamp(0.0, 1.0))
+                                : 1.0,
+                            child: Opacity(
+                              opacity: _ballCtrl.value,
+                              child: CustomPaint(
+                                size: const Size(28, 28),
+                                painter: _BallPainter(color: widget.colors.ball),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
 
-                    // ── 跳動三點（固定底部偏上）──────────────────────────
-                    Positioned(
-                      bottom: _hasInteracted ? 48 : 68,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: BouncingDots(t: _runCtrl.value),
-                      ),
-                    ),
-
-                    // ── 引導提示（首次顯示，互動後隱藏）─────────────────
-                    if (!_hasInteracted)
+                      // ── 標題 / 副標（固定頂部）────────────────────────────
                       Positioned(
-                        bottom: 28,
+                        top: 52,
                         left: 0,
                         right: 0,
-                        child: Center(
-                          child: Opacity(
-                            opacity: hintAlpha,
-                            child: Text(
-                              '點畫面丟球，陪貓咪玩 🐾',
-                              style: TextStyle(fontFamily: 'OpenHuninn',
-                                fontSize: 12,
-                                color: const Color(0xFFFD297B),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.title != null)
+                              GestureDetector(
+                                onLongPress: _isHungry ? _feedCat : null,
+                                child: Transform.scale(
+                                  scale: _isHungry
+                                      ? (1.0 + sin(_runCtrl.value * 2 * pi) * 0.025)
+                                      : 1.0,
+                                  child: Text(
+                                    widget.title!,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontFamily: 'OpenHuninn',
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w800,
+                                      color: widget.colors.body,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
+                            if (widget.title != null && widget.subtitle != null)
+                              const SizedBox(height: 6),
+                            if (widget.subtitle != null)
+                              Text(
+                                widget.subtitle!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: 'OpenHuninn',
+                                  fontSize: 13,
+                                  color: widget.colors.body.withValues(alpha: 0.65),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                  ],
-                );
-              },
+
+                      // ── 底部區域 ──────────────────────────────────────────
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // 跳動三點
+                            BouncingDots(
+                              t: _runCtrl.value,
+                              colors: widget.colors,
+                            ),
+                            const SizedBox(height: 16),
+
+                            // 描述卡（Pro）
+                            if (widget.descCard != null)
+                              Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 40),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: widget.colors.ball.withValues(alpha: 0.18),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: widget.colors.ball,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Text(
+                                  '「${widget.descCard}」',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontFamily: 'OpenHuninn',
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: widget.colors.body,
+                                  ),
+                                ),
+                              ),
+                            if (widget.descCard != null) const SizedBox(height: 12),
+
+                            // 引導提示
+                            if (!_hasBeenFed)
+                              Opacity(
+                                opacity: hintAlpha,
+                                child: Text(
+                                  _isHungry
+                                      ? '長按上方文字餵貓咪 🍚'
+                                      : '點畫面丟球，陪貓咪玩 🐾',
+                                  style: TextStyle(
+                                    fontFamily: 'OpenHuninn',
+                                    fontSize: 12,
+                                    color: widget.colors.body.withValues(alpha: 0.80),
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 28),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
-          ),
           );
         },
       ),
     );
   }
+
+  // ── 背景（純色 or 漸層）──────────────────────────────────────────────────
+  Widget _buildBackground({required Widget child}) {
+    if (widget.backgroundGradient != null) {
+      return Container(
+        decoration: BoxDecoration(gradient: widget.backgroundGradient),
+        child: child,
+      );
+    }
+    return ColoredBox(color: widget.colors.bg, child: child);
+  }
+}
+
+// ─── 肚子餓對話框 ──────────────────────────────────────────────────────────────
+
+class _SpeechBubble extends StatelessWidget {
+  final CatColorScheme colors;
+  const _SpeechBubble({required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    final bg     = colors.ball.withValues(alpha: 0.20);
+    final border = colors.ball;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // 氣泡主體
+        Container(
+          width: 140,
+          height: 48,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: border, width: 1.5),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            '肚子餓了... 🍚',
+            style: TextStyle(
+              fontFamily: 'OpenHuninn',
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: colors.body,
+            ),
+          ),
+        ),
+        // 小三角（指向下方貓咪）
+        Positioned(
+          bottom: -8,
+          left: 61,
+          child: Transform.rotate(
+            angle: pi / 4,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: bg,
+                border: Border(
+                  right: BorderSide(color: border, width: 1.5),
+                  bottom: BorderSide(color: border, width: 1.5),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── 飼料粒子 Painter ─────────────────────────────────────────────────────────
+
+class _KibblePainter extends CustomPainter {
+  final double t;       // 0 → 1
+  final double fromY;   // 粒子起始 Y（標題下方）
+  final Offset catPos;  // 貓咪中心
+  final double width;   // 畫布寬（取得中心 X）
+  final Color color;
+
+  const _KibblePainter({
+    required this.t,
+    required this.fromY,
+    required this.catPos,
+    required this.width,
+    required this.color,
+  });
+
+  // (startDx from center, endDx from catPos.dx)
+  static const _particles = [
+    (-70.0, -35.0),
+    (-40.0,  10.0),
+    ( -5.0, -15.0),
+    ( 20.0,  30.0),
+    ( 50.0,  -8.0),
+    ( 75.0,  20.0),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerX = width / 2;
+
+    for (var i = 0; i < _particles.length; i++) {
+      final stagger  = i * 0.08;
+      final progress = ((t - stagger) / (1.0 - stagger)).clamp(0.0, 1.0);
+      if (progress <= 0) continue;
+
+      final ease   = Curves.easeIn.transform(progress);
+      final startX = centerX + _particles[i].$1;
+      final endX   = catPos.dx + _particles[i].$2;
+
+      final x = lerpDouble(startX, endX, ease)!;
+      final y = lerpDouble(fromY, catPos.dy - 50, ease)!
+              - sin(ease * pi) * 50; // 拋物弧
+
+      final alpha = progress > 0.75 ? (1.0 - progress) / 0.25 : 1.0;
+      final paint = Paint()..color = color.withValues(alpha: alpha);
+
+      canvas.drawCircle(Offset(x, y), 5.5, paint);
+      // 小亮點
+      canvas.drawCircle(
+        Offset(x - 2, y - 2),
+        2.0,
+        Paint()..color = Colors.white.withValues(alpha: alpha * 0.7),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_KibblePainter old) =>
+      old.t != t || old.catPos != catPos;
 }
 
 // ─── 跳動三點 ─────────────────────────────────────────────────────────────────
@@ -308,9 +581,8 @@ class BouncingDots extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: List.generate(3, (i) {
-        // 每個點的相位錯開 1/3
         final phase = (t + i / 3.0) % 1.0;
-        final dy = -sin(phase * pi) * 6.0;
+        final dy    = -sin(phase * pi) * 6.0;
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Transform.translate(
@@ -319,8 +591,7 @@ class BouncingDots extends StatelessWidget {
               width: 7,
               height: 7,
               decoration: BoxDecoration(
-                color: colors.body
-                    .withValues(alpha: 0.6 + 0.4 * sin(phase * pi)),
+                color: colors.body.withValues(alpha: 0.6 + 0.4 * sin(phase * pi)),
                 shape: BoxShape.circle,
               ),
             ),
@@ -342,7 +613,6 @@ class _BallPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final r      = size.width / 2;
 
-    // 球體（徑向漸層，左上偏亮）
     final paint = Paint()
       ..shader = RadialGradient(
         center: const Alignment(-0.3, -0.3),
@@ -353,7 +623,6 @@ class _BallPainter extends CustomPainter {
       ).createShader(Rect.fromCircle(center: center, radius: r));
     canvas.drawCircle(center, r, paint);
 
-    // 光澤高光（右上角小白圓）
     canvas.drawCircle(
       Offset(center.dx + r * 0.27, center.dy - r * 0.32),
       r * 0.28,
@@ -368,11 +637,11 @@ class _BallPainter extends CustomPainter {
 // ─── 奔跑貓咪 CustomPainter ────────────────────────────────────────────────────
 
 class RunningCatPainter extends CustomPainter {
-  final double t;          // 0.0 → 1.0，動畫進度
+  final double t;
   final CatColorScheme colors;
-  final bool isHappy;      // 開心表情（彎月眼）
-  final bool facingLeft;   // 翻轉水平方向
-  final double exciteLevel; // 0.0~1.0，尾巴激動程度
+  final bool isHappy;
+  final bool facingLeft;
+  final double exciteLevel;
 
   const RunningCatPainter({
     required this.t,
@@ -381,8 +650,6 @@ class RunningCatPainter extends CustomPainter {
     this.facingLeft  = false,
     this.exciteLevel = 0.0,
   });
-
-  // ── 畫筆 ──────────────────────────────────────────────────────────────────
 
   Paint get _fill => Paint()
     ..color = colors.body
@@ -398,19 +665,16 @@ class RunningCatPainter extends CustomPainter {
     ..strokeWidth = 2.2
     ..strokeCap = StrokeCap.round;
 
-  // ── 動畫數值計算 ──────────────────────────────────────────────────────────
-
   double _cycle(double offset) => sin((t + offset) * 2 * pi);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final cx          = size.width * 0.48;
-    final cy          = size.height * 0.52;
-    final bodyBounce  = _cycle(0) * 3.5;
+    final cx         = size.width * 0.48;
+    final cy         = size.height * 0.52;
+    final bodyBounce = _cycle(0) * 3.5;
 
     canvas.save();
     canvas.translate(cx, cy + bodyBounce);
-    // 翻轉方向（往左跑）
     if (facingLeft) canvas.scale(-1.0, 1.0);
 
     _drawMotionLines(canvas);
@@ -421,8 +685,6 @@ class RunningCatPainter extends CustomPainter {
 
     canvas.restore();
   }
-
-  // ── 殘影速度線 ─────────────────────────────────────────────────────────────
 
   void _drawMotionLines(Canvas canvas) {
     final linePaint = Paint()
@@ -441,10 +703,7 @@ class RunningCatPainter extends CustomPainter {
     }
   }
 
-  // ── 尾巴 ──────────────────────────────────────────────────────────────────
-
   void _drawTail(Canvas canvas) {
-    // exciteLevel 增大時尾巴搖擺幅度加大（18° → 30°）
     final amplitude = 18.0 + exciteLevel * 12.0;
     final wag       = _cycle(0.25) * amplitude * (pi / 180);
 
@@ -462,18 +721,14 @@ class RunningCatPainter extends CustomPainter {
     canvas.restore();
   }
 
-  // ── 四條腿 ────────────────────────────────────────────────────────────────
-
   void _drawLegs(Canvas canvas) {
     final frontSwing = _cycle(0)   * 22 * (pi / 180);
     final backSwing  = _cycle(0.5) * 22 * (pi / 180);
 
     _drawLeg(canvas, x:  18.0, y: 14.0, angle:  frontSwing, len: 24.0);
     _drawLeg(canvas, x: -22.0, y: 14.0, angle:  backSwing,  len: 24.0);
-    _drawLeg(canvas, x:  10.0, y: 14.0, angle: -frontSwing, len: 24.0,
-        alpha: 0.55);
-    _drawLeg(canvas, x: -14.0, y: 14.0, angle: -backSwing,  len: 24.0,
-        alpha: 0.55);
+    _drawLeg(canvas, x:  10.0, y: 14.0, angle: -frontSwing, len: 24.0, alpha: 0.55);
+    _drawLeg(canvas, x: -14.0, y: 14.0, angle: -backSwing,  len: 24.0, alpha: 0.55);
   }
 
   void _drawLeg(Canvas canvas, {
@@ -511,8 +766,6 @@ class RunningCatPainter extends CustomPainter {
     canvas.restore();
   }
 
-  // ── 身體 ──────────────────────────────────────────────────────────────────
-
   void _drawBody(Canvas canvas) {
     final body = RRect.fromRectAndRadius(
       const Rect.fromLTWH(-42, -18, 80, 38),
@@ -525,8 +778,6 @@ class RunningCatPainter extends CustomPainter {
     );
   }
 
-  // ── 頭部 + 耳朵 + 臉 ──────────────────────────────────────────────────────
-
   void _drawHead(Canvas canvas) {
     const hx = 38.0;
     const hy = -24.0;
@@ -536,14 +787,11 @@ class RunningCatPainter extends CustomPainter {
 
     canvas.drawCircle(Offset(hx, hy), 22, _fill);
 
-    // ── 眼睛（普通 or 開心彎月）──
     if (!isHappy) {
-      // 眼白
       final eyePaint = Paint()..color = colors.bg..style = PaintingStyle.fill;
       canvas.drawCircle(Offset(hx + 7,  hy - 4), 5.5, eyePaint);
       canvas.drawCircle(Offset(hx - 3,  hy - 4), 5.5, eyePaint);
 
-      // 瞳孔（眨眼：最後 8% 閉眼）
       if (t % 1.0 > 0.92) {
         canvas.drawLine(Offset(hx + 3,  hy - 4), Offset(hx + 11, hy - 4),
             _stroke..strokeWidth = 2.5);
@@ -554,7 +802,6 @@ class RunningCatPainter extends CustomPainter {
         canvas.drawCircle(Offset(hx - 2,  hy - 4), 3.0, _fill);
       }
     } else {
-      // 開心彎月眼（^ 弧形）
       final arcPaint = Paint()
         ..color = colors.bg
         ..style = PaintingStyle.stroke
@@ -570,7 +817,6 @@ class RunningCatPainter extends CustomPainter {
       );
     }
 
-    // ── 鼻子 ──
     final nosePath = Path()
       ..moveTo(hx + 4,  hy + 4)
       ..lineTo(hx + 7,  hy + 8)
@@ -578,7 +824,6 @@ class RunningCatPainter extends CustomPainter {
       ..close();
     canvas.drawPath(nosePath, Paint()..color = colors.accent);
 
-    // ── 嘴巴 ──
     final mouthPath = Path()
       ..moveTo(hx + 4,  hy + 8)
       ..quadraticBezierTo(hx + 2,  hy + 12, hx - 1, hy + 11)
@@ -633,11 +878,11 @@ class RunningCatPainter extends CustomPainter {
 
 @immutable
 class CatColorScheme {
-  final Color body;   // 貓身、腿、尾巴主色
-  final Color light;  // 耳內、肚子亮部
-  final Color bg;     // 眼白色（與背景協調）
-  final Color accent; // 鼻子點睛色
-  final Color ball;   // 丟出去的球的顏色
+  final Color body;
+  final Color light;
+  final Color bg;
+  final Color accent;
+  final Color ball;
 
   const CatColorScheme({
     required this.body,
@@ -650,18 +895,18 @@ class CatColorScheme {
 
   /// 標準粉紅品牌色（CatLoadingWidget 預設）
   static const pink = CatColorScheme(
-    body:   Color(0xFFFD297B), // 品牌珊瑚粉
-    light:  Color(0xFFFFB3C6), // 淡粉紅
-    bg:     Color(0xFFFFF0F3), // 極淡玫瑰白
-    ball:   Color(0xFFFF9800), // 橙色球（對比粉紅貓 + 淡玫瑰背景）
+    body:   Color(0xFFFD297B),
+    light:  Color(0xFFFFB3C6),
+    bg:     Color(0xFFFFF0F3),
+    ball:   Color(0xFFFF9800),
   );
 
   /// Pro 香檳金（ProCustomLoadingWidget 使用）
   static const proChampagne = CatColorScheme(
-    body:   Color(0xFFB8860D), // 深古銅金
-    light:  Color(0xFFDEBC70), // 香檳色亮部
-    bg:     Color(0xFFFAFAF8), // 近白
-    accent: Color(0xFFFD297B), // 品牌珊瑚粉鼻子
-    ball:   Color(0xFFFD297B), // 珊瑚粉球（對比金色貓 + 米白背景）
+    body:   Color(0xFFB8860D),
+    light:  Color(0xFFDEBC70),
+    bg:     Color(0xFFFAFAF8),
+    accent: Color(0xFFFD297B),
+    ball:   Color(0xFFFD297B),
   );
 }
