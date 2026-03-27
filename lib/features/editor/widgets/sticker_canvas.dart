@@ -600,15 +600,10 @@ class _StickerCanvasState extends State<StickerCanvas> {
     final emotionId = widget.categoryId.isNotEmpty ? widget.categoryId : 'greeting';
     final asset = 'assets/images/preview_${style.name}_$emotionId.webp';
 
-    // 客製風格時的標籤文字（「客製中」vs「示意圖」）
-    final badgeLabel =
-        widget.customStyleDesc != null ? '客製中' : '示意圖';
-    final badgeBg = widget.customStyleDesc != null
-        ? const Color(0xFFFFD700).withValues(alpha: 0.85)
-        : Colors.black.withValues(alpha: 0.45);
-    final badgeFg = widget.customStyleDesc != null
-        ? const Color(0xFF8B6914)
-        : Colors.white.withValues(alpha: 0.9);
+    // 預覽圖標籤：自訂風格時仍顯示「示意圖」，避免誤導使用者以為已在生成
+    const badgeLabel = '示意圖';
+    final badgeBg = Colors.black.withValues(alpha: 0.45);
+    final badgeFg = Colors.white.withValues(alpha: 0.9);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -673,7 +668,12 @@ class _StickerCanvasState extends State<StickerCanvas> {
 
   /// 客製模式佔位圖：黃金漸層 + 描述文字
   Widget _buildCustomPlaceholder() {
-    final desc = widget.customEmotionDesc ?? widget.customStyleDesc!;
+    final style = StickerStyle.values[
+        widget.styleIndex.clamp(0, StickerStyle.values.length - 1)];
+    final styleLabel = widget.customStyleDesc ?? style.label;
+    final styleEmoji = widget.customStyleDesc != null ? '✏️' : style.emoji;
+    final emotionText = widget.customEmotionDesc ?? widget.customStyleDesc!;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.maxWidth;
@@ -703,18 +703,19 @@ class _StickerCanvasState extends State<StickerCanvas> {
                     ),
                   ),
                 ),
-              // 尚未生成文案時：中央描述
+              // 尚未生成文案時：中央描述（情緒 + 提示）
               if (widget.text.isEmpty)
                 Center(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: EdgeInsets.fromLTRB(
+                        size * 0.08, size * 0.16, size * 0.08, 0),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text('✨', style: TextStyle(fontSize: 44)),
                         const SizedBox(height: 10),
                         Text(
-                          desc,
+                          emotionText,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: size * 0.09,
@@ -734,27 +735,41 @@ class _StickerCanvasState extends State<StickerCanvas> {
                     ),
                   ),
                 ),
-              // 客製中標籤（取代「示意圖」）
+              // 風格資訊 chip（取代「客製中」，不暗示生成中）
               Positioned(
                 top: size * 0.04,
-                left: 0,
-                right: 0,
+                left: size * 0.06,
+                right: size * 0.06,
                 child: Center(
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: size * 0.04, vertical: size * 0.014),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFD700).withValues(alpha: 0.80),
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.28),
                       borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '客製中',
-                      style: TextStyle(
-                        color: const Color(0xFF8B6914),
-                        fontSize: size * 0.07,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 2,
+                      border: Border.all(
+                        color: const Color(0xFFB8860B).withValues(alpha: 0.45),
+                        width: 1,
                       ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(styleEmoji,
+                            style: TextStyle(fontSize: size * 0.05)),
+                        SizedBox(width: size * 0.018),
+                        Flexible(
+                          child: Text(
+                            styleLabel,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: size * 0.058,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF8B6914),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

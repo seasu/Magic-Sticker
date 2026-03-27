@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -78,23 +80,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final picked = await picker.pickImage(source: source, imageQuality: 95);
     if (picked == null || !context.mounted) return;
 
-    // 拍照時提示是否存到相簿，方便日後重複使用
+    // 拍照時，先詢問是否存到相簿，再繼續下一步
     if (source == ImageSource.camera) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('要把這張照片存到相簿嗎？下次可直接重複使用'),
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: '存',
-            onPressed: () async {
-              try {
-                if (!await Gal.hasAccess()) await Gal.requestAccess();
-                await Gal.putImage(picked.path);
-              } catch (_) {}
-            },
-          ),
-        ),
+      final shouldSave = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => _SavePhotoDialog(imagePath: picked.path),
       );
+      if (!context.mounted) return;
+      if (shouldSave == true) {
+        try {
+          if (!await Gal.hasAccess()) await Gal.requestAccess();
+          await Gal.putImage(picked.path);
+        } catch (_) {}
+      }
     }
 
     // 進入步驟 2：選擇風格
@@ -535,6 +534,107 @@ class _MiniStickerCard extends StatelessWidget {
               fontSize: 13,
               fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 拍照後儲存詢問 Dialog ──────────────────────────────────────────────────────
+
+class _SavePhotoDialog extends StatelessWidget {
+  final String imagePath;
+
+  const _SavePhotoDialog({required this.imagePath});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 照片縮圖
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            child: Image.file(
+              File(imagePath),
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+            child: Column(
+              children: [
+                Text(
+                  '要把這張照片存到相簿嗎？',
+                  style: TextStyle(
+                    fontFamily: 'OpenHuninn',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '下次可直接從相簿選取，不用重拍',
+                  style: TextStyle(
+                    fontFamily: 'OpenHuninn',
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                // 主要按鈕：存到相簿
+                SizedBox(
+                  width: double.infinity,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: AppColors.gradient,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        '存到相簿',
+                        style: TextStyle(
+                          fontFamily: 'OpenHuninn',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // 次要按鈕：跳過
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text(
+                    '不用，直接繼續',
+                    style: TextStyle(
+                      fontFamily: 'OpenHuninn',
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

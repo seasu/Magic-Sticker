@@ -19,7 +19,6 @@ class ProCustomLoadingWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final desc  = emotionDesc ?? styleDesc;
     final title = emotionDesc != null
         ? 'AI 正在詮釋您的專屬情緒'
         : 'AI 正在生成您的專屬貼圖';
@@ -27,7 +26,6 @@ class ProCustomLoadingWidget extends StatelessWidget {
     return CatLoadingWidget(
       title:              title,
       subtitle:           '正在創作 · 約 15~25 秒',
-      descCard:           desc,
       colors:             CatColorScheme.proChampagne,
       catPositionRatio:   0.48,
       backgroundGradient: const LinearGradient(
