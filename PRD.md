@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.50+417 |
+| 目前版本 | v3.13.51+418 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.51 | 2026-03-27 | **fix(analyze): 修正 CI dart analyze 3 個 issue**：① `credit_history_screen.dart` 移除 `const Icon(icon, ...)` 中不合法的 `const`（`icon` 為 runtime 變數）；② 移除未使用的 `isRefund` 變數；③ `cat_loading_widget.dart` 移除 refactoring 後不再讀取的 `_hasInteracted` 欄位及其賦值（提示顯示改由 `_hasBeenFed` 控制）。 |
 | v3.13.50 | 2026-03-27 | **feat(loading): Loading 統一元件 + 飢餓互動彩蛋**：① 重構兩個 Loading widget 為單一 `CatLoadingWidget`（新增 `colors`、`backgroundGradient`、`systemUiStyle`、`descCard`、`catPositionRatio` 參數，向後相容）；② `ProCustomLoadingWidget` 改為薄包裝，所有動畫邏輯移入共用元件；③ 新增飢餓彩蛋：等待 9 秒後貓咪頭頂出現「肚子餓了... 🍚」對話框，底部提示切換為「長按上方文字餵貓咪 🍚」，標題文字微脈動提示；長按後觸發飼料粒子動畫（6 顆弧形落下）+ 貓咪旋轉歡慶（2.5 圈 1.2s）；飢餓期間停用丟球互動；彩蛋一次性，fed 後不再觸發。 |
 | v3.13.49 | 2026-03-26 | **feat(credit-history-ui): 點數紀錄頁 UI/UX 全面升級**：① 背景色 white → `Color(0xFFF2F2F7)`（與生成紀錄頁一致）；② AppBar `scrolledUnderElevation: 0`；③ 列表結構從 Divider List 改為白底圓角卡片（radius 14 + shadow）；④ Icon container 40 → 48px，`earned` 綠底、`spent` 品牌漸層背景白色 icon、`refund` 暖橙底；⑤ 金額顯示改為圓角 Pill Badge（正數綠底、負數紅底）；⑥ 新增日期分組 Section Header（今天 / 昨天 / MM/DD）；⑦ Empty state 補充說明文字，圖示 64 → 72px。 |
 | v3.13.48 | 2026-03-26 | **fix(prompt): 所有貼圖風格統一增加邊距防止人物截切**：四種貼圖 prompt（方形 Chroma Key、方形彩色背景、圓形白底、圓形彩色背景）均更新構圖規則：① 定位改為「正中央（水平、垂直皆置中），角色高度不超過 70%」（原：中央偏上 65%）；② 上邊距 10% → ≥15%；③ 下邊距 5% → ≥12%；④ 新增「角色左右兩側各保留 ≥10% 空白」獨立條目；⑤ 截斷禁令保留並統一措詞，明確列舉頭頂、耳朵、手臂、腳。 |

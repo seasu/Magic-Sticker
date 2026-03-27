@@ -154,7 +154,6 @@ class _HistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPositive = entry.amount > 0;
-    final isRefund   = entry.type == CreditHistoryType.refund;
     final amountColor = isPositive ? AppColors.like : AppColors.nope;
     final amountText  = isPositive ? '+${entry.amount}' : '${entry.amount}';
 
@@ -202,7 +201,7 @@ class _HistoryCard extends StatelessWidget {
             color: refundColor.withValues(alpha: 0.12),
             shape: BoxShape.circle,
           ),
-          child: const Icon(icon, color: refundColor, size: 22),
+          child: Icon(icon, color: refundColor, size: 22),
         );
     }
 

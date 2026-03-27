@@ -64,7 +64,6 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
   Offset _catTarget      = Offset.zero;
   Offset _ballPos        = Offset.zero;
   bool _facingLeft       = false;
-  bool _hasInteracted    = false;
   Size _stackSize        = Size.zero;
   int  _generation       = 0;
 
@@ -162,7 +161,6 @@ class _CatLoadingWidgetState extends State<CatLoadingWidget>
     final thisGen = ++_generation;
 
     setState(() {
-      _hasInteracted = true;
       _catMoveStart  = fromPos;
       _catTarget     = clampedTarget;
       _ballPos       = clampedTarget;
