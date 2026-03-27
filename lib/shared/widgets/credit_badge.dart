@@ -312,7 +312,7 @@ class _UserAccountSheet extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: GestureDetector(
                 onTap: () {
-                  Clipboard.setData(ClipboardData(text: user!.uid));
+                  Clipboard.setData(ClipboardData(text: user.uid));
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: const Text('UID 已複製'),
@@ -337,7 +337,7 @@ class _UserAccountSheet extends ConsumerWidget {
                     ),
                     Expanded(
                       child: Text(
-                        user!.uid,
+                        user.uid,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: 'monospace',
