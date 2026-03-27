@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.58+425 |
+| 目前版本 | v3.13.59+426 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.59 | 2026-03-27 | **ux(editor): 移除「客製中」誤導標籤 + 移除 Pro loading 紅色情緒框**：① `sticker_canvas.dart` `_buildCustomPlaceholder()`：移除「客製中」badge（使用者誤以為已開始生成），改以輕量 outline chip 顯示目前選定的風格名稱（`🎨 Q版卡通` 等）；中央仍顯示大字情緒文案；② `_buildFallback()`：`customStyleDesc != null` 時 badge 從「客製中」改回「示意圖」，避免語意混淆；③ `pro_custom_loading_widget.dart`：移除 `descCard`（情緒描述卡），消除 Pro loading 畫面底部使用 `colors.ball`（`#FD297B`）邊框的紅色突兀方塊，與其他 loading 畫面視覺保持一致。 |
 | v3.13.58 | 2026-03-27 | **ux(home): 拍照後儲存提示改為居中 Dialog，阻擋流程繼續**：將 `home_screen.dart` 的底部 `SnackBar`（5 秒自動消失）替換為 `showDialog`（`barrierDismissible: false`）；Dialog 居中顯示、頂部呈現剛拍照片縮圖、主按鈕「存到相簿」使用品牌漸層、次要按鈕「不用，直接繼續」；流程在使用者明確選擇後才跳往步驟 2 風格選擇頁，防止使用者未注意提示就進入下一步後才想存檔卻為時已晚。 |
 | v3.13.57 | 2026-03-27 | **fix(prompt+cf): 修正情緒錯誤 + 頭部截斷**：① `functions/src/index.ts` 補齊 `CATEGORY_HINTS` 缺漏的 8 種情緒（sleepy/beg/worried/hungry/celebrate/no/encourage/pain）；原本缺漏時 fallback 只傳 id 字串（如 `"pain"`），Gemini 無法正確對應而產生錯誤情緒（如崩潰變打招呼）；② `sticker_generation_service.dart` 頭部上緣 margin 從 ≥15% 提升至 ≥20%，並加註「最高優先，任何風格效果或速度線均不得壓縮此空間」，適用 4 種 prompt template 及 Pro 特徵強化區段，解決昭和漫畫等放射狀效果風格的頭部截斷問題。 |
 | v3.13.56 | 2026-03-27 | **fix(loading): 修正 iOS Loading 畫面底部 home indicator 白條**：`editor_screen.dart` Scaffold 加入 `extendBody: isLoading \|\| isCurrentImageLoading`，同時 `SafeArea` 加入 `bottom: !(isLoading \|\| isCurrentImageLoading)`；loading 狀態下 body 延伸至 home indicator 底部、SafeArea 不加底部 padding，使 `CatLoadingWidget`／`ProCustomLoadingWidget` 的漸層背景完整填滿至螢幕物理底部，消除白條。非 loading 狀態仍維持原本 `extendBody: false` + `SafeArea(bottom: true)` 行為，`_TopBar` 背景色不受影響。 |
