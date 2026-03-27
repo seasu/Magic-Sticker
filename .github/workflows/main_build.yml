@@ -103,12 +103,13 @@ jobs:
           fi
 
       # Play Store 要求每次上傳的 versionCode 必須嚴格遞增。
-      # 以 github.run_number 覆蓋 pubspec.yaml 的 +build 部分，
-      # 確保同一 versionName 可多次 CI 構建而不重複（與 iOS CFBundleVersion 邏輯相同）。
-      - name: Set versionCode = run_number
+      # 以 (github.run_number + 1000) 作為 versionCode：
+      #   +1000 offset 確保永遠高於過去 pubspec 手動設定的舊 build 號碼（曾達 ~430）。
+      - name: Set versionCode = run_number + 1000
         run: |
           VER_NAME=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
-          sed -i "s/^version:.*/version: ${VER_NAME}+${{ github.run_number }}/" pubspec.yaml
+          VERSION_CODE=$(( ${{ github.run_number }} + 1000 ))
+          sed -i "s/^version:.*/version: ${VER_NAME}+${VERSION_CODE}/" pubspec.yaml
           echo "✅ pubspec version: $(grep '^version:' pubspec.yaml | awk '{print $2}')"
 
       - name: Build APK (release)
