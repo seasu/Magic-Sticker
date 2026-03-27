@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.53+420 |
+| 目前版本 | v3.13.54+421 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.54 | 2026-03-27 | **ci(main_build): 全 job 無條件觸發 + 平行化重構**：① 移除 `dart-analyze` 的 `push main` only 限制，改為所有觸發均執行；② 移除 `android-build` 的 `tag/dispatch` only 限制，改為 `needs: dart-analyze` 確保 analyze 先通過；③ `ios-build` 移除 `if:` 條件，改為 `needs: dart-analyze`，與 `android-build` 平行執行（macos runner）；④ `deploy-functions` 移除 `needs: android-build`，改為完全獨立，與 App build 平行進行；⑤ `deploy-hosting` 同上，不依賴 APK，直接與 App build 平行；⑥ `release`、`firebase-distribute`、`play-store-deploy` 仍 `needs: android-build`（需要 APK/AAB artifact）。最終 DAG：`dart-analyze` → `{android-build, ios-build}` → `{release, firebase-distribute, play-store-deploy}`；`{deploy-functions, deploy-hosting}` 完全平行。 |
 | v3.13.53 | 2026-03-27 | **fix(credit-history-ui): 生成貼圖 icon 統一為減號圓形**：`spent` 類型圖示從 `auto_awesome`（漸層實心圓，視覺辨識度差）改為 `remove_circle_rounded`（淡粉紅底 + 品牌紅色），與 `earned`（綠底 `+`）和 `refund`（橙底 `↺`）的視覺語言完全一致。 |
 | v3.13.52 | 2026-03-27 | **feat(web): Firebase Hosting 靜態頁面品牌一致性 + Design Guide**：① 新建 `public/css/brand.css`，集中管理品牌色（`--brand-start: #FD297B`、`--brand-gradient`）、圓角 Token（`--radius-card/glass/btn/pill`）、全頁漸層版型、Glassmorphism 卡片、主次按鈕元件；② `download.html` 與 `c/index.html` 引入 brand.css，移除重複 inline CSS，僅保留頁面特有樣式；③ `privacy.html` 引入 brand.css 取得 CSS 變數，原紫色系全面換為品牌粉色（header 漸層、h2 色、th 背景色、.tag、.highlight、.contact-box）；④ 新建 `docs/DESIGN_GUIDE.md`：整個專案（Flutter App + Firebase Hosting）設計規範唯一來源，包含品牌色彩表（Web CSS var + Flutter Color 雙欄）、漸層規格、字型層級、間距圓角、元件規範（按鈕/卡片/Pill Badge/Highlight）、頁面版型說明、Do/Don't 對照表。 |
 | v3.13.51 | 2026-03-27 | **fix(analyze): 修正 CI dart analyze 3 個 issue**：① `credit_history_screen.dart` 移除 `const Icon(icon, ...)` 中不合法的 `const`（`icon` 為 runtime 變數）；② 移除未使用的 `isRefund` 變數；③ `cat_loading_widget.dart` 移除 refactoring 後不再讀取的 `_hasInteracted` 欄位及其賦值（提示顯示改由 `_hasBeenFed` 控制）。 |
