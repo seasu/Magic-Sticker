@@ -174,22 +174,15 @@ class _HistoryCard extends StatelessWidget {
           child: Icon(icon, color: AppColors.like, size: 22),
         );
       case CreditHistoryType.spent:
-        icon = Icons.auto_awesome_rounded;
+        icon = Icons.remove_circle_rounded;
         iconWidget = Container(
           width: 48,
           height: 48,
-          decoration: const BoxDecoration(shape: BoxShape.circle),
-          child: ShaderMask(
-            shaderCallback: (rect) => AppColors.gradient.createShader(rect),
-            blendMode: BlendMode.srcATop,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.gradient,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: Colors.white, size: 22),
-            ),
+          decoration: BoxDecoration(
+            color: AppColors.nope.withValues(alpha: 0.10),
+            shape: BoxShape.circle,
           ),
+          child: Icon(icon, color: AppColors.nope, size: 22),
         );
       case CreditHistoryType.refund:
         icon = Icons.replay_rounded;
