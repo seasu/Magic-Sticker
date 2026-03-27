@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.57+424 |
+| 目前版本 | v3.13.58+425 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.58 | 2026-03-27 | **ux(home): 拍照後儲存提示改為居中 Dialog，阻擋流程繼續**：將 `home_screen.dart` 的底部 `SnackBar`（5 秒自動消失）替換為 `showDialog`（`barrierDismissible: false`）；Dialog 居中顯示、頂部呈現剛拍照片縮圖、主按鈕「存到相簿」使用品牌漸層、次要按鈕「不用，直接繼續」；流程在使用者明確選擇後才跳往步驟 2 風格選擇頁，防止使用者未注意提示就進入下一步後才想存檔卻為時已晚。 |
 | v3.13.57 | 2026-03-27 | **fix(prompt+cf): 修正情緒錯誤 + 頭部截斷**：① `functions/src/index.ts` 補齊 `CATEGORY_HINTS` 缺漏的 8 種情緒（sleepy/beg/worried/hungry/celebrate/no/encourage/pain）；原本缺漏時 fallback 只傳 id 字串（如 `"pain"`），Gemini 無法正確對應而產生錯誤情緒（如崩潰變打招呼）；② `sticker_generation_service.dart` 頭部上緣 margin 從 ≥15% 提升至 ≥20%，並加註「最高優先，任何風格效果或速度線均不得壓縮此空間」，適用 4 種 prompt template 及 Pro 特徵強化區段，解決昭和漫畫等放射狀效果風格的頭部截斷問題。 |
 | v3.13.56 | 2026-03-27 | **fix(loading): 修正 iOS Loading 畫面底部 home indicator 白條**：`editor_screen.dart` Scaffold 加入 `extendBody: isLoading \|\| isCurrentImageLoading`，同時 `SafeArea` 加入 `bottom: !(isLoading \|\| isCurrentImageLoading)`；loading 狀態下 body 延伸至 home indicator 底部、SafeArea 不加底部 padding，使 `CatLoadingWidget`／`ProCustomLoadingWidget` 的漸層背景完整填滿至螢幕物理底部，消除白條。非 loading 狀態仍維持原本 `extendBody: false` + `SafeArea(bottom: true)` 行為，`_TopBar` 背景色不受影響。 |
 | v3.13.55 | 2026-03-27 | **fix(prompt): 強化禁止文字指令，防止服裝文字亂碼**：4 種 prompt template（圓形 Chroma Key／彩色、方形 Chroma Key／彩色）的文字禁令統一強化：① 舊指令未禁中文字，模型會嘗試複製參考照片服裝上的漢字導致亂碼；② 新指令明確列舉「中文字、英文字母、數字、符號、Logo、品牌名稱」；③ 新增替代指示「若服裝或配件上有文字圖案，請以純色或簡單幾何紋樣取代，切勿照實重現」，讓模型有明確處理方式，不再嘗試渲染無法正確呈現的文字。 |
