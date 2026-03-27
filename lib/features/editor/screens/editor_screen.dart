@@ -466,12 +466,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         state.generatedImages[_currentIndex] == null;
 
     return Scaffold(
+      extendBody: isLoading || isCurrentImageLoading,
       backgroundColor: (isLoading || isCurrentImageLoading)
           ? (isProMode
               ? const Color(0xFFFAFAF5)   // ProCustomLoadingWidget 漸層頂色（與 TopBar / 狀態列無縫接合）
               : CatColorScheme.pink.bg)   // CatLoadingWidget 背景色
           : _kBg,
       body: SafeArea(
+        bottom: !(isLoading || isCurrentImageLoading), // loading 時漸層延伸至 home indicator
         child: Stack(
           children: [
             // ── 主畫面內容 ─────────────────────────────────────────────
