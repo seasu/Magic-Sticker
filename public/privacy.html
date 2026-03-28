@@ -124,9 +124,61 @@
       main { padding: 24px 12px 60px; }
       .card { padding: 20px 16px; }
     }
+
+    /* 中型桌機（900–1099px）：加寬 main */
     @media (min-width: 900px) {
       header { padding: 64px 24px 56px; }
       header h1 { font-size: 2.2rem; }
+      main { max-width: 860px; padding: 48px 32px 96px; }
+      .card { padding: 36px; }
+    }
+
+    /* 大桌機（≥ 1100px）：雙欄 — 左側 sticky TOC + 右側內文 */
+    @media (min-width: 1100px) {
+      .desktop-layout {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 48px 32px 96px;
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        gap: 48px;
+        align-items: start;
+      }
+      main {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+      }
+      .toc {
+        display: block;
+        position: sticky;
+        top: 24px;
+      }
+    }
+
+    /* TOC（桌機才顯示） */
+    .toc { display: none; }
+    .toc-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-secondary, #71768A);
+      margin-bottom: 12px;
+    }
+    .toc a {
+      display: block;
+      font-size: 0.82rem;
+      color: #71768A;
+      text-decoration: none;
+      padding: 5px 0 5px 10px;
+      border-left: 2px solid #E8E8E8;
+      line-height: 1.4;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .toc a:hover {
+      color: var(--brand-start);
+      border-left-color: var(--brand-start);
     }
   </style>
 </head>
@@ -138,10 +190,23 @@
   <p>Magic Sticker — AI 一鍵貼圖生成器<br>最後更新：2026 年 3 月 10 日</p>
 </header>
 
+<div class="desktop-layout">
+<aside class="toc">
+  <div class="toc-title">本頁目錄</div>
+  <a href="#overview">概覽</a>
+  <a href="#data-types">蒐集的資料</a>
+  <a href="#photo-usage">照片使用說明</a>
+  <a href="#third-party">第三方服務</a>
+  <a href="#children">兒童隱私</a>
+  <a href="#retention">資料保留與刪除</a>
+  <a href="#rights">您的權利</a>
+  <a href="#updates">隱私政策更新</a>
+  <a href="#contact">聯絡我們</a>
+</aside>
 <main>
 
   <!-- 概覽 -->
-  <div class="card">
+  <div id="overview" class="card">
     <h2>概覽</h2>
     <p>
       Magic Sticker（以下簡稱「本應用程式」）由個人開發者提供。
@@ -154,7 +219,7 @@
   </div>
 
   <!-- 蒐集的資料 -->
-  <div class="card">
+  <div id="data-types" class="card">
     <h2>我們蒐集哪些資料</h2>
     <div class="table-wrap">
       <table>
@@ -198,7 +263,7 @@
   </div>
 
   <!-- 照片使用說明 -->
-  <div class="card">
+  <div id="photo-usage" class="card">
     <h2>照片如何被使用</h2>
     <p>您選取或拍攝的照片僅用於以下流程：</p>
     <ul>
@@ -212,7 +277,7 @@
   </div>
 
   <!-- 第三方服務 -->
-  <div class="card">
+  <div id="third-party" class="card">
     <h2>第三方服務</h2>
     <p>本應用程式使用以下 Google / Apple 服務，各服務均有其獨立隱私政策：</p>
     <ul>
@@ -243,7 +308,7 @@
   </div>
 
   <!-- 兒童隱私 -->
-  <div class="card">
+  <div id="children" class="card">
     <h2>兒童隱私</h2>
     <p>
       本應用程式並非針對 13 歲以下兒童設計。
@@ -253,7 +318,7 @@
   </div>
 
   <!-- 資料保留與刪除 -->
-  <div class="card">
+  <div id="retention" class="card">
     <h2>資料保留與刪除</h2>
     <ul>
       <li>您的帳號資料（UID、點數紀錄）保留至您主動刪除帳號為止</li>
@@ -263,7 +328,7 @@
   </div>
 
   <!-- 您的權利 -->
-  <div class="card">
+  <div id="rights" class="card">
     <h2>您的權利</h2>
     <p>依據適用法律，您享有以下權利：</p>
     <ul>
@@ -275,7 +340,7 @@
   </div>
 
   <!-- 隱私政策更新 -->
-  <div class="card">
+  <div id="updates" class="card">
     <h2>隱私政策更新</h2>
     <p>
       我們可能不定期更新本隱私政策。更新時將修改頁面頂端的「最後更新」日期。
@@ -285,7 +350,7 @@
   </div>
 
   <!-- 聯絡我們 -->
-  <div class="card">
+  <div id="contact" class="card">
     <h2>聯絡我們</h2>
     <p>如對本隱私政策有任何疑問，請透過以下方式聯絡開發者：</p>
     <div class="contact-box">
@@ -297,6 +362,7 @@
   </div>
 
 </main>
+</div>
 
 <footer>
   &copy; 2026 Magic Sticker. All rights reserved.
