@@ -26,6 +26,9 @@ android {
     namespace "com.magicsticker.magic_sticker"
     compileSdk flutter.compileSdkVersion
     ndkVersion "27.0.12077973"
+    ndk {
+        debugSymbolLevel 'FULL'
+    }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
@@ -61,7 +64,7 @@ android {
             signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
             firebaseCrashlytics {
                 mappingFileUploadEnabled true
-                nativeSymbolUploadEnabled false
+                nativeSymbolUploadEnabled true
             }
         }
     }
