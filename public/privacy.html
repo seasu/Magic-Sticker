@@ -124,6 +124,11 @@
     }
 
     /* ─── Responsive ─────────────────────────────────────────────────────── */
+
+    /* TOC 預設隱藏，桌機 breakpoint 才顯示（必須在 media query 之前宣告） */
+    .toc { display: none; }
+
+    /* 小手機（< 480px） */
     @media (max-width: 479px) {
       header { padding: 32px 16px 28px; }
       header h1 { font-size: 1.5rem; }
@@ -163,7 +168,6 @@
     }
 
     /* TOC（桌機才顯示） */
-    .toc { display: none; }
     .toc-title {
       font-size: 0.75rem;
       font-weight: 700;
