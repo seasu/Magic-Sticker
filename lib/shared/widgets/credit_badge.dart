@@ -325,6 +325,7 @@ class _UserAccountSheet extends ConsumerWidget {
                   );
                 },
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       'uid  ',
@@ -335,7 +336,7 @@ class _UserAccountSheet extends ConsumerWidget {
                         color: AppColors.textSecondary,
                       ),
                     ),
-                    Expanded(
+                    Flexible(
                       child: Text(
                         uid,
                         overflow: TextOverflow.ellipsis,
@@ -346,7 +347,7 @@ class _UserAccountSheet extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 6),
                     Icon(Icons.copy_rounded,
                         size: 14,
                         color: AppColors.textSecondary.withValues(alpha: 0.6)),

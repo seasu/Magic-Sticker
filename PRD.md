@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.64+431 |
+| 目前版本 | v3.13.65+432 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.65 | 2026-03-27 | **feat(web+profile): 首頁 Landing Page + UID 列置中**：① `public/index.html` 新增完整產品首頁（導覽列、Hero 漸層、三步驟、功能特色四宮格、CTA 下載區、Footer），完全 Responsive（mobile-first，600px/900px breakpoint），依 Design Guide 品牌規範實作；② `credit_badge.dart` UID 列改為 `mainAxisAlignment: center` + `Flexible` 取代 `Expanded`，讓 uid 文字與複製 icon 整體置中對齊，版面更平衡。 |
 | v3.13.64 | 2026-03-27 | **feat(web): 全站 Responsive 支援**：① `brand.css` 新增三個 breakpoint（< 380px 小手機／預設手機／≥ 600px 平板桌機），card padding、border-radius、emoji size、h1 字級隨螢幕自適應；② `privacy.html` 表格加入 `.table-wrap { overflow-x: auto }` 防止三欄資料表在手機橫向溢出，並加入 ≤ 479px 和 ≥ 900px 兩個 breakpoint 調整 header padding、card padding、main padding。|
 | v3.13.63 | 2026-03-27 | **fix(cf): 修正「擔心」等情緒生成「打招呼」貼圖的 Bug**：① `generateStickerSpecs` prompt 的範例從單一 `greeting` 擴展為 3 種不同情緒（greeting / worried / angry），消除 Gemini 因過度參考單一範例而將所有 emotion 偏向 greeting 風格的 anchoring bias；② 新增 `normalizeSpecs()` helper：解析 Gemini 回傳的 specs 後，逐位置比對 `spec.categoryId` 與請求的 `ids[i]`；若不一致（Gemini 順序錯亂或誤複製 categoryId），強制修正 `categoryId` 並以 `CATEGORY_HINTS[expectedId]` 覆蓋 `emotion`，確保最終圖片 prompt 一定使用正確的情緒描述。兩項修正均適用於 `enhancePersonFeatures` 與非強化兩種回傳路徑。 |
 | v3.13.62 | 2026-03-27 | **feat(profile): 帳號 sheet 顯示 UID + 一鍵複製**：`_UserAccountSheet` 在 email 下方新增 uid 列，顯示 Firebase Auth UID（即 Firestore `users/{uid}` record ID）；點擊整列複製到剪貼簿並顯示「UID 已複製」Snackbar，右側有複製 icon 提示可互動，方便 debug 時請使用者直接複製提供。 |
