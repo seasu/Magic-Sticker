@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | SemVer (Major.Minor.Patch+Build) |
-| 目前版本 | v3.13.67+434 |
+| 目前版本 | v3.13.68+435 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -322,6 +322,7 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.13.68 | 2026-03-28 | **fix(android): 修正 ndk debugSymbolLevel DSL 位置錯誤導致 Gradle Build 失敗**：`ndk { debugSymbolLevel 'FULL' }` 從 `android {}` 頂層移至 `buildTypes { release { } }` 內，AGP 僅在 buildType 層支援此 DSL，頂層使用導致 "Could not find method ndk()" 錯誤。 |
 | v3.13.67 | 2026-03-28 | **docs(iap): 移除過時 TODO — IAP 收據驗證早已實裝**：`iap_service.dart` 頭部的 TODO 注解指稱「購買後直接在本機增加點數未驗證收據」，但程式碼早已呼叫 `fulfillCreditPurchaseIOS`、`fulfillCreditPurchaseAndroid`、`verifyProPurchase` 三支 Cloud Function 進行 server 端驗證並原子性入帳；移除誤導性 TODO，改為正確描述現有架構的 doc comment。 |
 |---|---|---|
 | v3.13.66 | 2026-03-29 | **fix(android): 啟用 native debug symbols 消除 Play Console 警告**：`build.gradle` 新增 `ndk { debugSymbolLevel 'FULL' }` 讓 AAB 自動包含原生除錯符號（解決 Play Store 送審 "not uploaded debug symbols" 警告）；同時將 `nativeSymbolUploadEnabled` 改為 `true`，讓 Firebase Crashlytics 也能接收 native symbols 以提升 native crash 可讀性。 |

@@ -26,9 +26,6 @@ android {
     namespace "com.magicsticker.magic_sticker"
     compileSdk flutter.compileSdkVersion
     ndkVersion "27.0.12077973"
-    ndk {
-        debugSymbolLevel 'FULL'
-    }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
@@ -62,6 +59,9 @@ android {
             shrinkResources true
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
+            ndk {
+                debugSymbolLevel 'FULL'
+            }
             firebaseCrashlytics {
                 mappingFileUploadEnabled true
                 nativeSymbolUploadEnabled true
