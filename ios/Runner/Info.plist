@@ -35,7 +35,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>選擇要製作貼圖的照片</string>
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>ca-app-pub-0557904547936841~6753895661</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>允許追蹤以顯示相關廣告，幫助維持 App 免費使用</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

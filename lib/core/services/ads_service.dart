@@ -56,7 +56,7 @@ class AdsService {
     }
     return Platform.isAndroid
         ? 'ca-app-pub-0557904547936841/5007506675' // 正式 Android Rewarded ID
-        : 'ca-app-pub-3940256099942544/1712485313'; // iOS 暫用測試 ID（Phase 2 再換）
+        : 'ca-app-pub-0557904547936841/9694031576'; // 正式 iOS Rewarded ID
   }
 
   RewardedAd? _rewardedAd;
