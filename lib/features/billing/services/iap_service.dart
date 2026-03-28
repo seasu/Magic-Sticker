@@ -54,11 +54,8 @@ const kProCustomInputProductId = 'pro_custom_input';
 /// 3. 監聽 `IAPService.instance.purchaseResultStream` 取得結果
 /// 4. `IAPService.instance.buyProCustomInput()` 觸發 Pro 解鎖購買
 ///
-/// ⚠️ TODO（生產上線前）：
-///   Credit pack 購買成功後直接在本機 Firestore 增加點數，**未驗證收據**。
-///   上線前須實作 Cloud Function `fulfillCreditPurchase(receiptData, platform)`，
-///   於 Server 端驗證 Google Play purchaseToken / App Store receipt，
-///   再原子性增加點數，防止偽造收據。
+/// 購買完成後透過 Cloud Function 驗證收據（`fulfillCreditPurchaseIOS` /
+/// `fulfillCreditPurchaseAndroid` / `verifyProPurchase`），原子性增加點數。
 class IAPService {
   IAPService._();
   static final instance = IAPService._();
