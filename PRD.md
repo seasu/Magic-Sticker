@@ -323,6 +323,7 @@ lib/
 
 | 版本 | 日期 | 摘要 |
 |---|---|---|
+| v3.13.66 | 2026-03-29 | **fix(android): 啟用 native debug symbols 消除 Play Console 警告**：`build.gradle` 新增 `ndk { debugSymbolLevel 'FULL' }` 讓 AAB 自動包含原生除錯符號（解決 Play Store 送審 "not uploaded debug symbols" 警告）；同時將 `nativeSymbolUploadEnabled` 改為 `true`，讓 Firebase Crashlytics 也能接收 native symbols 以提升 native crash 可讀性。 |
 | v3.13.65 | 2026-03-27 | **feat(web+profile): 首頁 Landing Page + UID 列置中**：① `public/index.html` 新增完整產品首頁（導覽列、Hero 漸層、三步驟、功能特色四宮格、CTA 下載區、Footer），完全 Responsive（mobile-first，600px/900px breakpoint），依 Design Guide 品牌規範實作；② `credit_badge.dart` UID 列改為 `mainAxisAlignment: center` + `Flexible` 取代 `Expanded`，讓 uid 文字與複製 icon 整體置中對齊，版面更平衡。 |
 | v3.13.64 | 2026-03-27 | **feat(web): 全站 Responsive 支援**：① `brand.css` 新增三個 breakpoint（< 380px 小手機／預設手機／≥ 600px 平板桌機），card padding、border-radius、emoji size、h1 字級隨螢幕自適應；② `privacy.html` 表格加入 `.table-wrap { overflow-x: auto }` 防止三欄資料表在手機橫向溢出，並加入 ≤ 479px 和 ≥ 900px 兩個 breakpoint 調整 header padding、card padding、main padding。|
 | v3.13.63 | 2026-03-27 | **fix(cf): 修正「擔心」等情緒生成「打招呼」貼圖的 Bug**：① `generateStickerSpecs` prompt 的範例從單一 `greeting` 擴展為 3 種不同情緒（greeting / worried / angry），消除 Gemini 因過度參考單一範例而將所有 emotion 偏向 greeting 風格的 anchoring bias；② 新增 `normalizeSpecs()` helper：解析 Gemini 回傳的 specs 後，逐位置比對 `spec.categoryId` 與請求的 `ids[i]`；若不一致（Gemini 順序錯亂或誤複製 categoryId），強制修正 `categoryId` 並以 `CATEGORY_HINTS[expectedId]` 覆蓋 `emotion`，確保最終圖片 prompt 一定使用正確的情緒描述。兩項修正均適用於 `enhancePersonFeatures` 與非強化兩種回傳路徑。 |
