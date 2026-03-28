@@ -52,11 +52,17 @@
     ul { padding-left: 20px; margin-bottom: 12px; }
     li { font-size: 0.95rem; color: #495057; margin-bottom: 6px; }
 
+    .table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-top: 8px;
+      border-radius: 8px;
+    }
     table {
       width: 100%;
+      min-width: 480px;
       border-collapse: collapse;
       font-size: 0.88rem;
-      margin-top: 8px;
     }
     th {
       background: rgba(253,41,123,0.08);
@@ -64,6 +70,7 @@
       padding: 10px 12px;
       text-align: left;
       font-weight: 600;
+      white-space: nowrap;
     }
     td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; color: #495057; }
     tr:last-child td { border-bottom: none; }
@@ -109,6 +116,18 @@
       font-size: 0.82rem;
       color: #adb5bd;
     }
+
+    /* ─── Responsive ─────────────────────────────────────────────────────── */
+    @media (max-width: 479px) {
+      header { padding: 32px 16px 28px; }
+      header h1 { font-size: 1.5rem; }
+      main { padding: 24px 12px 60px; }
+      .card { padding: 20px 16px; }
+    }
+    @media (min-width: 900px) {
+      header { padding: 64px 24px 56px; }
+      header h1 { font-size: 2.2rem; }
+    }
   </style>
 </head>
 <body>
@@ -137,43 +156,45 @@
   <!-- 蒐集的資料 -->
   <div class="card">
     <h2>我們蒐集哪些資料</h2>
-    <table>
-      <thead>
-        <tr><th>資料類型</th><th>用途</th><th>是否儲存</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>匿名使用者 ID <span class="tag">Firebase</span></td>
-          <td>識別帳號、管理點數</td>
-          <td>是（Firestore）</td>
-        </tr>
-        <tr>
-          <td>Google / Apple 帳號資訊</td>
-          <td>登入後升級帳號、增加點數</td>
-          <td>僅 UID 與 Email</td>
-        </tr>
-        <tr>
-          <td>照片 / 圖片</td>
-          <td>傳送給 Gemini AI 生成貼圖</td>
-          <td>否（不儲存於伺服器）</td>
-        </tr>
-        <tr>
-          <td>應用程式互動記錄 <span class="tag">Analytics</span></td>
-          <td>了解功能使用情況、改善體驗</td>
-          <td>是（Firebase）</td>
-        </tr>
-        <tr>
-          <td>崩潰與錯誤日誌 <span class="tag">Crashlytics</span></td>
-          <td>偵錯、提升穩定性</td>
-          <td>是（Firebase）</td>
-        </tr>
-        <tr>
-          <td>廣告識別碼 <span class="tag">AdMob</span></td>
-          <td>投放廣告（看廣告換點數）</td>
-          <td>由 Google 管理</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>資料類型</th><th>用途</th><th>是否儲存</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>匿名使用者 ID <span class="tag">Firebase</span></td>
+            <td>識別帳號、管理點數</td>
+            <td>是（Firestore）</td>
+          </tr>
+          <tr>
+            <td>Google / Apple 帳號資訊</td>
+            <td>登入後升級帳號、增加點數</td>
+            <td>僅 UID 與 Email</td>
+          </tr>
+          <tr>
+            <td>照片 / 圖片</td>
+            <td>傳送給 Gemini AI 生成貼圖</td>
+            <td>否（不儲存於伺服器）</td>
+          </tr>
+          <tr>
+            <td>應用程式互動記錄 <span class="tag">Analytics</span></td>
+            <td>了解功能使用情況、改善體驗</td>
+            <td>是（Firebase）</td>
+          </tr>
+          <tr>
+            <td>崩潰與錯誤日誌 <span class="tag">Crashlytics</span></td>
+            <td>偵錯、提升穩定性</td>
+            <td>是（Firebase）</td>
+          </tr>
+          <tr>
+            <td>廣告識別碼 <span class="tag">AdMob</span></td>
+            <td>投放廣告（看廣告換點數）</td>
+            <td>由 Google 管理</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- 照片使用說明 -->

@@ -50,14 +50,36 @@ body {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-radius: var(--radius-glass);
-  padding: 40px 32px;
+  padding: 32px 24px;
   max-width: 360px;
   width: 100%;
   text-align: center;
 }
 
-.emoji { font-size: 64px; margin-bottom: 20px; display: block; }
-h1 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+.emoji { font-size: 56px; margin-bottom: 16px; display: block; }
+h1 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+
+/* ─── Responsive breakpoints ────────────────────────────────────────────── */
+
+/* 小手機（< 380px，例如 iPhone SE） */
+@media (max-width: 379px) {
+  body { padding: 16px; }
+  .card { padding: 28px 18px; border-radius: 20px; }
+  .emoji { font-size: 48px; }
+  h1 { font-size: 20px; }
+}
+
+/* 平板 / 桌機（≥ 600px） */
+@media (min-width: 600px) {
+  .card {
+    padding: 48px 40px;
+    max-width: 440px;
+    border-radius: 28px;
+  }
+  .emoji { font-size: 72px; margin-bottom: 24px; }
+  h1 { font-size: 26px; }
+  .btn { font-size: 17px; padding: 18px; }
+}
 
 /* ─── 按鈕元件 ──────────────────────────────────────────────────────────── */
 
