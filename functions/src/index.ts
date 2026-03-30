@@ -232,9 +232,9 @@ export const generateStickerSpecs = onCall(
                 `（${ids.length} 個物件，順序與清單一致），每個物件包含：\n` +
                 '- "categoryId": 對應情感類別 id（原樣回傳，不可修改）\n' +
                 '- "text": 繁體中文標語（2–6 字，口語化有趣，適合貼圖）\n' +
-                '- "emotion": 英文情感描述（用於繪製卡通表情，參考 promptHint 但可自由發揮）\n' +
+                '- "emotion": 英文情感描述（用於繪製卡通表情，必須緊密基於此 categoryId 對應的 promptHint，僅描述表情與肢體動作，禁止加入外觀特徵如眼鏡、眉毛形狀等，禁止混入其他類別的情緒描述）\n' +
                 '- "bgColor": 背景色描述（英文色名 + hex，例如 "coral red #FF6B6B"）\n\n' +
-                "⚠️ 重要：每個物件的 emotion 必須完整反映該 categoryId 的情緒特徵（參考 promptHint），不可將不同情緒混用。\n\n" +
+                "⚠️ 重要：每個物件的 emotion 必須完整反映該 categoryId 的情緒特徵（以 promptHint 為主體），不可將不同情緒混用，不可包含人物外觀特徵（眼鏡、眉型、髮型等屬於外觀，不屬於情緒描述）。\n\n" +
                 "範例格式（不要照抄，請根據照片與 promptHint 創作）：\n" +
                 '[{"categoryId":"greeting","text":"哈囉！","emotion":"cheerfully waving hello, big smile","bgColor":"warm peach #F4A261"},{"categoryId":"worried","text":"好擔心","emotion":"anxious sweating, furrowed brows, trembling nervously","bgColor":"pale yellow #FFFACD"},{"categoryId":"angry","text":"哼！","emotion":"angry frowning with flames, clenched fists","bgColor":"fiery red #FF6B6B"}]',
             },
