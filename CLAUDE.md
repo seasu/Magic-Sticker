@@ -3,7 +3,11 @@
 > ⚠️ **每次 commit 前的強制規則（不可跳過）：**
 > 1. 更新 `pubspec.yaml` 的 `version`（遞增 patch 或 minor）
 > 2. 更新 `PRD.md` 反映最新變更
-> 若未執行以上兩步，**不得建立 commit**。
+> 3. **若修改了 `functions/` 下的程式碼**，必須同步遞增：
+>    - `functions/package.json` 的 `"version"` 欄位
+>    - `functions/src/index.ts` 頂部的 `FUNCTIONS_VERSION` 常數
+>    兩者必須保持一致。純 App 改動不需動 functions 版本，純 functions 改動不需動 `pubspec.yaml`。
+> 若未執行以上規則，**不得建立 commit**。
 
 ## 📌 角色定位
 

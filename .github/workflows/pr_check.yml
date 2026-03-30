@@ -59,6 +59,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -71,3 +73,30 @@ jobs:
 
       - name: TypeScript compile check
         run: cd functions && npx tsc --noEmit
+
+      - name: Check if functions changed
+        id: fns_changed
+        run: |
+          git fetch origin main --depth=1 2>/dev/null || true
+          CHANGED=$(git diff --name-only origin/main..HEAD -- functions/ 2>/dev/null || echo "")
+          if [ -n "$CHANGED" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "ℹ️  Functions 有改動，執行版本守衛"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  Functions 無改動，跳過版本守衛"
+          fi
+
+      - name: Check functions version bumped
+        if: steps.fns_changed.outputs.changed == 'true'
+        run: |
+          CURRENT=$(node -p "require('./functions/package.json').version")
+          MAIN_VER=$(git show origin/main:functions/package.json 2>/dev/null | \
+            python3 -c "import sys,json; print(json.load(sys.stdin).get('version','0.0.0'))" 2>/dev/null || echo "0.0.0")
+          echo "Current: $CURRENT  |  main: $MAIN_VER"
+          if [ "$CURRENT" = "$MAIN_VER" ]; then
+            echo "❌ functions/package.json version ($CURRENT) 未遞增"
+            echo "   修改 functions/ 程式碼時必須同步遞增 package.json version 及 FUNCTIONS_VERSION 常數"
+            exit 1
+          fi
+          echo "✅ Functions version OK: $CURRENT"
