@@ -22,7 +22,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.0.0";
+const FUNCTIONS_VERSION = "1.0.2";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -135,13 +135,13 @@ export const generateStickerSpecs = onCall(
       throw new HttpsError("invalid-argument", "photoBase64 is required.");
     }
 
-    // 情感類別 → 預設 8 種或由 client 指定（4–12 種）
+    // 情感類別 → 預設 8 種或由 client 指定（1–12 種）
     const DEFAULT_CATEGORY_IDS = [
       "greeting", "praise", "surprise", "awkward",
       "angry", "happy", "thinking", "farewell",
     ];
     const ids: string[] =
-      Array.isArray(rawCategoryIds) && rawCategoryIds.length >= 4
+      Array.isArray(rawCategoryIds) && rawCategoryIds.length >= 1
         ? rawCategoryIds.slice(0, 12)
         : DEFAULT_CATEGORY_IDS;
 
@@ -275,21 +275,22 @@ export const generateStickerSpecs = onCall(
       ?.map((p) => p.text ?? "")
       .join("") ?? "";
 
-    // 確保每個 spec 的 categoryId 與請求的 ids[i] 一致；
-    // 若不一致（Gemini 亂序或複製範例 categoryId），強制修正並補回 CATEGORY_HINTS emotion。
+    // 確保每個 spec 的 categoryId 與請求的 ids[i] 一致，
+    // 並以 CATEGORY_HINTS 作為 emotion 的權威來源（防止 Gemini 混入其他情緒或複製範例文字）。
     const normalizeSpecs = (arr: unknown[]): unknown[] =>
       arr.slice(0, ids.length).map((item, i) => {
         const spec = item as Record<string, unknown>;
         const expectedId = ids[i];
         if (spec["categoryId"] !== expectedId) {
           log(`normalizeSpecs: fixing spec[${i}] categoryId="${spec["categoryId"]}" → "${expectedId}"`);
-          return {
-            ...spec,
-            categoryId: expectedId,
-            emotion: CATEGORY_HINTS[expectedId] ?? expectedId,
-          };
         }
-        return spec;
+        const canonicalEmotion = CATEGORY_HINTS[expectedId];
+        return {
+          ...spec,
+          categoryId: expectedId,
+          // 已知類別一律用 CATEGORY_HINTS；未知類別（自訂）才保留 Gemini 輸出
+          ...(canonicalEmotion !== undefined ? {emotion: canonicalEmotion} : {}),
+        };
       });
 
     if (enhancePersonFeatures) {
