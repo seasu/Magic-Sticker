@@ -21,6 +21,9 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
   description: "Gemini model for image generation",
 });
 
+/** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
+const FUNCTIONS_VERSION = "1.0.0";
+
 // ── auth helper ──────────────────────────────────────────────────────────────
 
 /**
@@ -1444,6 +1447,7 @@ export const getConfig = onCall(
   () => ({
     textModel: geminiTextModel.value(),
     imageModel: geminiImageModel.value(),
+    functionsVersion: FUNCTIONS_VERSION,
   })
 );
 

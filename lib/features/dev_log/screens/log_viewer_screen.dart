@@ -356,6 +356,7 @@ class _ModelInfoCard extends StatefulWidget {
 class _ModelInfoCardState extends State<_ModelInfoCard> {
   String? _textModel;
   String? _imageModel;
+  String? _functionsVersion;
   bool _loading = true;
   String? _error;
 
@@ -375,6 +376,7 @@ class _ModelInfoCardState extends State<_ModelInfoCard> {
       setState(() {
         _textModel = data['textModel'] as String?;
         _imageModel = data['imageModel'] as String?;
+        _functionsVersion = data['functionsVersion'] as String?;
         _loading = false;
       });
     } catch (e) {
@@ -421,11 +423,18 @@ class _ModelInfoCardState extends State<_ModelInfoCard> {
                   final v = snap.data;
                   if (v == null) return const SizedBox.shrink();
                   return Text(
-                    'v${v.version}+${v.buildNumber}',
+                    'app v${v.version}+${v.buildNumber}',
                     style: TextStyle(fontSize: 11, color: cs.outline),
                   );
                 },
               ),
+              if (_functionsVersion != null) ...[
+                const SizedBox(width: 6),
+                Text(
+                  '· fn v$_functionsVersion',
+                  style: TextStyle(fontSize: 11, color: cs.outline),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
