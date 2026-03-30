@@ -6,14 +6,30 @@ on:
 
 jobs:
   version-check:
-    name: Version Guard
+    name: Version Guard (App)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Check if app code changed
+        id: app_changed
+        run: |
+          git fetch origin main --depth=1 2>/dev/null || true
+          CHANGED=$(git diff --name-only origin/main..HEAD \
+            -- 'lib/' 'android/' 'ios/' 'pubspec.yaml' 'pubspec.lock' \
+            2>/dev/null || echo "")
+          if [ -n "$CHANGED" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "ℹ️  App 有改動，執行版本守衛"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  App 無改動，跳過版本守衛"
+          fi
+
       - name: Check pubspec version is bumped
+        if: steps.app_changed.outputs.changed == 'true'
         run: |
           CURRENT=$(grep '^version:' pubspec.yaml | awk '{print $2}')
           echo "Current version: $CURRENT"
@@ -33,26 +49,46 @@ jobs:
     needs: version-check
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if app code changed
+        id: app_changed
+        run: |
+          git fetch origin main --depth=1 2>/dev/null || true
+          CHANGED=$(git diff --name-only origin/main..HEAD \
+            -- 'lib/' 'android/' 'ios/' 'pubspec.yaml' 'pubspec.lock' \
+            2>/dev/null || echo "")
+          echo "changed=$([ -n "$CHANGED" ] && echo true || echo false)" >> $GITHUB_OUTPUT
 
       - uses: actions/setup-java@v4
+        if: steps.app_changed.outputs.changed == 'true'
         with:
           java-version: '17'
           distribution: 'temurin'
 
       - uses: subosito/flutter-action@v2
+        if: steps.app_changed.outputs.changed == 'true'
         with:
           flutter-version: '3.29.1'
           channel: 'stable'
           cache: true
 
       - name: Flutter pub get
+        if: steps.app_changed.outputs.changed == 'true'
         run: flutter pub get
 
       - name: Dart analyze
+        if: steps.app_changed.outputs.changed == 'true'
         run: dart analyze --fatal-infos
 
       - name: Flutter test
+        if: steps.app_changed.outputs.changed == 'true'
         run: flutter test
+
+      - name: Skip (no app changes)
+        if: steps.app_changed.outputs.changed != 'true'
+        run: echo "ℹ️  App 無改動，跳過 analyze & test"
 
   functions-check:
     name: Cloud Functions Build
