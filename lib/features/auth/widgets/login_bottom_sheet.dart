@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,7 +11,7 @@ import '../../billing/providers/credit_provider.dart';
 
 // ── 狀態機 ─────────────────────────────────────────────────────────────────
 
-enum _SheetState { initial, loadingGoogle, success, error }
+enum _SheetState { initial, loadingGoogle, loadingApple, success, error }
 
 /// 登入底部彈窗
 ///
@@ -41,6 +43,7 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
   String? _userName;
   String? _userPhotoUrl;
   int _bonusCredits = 0;
+  String _loginProvider = 'Google';
 
   // 成功動畫
   late final AnimationController _successCtrl;
@@ -82,6 +85,7 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
 
   Future<void> _loginWithGoogle() async {
     if (_state != _SheetState.initial) return;
+    _loginProvider = 'Google';
     setState(() => _state = _SheetState.loadingGoogle);
 
     final result = await AuthService.signInWithGoogle();
@@ -95,6 +99,29 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
       setState(() {
         _state = _SheetState.error;
         _errorMessage = 'Google 登入失敗，請稍後再試一次';
+      });
+    } else {
+      // cancelled
+      setState(() => _state = _SheetState.initial);
+    }
+  }
+
+  Future<void> _loginWithApple() async {
+    if (_state != _SheetState.initial) return;
+    _loginProvider = 'Apple';
+    setState(() => _state = _SheetState.loadingApple);
+
+    final result = await AuthService.signInWithApple();
+
+    if (!mounted) return;
+
+    if (result.isSuccess) {
+      _handleSuccess(result);
+    } else if (result.isError) {
+      HapticFeedback.vibrate();
+      setState(() {
+        _state = _SheetState.error;
+        _errorMessage = 'Apple 登入失敗，請稍後再試一次';
       });
     } else {
       // cancelled
@@ -152,6 +179,7 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
               userName: _userName!,
               photoUrl: _userPhotoUrl,
               bonusCredits: _bonusCredits,
+              loginProvider: _loginProvider,
               checkScale: _checkScale,
               badgeFade: _badgeFade,
               badgeSlide: _badgeSlide,
@@ -166,7 +194,9 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
           _ => _InitialView(
               key: const ValueKey('initial'),
               isLoadingGoogle: _state == _SheetState.loadingGoogle,
+              isLoadingApple: _state == _SheetState.loadingApple,
               onGoogle: _loginWithGoogle,
+              onApple: _loginWithApple,
               onGuest: () => Navigator.of(context).pop(false),
             ),
         },
@@ -179,13 +209,17 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
 
 class _InitialView extends StatelessWidget {
   final bool isLoadingGoogle;
+  final bool isLoadingApple;
   final VoidCallback onGoogle;
+  final VoidCallback onApple;
   final VoidCallback onGuest;
 
   const _InitialView({
     super.key,
     required this.isLoadingGoogle,
+    required this.isLoadingApple,
     required this.onGoogle,
+    required this.onApple,
     required this.onGuest,
   });
 
@@ -266,6 +300,20 @@ class _InitialView extends StatelessWidget {
           borderColor: AppColors.divider,
         ),
 
+        // ── Apple 登入（iOS 專用）────────────────────────────────────
+        if (Platform.isIOS) ...[
+          const SizedBox(height: 12),
+          _SocialLoginButton(
+            isLoading: isLoadingApple,
+            onTap: onApple,
+            icon: const Icon(Icons.apple, size: 22, color: Colors.white),
+            label: '使用 Apple 帳號登入',
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            borderColor: Colors.black,
+          ),
+        ],
+
         const SizedBox(height: 20),
         TextButton(
           onPressed: onGuest,
@@ -289,6 +337,7 @@ class _SuccessView extends StatelessWidget {
   final String userName;
   final String? photoUrl;
   final int bonusCredits;
+  final String loginProvider;
   final Animation<double> checkScale;
   final Animation<double> badgeFade;
   final Animation<Offset> badgeSlide;
@@ -299,6 +348,7 @@ class _SuccessView extends StatelessWidget {
     required this.userName,
     this.photoUrl,
     required this.bonusCredits,
+    required this.loginProvider,
     required this.checkScale,
     required this.badgeFade,
     required this.badgeSlide,
@@ -400,7 +450,7 @@ class _SuccessView extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          '已成功登入 Google 帳號',
+          '已成功登入 $loginProvider 帳號',
           style: TextStyle(fontFamily: 'OpenHuninn',
             fontSize: 14,
             fontWeight: FontWeight.w500,

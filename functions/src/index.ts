@@ -22,7 +22,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.0.2";
+const FUNCTIONS_VERSION = "1.1.0";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -1633,5 +1633,62 @@ export const shareRewardGrant = onCall(
 
     log("shareRewardGrant: done", {uid, granted, newBalance, dateKey});
     return {granted, newBalance, reason};
+  }
+);
+
+// ── deleteUserAccount ────────────────────────────────────────────────────────
+//
+// App Store Guideline 5.1.1(v)：帳號刪除功能
+// 1. 驗證 Firebase Auth
+// 2. 刪除 users/{uid} 下所有子集合文件（creditHistory、purchases）
+// 3. 刪除 users/{uid} 主文件
+// 4. 刪除 Firebase Auth 用戶
+
+async function deleteCollection(
+  colRef: admin.firestore.CollectionReference,
+  batchSize = 100
+): Promise<void> {
+  const query = colRef.limit(batchSize);
+  while (true) {
+    const snapshot = await query.get();
+    if (snapshot.empty) break;
+    const batch = db.batch();
+    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+  }
+}
+
+export const deleteUserAccount = onCall(
+  {
+    region: "asia-east1",
+    timeoutSeconds: 60,
+    memory: "256MiB",
+    invoker: "public",
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    log("deleteUserAccount: invoked", {
+      hasAuth: !!request.auth,
+      hasAppCheck: !!request.app,
+    });
+    const uid = await resolveUid(request);
+    log("deleteUserAccount: auth OK", {uid});
+
+    const userRef = db.collection("users").doc(uid);
+
+    // 刪除所有子集合
+    const subcollections = await userRef.listCollections();
+    await Promise.all(
+      subcollections.map((col) => deleteCollection(col))
+    );
+
+    // 刪除主文件
+    await userRef.delete();
+
+    // 刪除 Firebase Auth 用戶
+    await admin.auth().deleteUser(uid);
+
+    log("deleteUserAccount: done", {uid});
+    return {success: true};
   }
 );

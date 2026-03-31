@@ -1,7 +1,12 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import 'firebase_service.dart';
 import '../../features/billing/models/credit_history_entry.dart';
@@ -136,6 +141,71 @@ class AuthService {
     }
   }
 
+  // ── Apple 登入 ───────────────────────────────────────────────────────────
+
+  /// 使用 Apple 帳號登入（或升級訪客帳號）—— iOS 專用
+  ///
+  /// Apple 要求傳入 raw nonce 以防 replay attack；
+  /// SHA256(rawNonce) 傳給 Apple，rawNonce 傳給 Firebase。
+  static Future<AuthResult> signInWithApple() async {
+    try {
+      final rawNonce = _generateNonce();
+      final nonceSha256 = _sha256ofString(rawNonce);
+
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: nonceSha256,
+      );
+
+      final credential = OAuthProvider('apple.com').credential(
+        idToken: appleCredential.identityToken,
+        rawNonce: rawNonce,
+      );
+
+      final result = await _signInWithCredential(credential);
+
+      // Apple 只在第一次登入時回傳姓名，需主動寫入 profile
+      if (result.isSuccess) {
+        final user = _auth.currentUser;
+        if (user != null) {
+          final givenName = appleCredential.givenName;
+          final familyName = appleCredential.familyName;
+          final fullName = [givenName, familyName]
+              .where((s) => s != null && s.isNotEmpty)
+              .join(' ');
+          if (fullName.isNotEmpty && (user.displayName == null || user.displayName!.isEmpty)) {
+            await user.updateProfile(displayName: fullName);
+            await _auth.currentUser?.reload();
+          }
+        }
+      }
+
+      return result;
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) return AuthResult.cancelled;
+      await FirebaseService.recordError(e, StackTrace.current, reason: 'apple_sign_in_failed');
+      return AuthResult.error(e.message);
+    } catch (e, stack) {
+      await FirebaseService.recordError(e, stack, reason: 'apple_sign_in_failed');
+      return AuthResult.error(e.toString());
+    }
+  }
+
+  static String _generateNonce([int length = 32]) {
+    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
+  }
+
+  static String _sha256ofString(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
   // ── 登出 ─────────────────────────────────────────────────────────────────
 
   static Future<void> signOut() async {
@@ -144,6 +214,31 @@ class AuthService {
     // 登出後立即重建匿名帳號
     await signInAnonymouslyIfNeeded();
     FirebaseService.log('AuthService: signed out → new anonymous session');
+  }
+
+  // ── 刪除帳號 ──────────────────────────────────────────────────────────────
+
+  /// 永久刪除帳號（Apple Guideline 5.1.1(v)）
+  ///
+  /// 透過 Cloud Function 刪除 Firestore 資料 + Firebase Auth 用戶，
+  /// 完成後本地端重建匿名訪客帳號。
+  static Future<void> deleteAccount() async {
+    try {
+      await _fn
+          .httpsCallable(
+            'deleteUserAccount',
+            options: HttpsCallableOptions(timeout: const Duration(seconds: 60)),
+          )
+          .call();
+      FirebaseService.log('AuthService: account deleted');
+    } catch (e, stack) {
+      await FirebaseService.recordError(e, stack, reason: 'delete_account_failed');
+      rethrow;
+    }
+    await GoogleSignIn().signOut();
+    // Firebase Auth 用戶已被 CF 刪除，直接重建匿名帳號
+    await signInAnonymouslyIfNeeded();
+    FirebaseService.log('AuthService: delete complete → new anonymous session');
   }
 
   // ── Firestore 點數操作 ────────────────────────────────────────────────────
