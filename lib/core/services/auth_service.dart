@@ -174,6 +174,7 @@ class AuthService {
       final credential = OAuthProvider('apple.com').credential(
         idToken: appleCredential.identityToken,
         rawNonce: rawNonce,
+        accessToken: appleCredential.authorizationCode,
       );
 
       final result = await _signInWithCredential(credential);
