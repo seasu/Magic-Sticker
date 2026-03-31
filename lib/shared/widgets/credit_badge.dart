@@ -485,6 +485,73 @@ class _UserAccountSheet extends ConsumerWidget {
               ),
             ),
           ),
+          const SizedBox(height: 10),
+          // ── 刪除帳號 ───────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: TextButton.icon(
+              onPressed: () => _confirmDeleteAccount(context),
+              icon: Icon(Icons.delete_forever_rounded,
+                  size: 16,
+                  color: AppColors.nope.withValues(alpha: 0.5)),
+              label: Text(
+                '刪除帳號',
+                style: TextStyle(fontFamily: 'OpenHuninn',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.nope.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteAccount(BuildContext sheetContext) {
+    showDialog<void>(
+      context: sheetContext,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text(
+          '確認刪除帳號',
+          style: TextStyle(
+            fontFamily: 'OpenHuninn',
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        content: const Text(
+          '刪除後，您的帳號資料（包含點數與紀錄）將永久消失，且無法恢復。\n\n確定要刪除嗎？',
+          style: TextStyle(fontFamily: 'OpenHuninn', height: 1.6),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text(
+              '取消',
+              style: TextStyle(fontFamily: 'OpenHuninn'),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              Navigator.of(sheetContext).pop();
+              try {
+                await AuthService.deleteAccount();
+              } catch (_) {
+                // 錯誤已由 AuthService 記錄至 Crashlytics
+              }
+            },
+            child: Text(
+              '確認刪除',
+              style: TextStyle(
+                fontFamily: 'OpenHuninn',
+                fontWeight: FontWeight.w700,
+                color: AppColors.nope,
+              ),
+            ),
+          ),
         ],
       ),
     );
