@@ -43,6 +43,22 @@ jobs:
           fi
           echo "✅ Version OK: $CURRENT"
 
+      # 向 GitHub Commit Status API 回報 "Version Guard" 狀態，
+      # 以滿足 Branch Protection 的 required check（名稱必須完全對應）。
+      - name: Report "Version Guard" commit status
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          STATE=${{ job.status == 'success' && 'success' || 'failure' }}
+          SHA=${{ github.event.pull_request.head.sha }}
+          curl -s -X POST \
+            -H "Authorization: token ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/statuses/${SHA}" \
+            -d "{\"state\":\"${STATE}\",\"context\":\"Version Guard\",\"description\":\"App version guard\"}"
+          echo "✅ Posted commit status: Version Guard → ${STATE}"
+
   analyze-and-test:
     name: Analyze & Test
     runs-on: ubuntu-latest
