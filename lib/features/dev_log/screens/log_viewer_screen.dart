@@ -422,19 +422,22 @@ class _ModelInfoCardState extends State<_ModelInfoCard> {
                 builder: (_, snap) {
                   final v = snap.data;
                   if (v == null) return const SizedBox.shrink();
-                  return Text(
-                    'app v${v.version}+${v.buildNumber}',
-                    style: TextStyle(fontSize: 11, color: cs.outline),
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'app v${v.version}+${v.buildNumber}',
+                        style: TextStyle(fontSize: 11, color: cs.outline),
+                      ),
+                      if (_functionsVersion != null)
+                        Text(
+                          'fn v$_functionsVersion',
+                          style: TextStyle(fontSize: 11, color: cs.outline),
+                        ),
+                    ],
                   );
                 },
               ),
-              if (_functionsVersion != null) ...[
-                const SizedBox(width: 6),
-                Text(
-                  '· fn v$_functionsVersion',
-                  style: TextStyle(fontSize: 11, color: cs.outline),
-                ),
-              ],
             ],
           ),
           const SizedBox(height: 8),
