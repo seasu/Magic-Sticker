@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.15.3+450 |
+| 目前 App 版本 | v3.15.5+452 |
 | 目前 Functions 版本 | v1.1.0 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
@@ -323,6 +323,8 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.15.5 | 2026-03-31 | **fix(lint)**：修正 `auth_service.dart` 兩處 `dead_null_aware_expression`：`SignInWithAppleAuthorizationException.message` 為 non-null，移除多餘的 `??` fallback，讓 `dart analyze --fatal-infos` 可通過。 |
+| v3.15.4 | 2026-03-31 | **fix(auth)**：強化 Apple 登入診斷與平台設定檢查：`auth_service.dart` 新增 Android `webAuthenticationOptions`（由 `--dart-define=APPLE_SERVICE_ID/APPLE_REDIRECT_URI` 注入），若缺少設定會拋出明確錯誤；`SignInWithAppleAuthorizationException` 會帶平台/錯誤碼/設定狀態寫入 Crashlytics，並回傳更可讀的使用者訊息，協助定位 `AuthorizationErrorCode.unknown (1000)` 根因。 |
 | v3.15.0 | 2026-03-31 | **fix(app-store): 修復三項 Apple 退審問題**：① Guideline 4.8 — 新增 Sign in with Apple（`sign_in_with_apple ^6.1.4`、`crypto ^3.0.3`）；`auth_service.dart` 實作 `signInWithApple()`（nonce + SHA256）；`login_bottom_sheet.dart` iOS 專用 Apple 登入按鈕；② Guideline 5.1.1(v) — 新增帳號刪除功能：Cloud Function `deleteUserAccount`（刪除子集合 + Firestore 文件 + Firebase Auth 用戶）；`auth_service.dart` 新增 `deleteAccount()`；`credit_badge.dart` 帳號頁新增「刪除帳號」按鈕＋確認 Dialog；③ Guideline 2.1(b) — IAP 商品需在 App Store Connect 建立並隨二進位一同送審（行政作業）。Functions 版本遞增至 v1.1.0。 |
 | v3.13.69 | 2026-03-28 | **feat(web): privacy.html 桌機版排版**：中型桌機（≥900px）加寬 main 至 860px；大桌機（≥1100px）改為雙欄 grid（左側 200px sticky TOC 目錄導覽 + 右側內文），9 個段落加上錨點 id，TOC 連結可直接跳至各節；小螢幕維持原有單欄版型不受影響。 |
 | v3.13.68 | 2026-03-28 | **fix(android): 修正 ndk debugSymbolLevel DSL 位置錯誤導致 Gradle Build 失敗**：`ndk { debugSymbolLevel 'FULL' }` 從 `android {}` 頂層移至 `buildTypes { release { } }` 內，AGP 僅在 buildType 層支援此 DSL，頂層使用導致 "Could not find method ndk()" 錯誤。 |

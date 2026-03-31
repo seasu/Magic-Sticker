@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,6 +16,10 @@ import '../../features/billing/models/credit_history_entry.dart';
 const int kGuestInitialCredits = 1;      // 訪客初始點數（刻意給少，降低重裝誘因）
 const int kLoginBonusCredits = 3;        // 登入獎勵（升級訪客 → 正式帳號）
 const int kNewAccountCredits = 5;        // 全新帳號初始點數
+
+
+const String _appleServiceId = String.fromEnvironment('APPLE_SERVICE_ID');
+const String _appleRedirectUri = String.fromEnvironment('APPLE_REDIRECT_URI');
 
 /// Firebase Auth + Firestore 用戶管理服務
 class AuthService {
@@ -152,13 +157,19 @@ class AuthService {
       final rawNonce = _generateNonce();
       final nonceSha256 = _sha256ofString(rawNonce);
 
+      final webAuthOptions = _resolveAppleWebAuthOptions();
       final appleCredential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
           AppleIDAuthorizationScopes.fullName,
         ],
         nonce: nonceSha256,
+        webAuthenticationOptions: webAuthOptions,
       );
+
+      if ((appleCredential.identityToken ?? '').isEmpty) {
+        throw StateError('Apple identityToken is empty');
+      }
 
       final credential = OAuthProvider('apple.com').credential(
         idToken: appleCredential.identityToken,
@@ -186,8 +197,20 @@ class AuthService {
       return result;
     } on SignInWithAppleAuthorizationException catch (e) {
       if (e.code == AuthorizationErrorCode.canceled) return AuthResult.cancelled;
-      await FirebaseService.recordError(e, StackTrace.current, reason: 'apple_sign_in_failed');
-      return AuthResult.error(e.message);
+
+      final platform = Platform.isAndroid
+          ? 'android'
+          : Platform.isIOS
+              ? 'ios'
+              : 'other';
+      final detail =
+          'platform=$platform code=${e.code.name} message=${e.message} serviceIdSet=${_appleServiceId.isNotEmpty} redirectUriSet=${_appleRedirectUri.isNotEmpty}';
+      await FirebaseService.recordError(
+        StateError('Apple authorization failed: $detail'),
+        StackTrace.current,
+        reason: 'apple_sign_in_failed',
+      );
+      return AuthResult.error(_toAppleUserMessage(e));
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack, reason: 'apple_sign_in_failed');
       return AuthResult.error(e.toString());
@@ -204,6 +227,32 @@ class AuthService {
     final bytes = utf8.encode(input);
     final digest = sha256.convert(bytes);
     return digest.toString();
+  }
+
+
+  static WebAuthenticationOptions? _resolveAppleWebAuthOptions() {
+    if (!Platform.isAndroid) return null;
+
+    if (_appleServiceId.isEmpty || _appleRedirectUri.isEmpty) {
+      throw StateError(
+        'Missing APPLE_SERVICE_ID / APPLE_REDIRECT_URI for Android Sign in with Apple',
+      );
+    }
+
+    return WebAuthenticationOptions(
+      clientId: _appleServiceId,
+      redirectUri: Uri.parse(_appleRedirectUri),
+    );
+  }
+
+  static String _toAppleUserMessage(SignInWithAppleAuthorizationException e) {
+    if (e.code == AuthorizationErrorCode.unknown) {
+      if (Platform.isAndroid) {
+        return 'Apple 登入設定尚未完成（請檢查 Service ID / Redirect URI）';
+      }
+      return 'Apple 登入暫時失敗，請確認 Apple ID 與 App 的 Sign in with Apple 設定';
+    }
+    return e.message;
   }
 
   // ── 登出 ─────────────────────────────────────────────────────────────────
