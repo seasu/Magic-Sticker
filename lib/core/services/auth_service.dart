@@ -204,7 +204,7 @@ class AuthService {
               ? 'ios'
               : 'other';
       final detail =
-          'platform=$platform code=${e.code.name} message=${e.message ?? 'n/a'} serviceIdSet=${_appleServiceId.isNotEmpty} redirectUriSet=${_appleRedirectUri.isNotEmpty}';
+          'platform=$platform code=${e.code.name} message=${e.message} serviceIdSet=${_appleServiceId.isNotEmpty} redirectUriSet=${_appleRedirectUri.isNotEmpty}';
       await FirebaseService.recordError(
         StateError('Apple authorization failed: $detail'),
         StackTrace.current,
@@ -252,7 +252,7 @@ class AuthService {
       }
       return 'Apple 登入暫時失敗，請確認 Apple ID 與 App 的 Sign in with Apple 設定';
     }
-    return e.message ?? 'Apple 登入失敗，請稍後再試';
+    return e.message;
   }
 
   // ── 登出 ─────────────────────────────────────────────────────────────────
