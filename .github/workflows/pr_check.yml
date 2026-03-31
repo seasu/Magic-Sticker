@@ -8,6 +8,8 @@ jobs:
   version-check:
     name: Version Guard (App)
     runs-on: ubuntu-latest
+    permissions:
+      statuses: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,15 +51,20 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          JOB_STATUS: ${{ job.status }}
         run: |
-          STATE=${{ job.status == 'success' && 'success' || 'failure' }}
-          SHA=${{ github.event.pull_request.head.sha }}
-          curl -s -X POST \
+          STATE=$([ "$JOB_STATUS" = "success" ] && echo "success" || echo "failure")
+          echo "Posting Version Guard → ${STATE} for ${SHA}"
+          HTTP=$(curl -s -o /tmp/status_resp.json -w "%{http_code}" -X POST \
             -H "Authorization: token ${GH_TOKEN}" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/${{ github.repository }}/statuses/${SHA}" \
-            -d "{\"state\":\"${STATE}\",\"context\":\"Version Guard\",\"description\":\"App version guard\"}"
-          echo "✅ Posted commit status: Version Guard → ${STATE}"
+            "https://api.github.com/repos/${REPO}/statuses/${SHA}" \
+            -d "{\"state\":\"${STATE}\",\"context\":\"Version Guard\",\"description\":\"App version guard\"}")
+          cat /tmp/status_resp.json
+          echo "HTTP: ${HTTP}"
+          [ "$HTTP" = "201" ] && echo "✅ Version Guard status posted" || (echo "❌ Failed to post status" && exit 1)
 
   analyze-and-test:
     name: Analyze & Test
