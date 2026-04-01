@@ -487,6 +487,26 @@ jobs:
             -allowProvisioningUpdates
           echo "✅ IPA exported to build/ios/ipa/"
 
+      - name: Verify IPA entitlements (Sign in with Apple)
+        run: |
+          IPA=$(ls build/ios/ipa/*.ipa | head -1)
+          echo "🔍 Checking IPA: $IPA"
+          WORK=$(mktemp -d)
+          unzip -q "$IPA" -d "$WORK"
+          APP=$(ls "$WORK/Payload/")
+          echo "📦 App bundle: $APP"
+          ENTITLEMENTS=$(codesign -d --entitlements - "$WORK/Payload/$APP" 2>/dev/null || true)
+          echo "--- Entitlements ---"
+          echo "$ENTITLEMENTS"
+          echo "--------------------"
+          if echo "$ENTITLEMENTS" | grep -q "com.apple.developer.applesignin"; then
+            echo "✅ Sign in with Apple entitlement PRESENT"
+          else
+            echo "❌ Sign in with Apple entitlement MISSING — provisioning profile may be outdated"
+            exit 1
+          fi
+          rm -rf "$WORK"
+
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
