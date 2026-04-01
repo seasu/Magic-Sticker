@@ -4,7 +4,7 @@
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
 | 目前 App 版本 | v3.16.3+460 |
-| 目前 Functions 版本 | v1.1.0 |
+| 目前 Functions 版本 | v1.1.1 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
