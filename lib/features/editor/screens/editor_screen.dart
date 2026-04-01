@@ -16,6 +16,7 @@ import '../../../core/models/sticker_shape.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../features/billing/providers/credit_provider.dart';
+import '../../../shared/widgets/credit_badge.dart';
 import '../../../shared/widgets/credit_paywall_dialog.dart';
 import '../models/editor_state.dart';
 import '../models/sticker_config.dart';
@@ -621,8 +622,6 @@ class _TopBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final credits = ref.watch(creditProvider);
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
       child: Row(
@@ -642,34 +641,7 @@ class _TopBar extends ConsumerWidget {
             ),
           ),
           const Spacer(),
-          // 右上角點數顯示
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.divider),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ShaderMask(
-                  shaderCallback: (b) => AppColors.gradient.createShader(b),
-                  child: const Icon(Icons.bolt_rounded,
-                      size: 16, color: Colors.white),
-                ),
-                const SizedBox(width: 3),
-                Text(
-                  '$credits',
-                  style: TextStyle(fontFamily: 'OpenHuninn',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          const CreditBadge(),
           const SizedBox(width: 4),
         ],
       ),
