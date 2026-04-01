@@ -476,10 +476,9 @@ jobs:
           print('✅ ExportOptions.plist created (team:', os.environ['APPLE_TEAM_ID'], ')')
           PYEOF
 
-      - name: Build IPA archive (no codesign)
+      - name: Build IPA archive
         run: |
           flutter build ipa --release \
-            --no-codesign \
             --obfuscate \
             --split-debug-info=build/symbols/ios \
             --dart-define=STICKER_BG_TRANSPARENT=${{ vars.STICKER_BG_TRANSPARENT || 'true' }} \
