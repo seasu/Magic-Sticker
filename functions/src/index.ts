@@ -22,7 +22,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.1.0";
+const FUNCTIONS_VERSION = "1.1.1";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -1674,21 +1674,30 @@ export const deleteUserAccount = onCall(
     const uid = await resolveUid(request);
     log("deleteUserAccount: auth OK", {uid});
 
-    const userRef = db.collection("users").doc(uid);
+    try {
+      const userRef = db.collection("users").doc(uid);
 
-    // 刪除所有子集合
-    const subcollections = await userRef.listCollections();
-    await Promise.all(
-      subcollections.map((col) => deleteCollection(col))
-    );
+      // 刪除所有子集合
+      const subcollections = await userRef.listCollections();
+      log("deleteUserAccount: subcollections", {uid, count: subcollections.length});
+      await Promise.all(
+        subcollections.map((col) => deleteCollection(col))
+      );
 
-    // 刪除主文件
-    await userRef.delete();
+      // 刪除主文件
+      await userRef.delete();
+      log("deleteUserAccount: firestore doc deleted", {uid});
 
-    // 刪除 Firebase Auth 用戶
-    await admin.auth().deleteUser(uid);
+      // 刪除 Firebase Auth 用戶
+      await admin.auth().deleteUser(uid);
+      log("deleteUserAccount: auth user deleted", {uid});
 
-    log("deleteUserAccount: done", {uid});
-    return {success: true};
+      log("deleteUserAccount: done", {uid});
+      return {success: true};
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      warn("deleteUserAccount: failed", {uid, error: msg});
+      throw new HttpsError("internal", `刪除帳號失敗：${msg}`);
+    }
   }
 );
