@@ -232,8 +232,9 @@ class _OriginalCompareOverlayState extends State<OriginalCompareOverlay> {
                     height: h,
                     child: Transform(
                       transform: Matrix4.identity()
-                        ..translate(_leftOffset.dx, _leftOffset.dy)
-                        ..scale(_leftScale),
+                        ..translateByDouble(
+                            _leftOffset.dx, _leftOffset.dy, 0, 1)
+                        ..scaleByDouble(_leftScale, _leftScale, _leftScale, 1),
                       alignment: Alignment.center,
                       child: Image.file(
                         File(widget.originalImagePath!),
@@ -255,8 +256,10 @@ class _OriginalCompareOverlayState extends State<OriginalCompareOverlay> {
                     height: h,
                     child: Transform(
                       transform: Matrix4.identity()
-                        ..translate(_rightOffset.dx, _rightOffset.dy)
-                        ..scale(_rightScale),
+                        ..translateByDouble(
+                            _rightOffset.dx, _rightOffset.dy, 0, 1)
+                        ..scaleByDouble(
+                            _rightScale, _rightScale, _rightScale, 1),
                       alignment: Alignment.center,
                       child: Image.memory(
                         widget.stickerBytes!,

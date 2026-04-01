@@ -636,7 +636,7 @@ class _FeatureEnhanceToggle extends StatelessWidget {
               Switch(
                 value: value,
                 onChanged: onChanged,
-                activeColor: const Color(0xFFC9A84C),
+                activeThumbColor: const Color(0xFFC9A84C),
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               )
             else

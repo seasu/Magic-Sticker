@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.17.3+470 |
+| 目前 App 版本 | v3.17.4+471 |
 | 目前 Functions 版本 | v1.1.3 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
@@ -323,6 +323,7 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.17.4 | 2026-04-02 | **chore(merge): 合併 `main` 解決 PR #319 衝突**：同步 `main` 上 v3.16.9 之後的變更，保留 PR 分支 App Store 退審修復與 CI 調整；`pubspec` 遞增至 3.17.4+471；順應 Flutter 3.35 analyzer：`ThemeData.cardTheme` 改用 `CardThemeData`、`Matrix4` 改用 `translateByDouble` / `scaleByDouble`、`Switch` 改用 `activeThumbColor`。 |
 | v3.17.3 | 2026-04-01 | **chore(ci): 解決 PR #317 衝突並保持檢查穩定**：在 `pr_check.yml` 的 workflow-level `concurrency.group` 改為包含 `github.workflow`，避免不同 workflow 意外共用同一 group；其餘 timeout 與 Version Guard API timeout 設定維持。 |
 | v3.17.2 | 2026-04-01 | **ci(pr-check): 修復 PR check 卡住問題**：`pr_check.yml` 新增 `concurrency`（同一 PR 僅保留最新一次執行、取消舊 run），並為 `version-check` / `analyze-and-test` / `functions-check` 設定 `timeout-minutes`，避免 workflow 因網路或 runner 異常長時間 pending；另外在回報 `Version Guard` commit status 的 curl 新增 `--connect-timeout 10 --max-time 30`，防止 API 呼叫無限等待導致檢查卡住。 |
 | v3.17.1 | 2026-04-02 | **fix(security): 阻擋匿名用戶分享獎勵循環**：`shareRewardGrant` CF 在 transaction 讀取 `users/{uid}` 後，若 `isAnonymous === true` 直接 return `reason: "anon_user"` 不給點；防止「生成→分享→拿回 1 點→再生成」無限循環。分享獎勵保留給已登入的正式用戶。Functions v1.1.3。 |

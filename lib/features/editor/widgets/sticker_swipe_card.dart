@@ -139,7 +139,7 @@ class _StickerSwipeCardState extends State<StickerSwipeCard>
         child: Center(
           child: Transform(
             transform: Matrix4.identity()
-              ..translate(_offset.dx, _offset.dy)
+              ..translateByDouble(_offset.dx, _offset.dy, 0, 1)
               ..rotateZ(angle),
             alignment: FractionalOffset.bottomCenter,
             child: Stack(
