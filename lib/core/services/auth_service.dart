@@ -369,7 +369,10 @@ class AuthService {
         // 先記錄匿名 UID，signInWithCredential 後 currentUser 已換成正式帳號
         final anonUid = currentUser.uid;
         final anonCredits = (await getCredits(anonUid)) ?? 0;
-        await _auth.signInWithCredential(e.credential ?? credential);
+        // 注意：必須用原始 credential（含 rawNonce），
+        // e.credential 是 Firebase 重新包裝的，Apple Sign In 時不含 nonce，
+        // 直接用會導致 missing-or-invalid-nonce。
+        await _auth.signInWithCredential(credential);
 
         // Force token refresh so subsequent Firestore calls get a valid JWT.
         // signInWithCredential fires userChanges() immediately but the new
