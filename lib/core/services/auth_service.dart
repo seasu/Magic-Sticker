@@ -177,7 +177,34 @@ class AuthService {
         accessToken: appleCredential.authorizationCode,
       );
 
-      final result = await _signInWithCredential(credential);
+      // Apple 的 identityToken 在 Firebase server 端是單次消費：
+      // 若先 linkWithCredential（失敗）再 signInWithCredential，
+      // Firebase 會因為同一個 token 被送了兩次而回傳
+      // "missing-or-invalid-nonce / Duplicate credential"。
+      // 因此直接 signInWithCredential，之後再補做匿名帳號合併。
+      final anonUser = _auth.currentUser;
+      final anonUid = (anonUser?.isAnonymous == true) ? anonUser!.uid : null;
+      final anonCredits = anonUid != null ? ((await getCredits(anonUid)) ?? 0) : 0;
+
+      final firebaseResult = await _auth.signInWithCredential(credential);
+      await _auth.currentUser?.getIdToken(true);
+      final newUid = firebaseResult.user!.uid;
+
+      bool didPromote = false;
+      try {
+        if (anonUid != null) {
+          didPromote = await _promoteUser(newUid, previousCredits: anonCredits);
+          await _callInitUserSession(newUid, anonCredits: anonCredits, anonUid: anonUid);
+          FirebaseService.log('AuthService: Apple sign-in merged anonUid=$anonUid → uid=$newUid');
+        } else {
+          await _callInitUserSession(newUid);
+        }
+      } catch (firestoreErr, stack) {
+        await FirebaseService.recordError(firestoreErr, stack,
+            reason: 'post_apple_signin_firestore_failed');
+      }
+
+      final AuthResult result = didPromote ? AuthResult.successWithBonus : AuthResult.success;
 
       // Apple 只在第一次登入時回傳姓名，需主動寫入 profile
       if (result.isSuccess) {
