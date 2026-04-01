@@ -313,7 +313,9 @@ class AuthService {
       rethrow;
     }
     await GoogleSignIn().signOut();
-    // Firebase Auth 用戶已被 CF 刪除，直接重建匿名帳號
+    // CF 已刪除 server 端用戶，但本地 SDK 還快取舊 currentUser；
+    // 必須先 signOut() 清除本地狀態，再建立新匿名帳號
+    await _auth.signOut();
     await signInAnonymouslyIfNeeded();
     FirebaseService.log('AuthService: delete complete → new anonymous session');
   }
