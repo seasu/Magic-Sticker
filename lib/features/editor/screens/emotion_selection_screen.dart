@@ -636,7 +636,8 @@ class _FeatureEnhanceToggle extends StatelessWidget {
               Switch(
                 value: value,
                 onChanged: onChanged,
-                activeThumbColor: const Color(0xFFC9A84C),
+                // ignore: deprecated_member_use — CI Flutter 3.29 無 activeThumbColor
+                activeColor: const Color(0xFFC9A84C),
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               )
             else
