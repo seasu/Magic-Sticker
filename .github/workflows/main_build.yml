@@ -425,6 +425,13 @@ jobs:
           cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/"${PP_UUID}".mobileprovision
           echo "PP_NAME=$PP_NAME" >> $GITHUB_ENV
           echo "✅ Provisioning profile installed: $PP_NAME ($PP_UUID)"
+          # 驗證 profile 含有 Sign in with Apple entitlement
+          if /usr/libexec/PlistBuddy -c "Print :Entitlements:com.apple.developer.applesignin" /tmp/profile_decoded.plist 2>/dev/null; then
+            echo "✅ Profile contains Sign in with Apple entitlement"
+          else
+            echo "❌ Profile is MISSING Sign in with Apple entitlement — update the provisioning profile in Apple Developer Portal"
+            exit 1
+          fi
 
       - name: Configure Xcode Manual Signing
         env:
@@ -483,8 +490,7 @@ jobs:
           xcodebuild -exportArchive \
             -archivePath build/ios/archive/Runner.xcarchive \
             -exportPath build/ios/ipa \
-            -exportOptionsPlist ios/ExportOptions.plist \
-            -allowProvisioningUpdates
+            -exportOptionsPlist ios/ExportOptions.plist
           echo "✅ IPA exported to build/ios/ipa/"
 
       - name: Verify IPA entitlements (Sign in with Apple)
