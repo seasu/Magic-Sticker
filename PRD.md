@@ -3,8 +3,8 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.16.5+462 |
-| 目前 Functions 版本 | v1.1.1 |
+| 目前 App 版本 | v3.16.6+463 |
+| 目前 Functions 版本 | v1.1.2 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.16.6 | 2026-04-01 | **fix(security): 防止刪帳號重複領初始點數**：`deleteUserAccount` CF 刪除前先將 Apple/Google provider UID 記錄至 `_deletedProviders` 集合（黑名單）；`initUserSession` 初始化新非匿名帳號時，查詢黑名單，曾刪除過的 provider 只發 1 點（匿名水準）而非 5 點。Functions v1.1.2。 |
 | v3.16.5 | 2026-04-01 | **fix(auth): 帳號刪除後未切換匿名狀態**：`deleteAccount()` 在呼叫 CF 刪除 server 端用戶後，本地 Firebase SDK 仍快取舊 `currentUser`，導致 `signInAnonymouslyIfNeeded()` 因 `currentUser != null` 提早 return 而未建立新匿名帳號；修復：加入 `await _auth.signOut()` 清除本地快取後再執行匿名登入。 |
 | v3.16.4 | 2026-04-01 | **feat(ux): 帳號刪除成功提示 Dialog**：`credit_badge.dart` 將 `_UserAccountSheet` 從 `ConsumerWidget` 改為 `ConsumerStatefulWidget`，新增 `_deleting` 狀態；確認刪除後先關閉確認 Dialog（sheet 保持開啟）→ 顯示 loading indicator → 刪除完成後顯示「帳號已刪除」確認 Dialog（`barrierDismissible: false`）→ 用戶按確認後關閉 sheet；失敗時 SnackBar 提示。 |
 | v3.15.5 | 2026-03-31 | **fix(lint)**：修正 `auth_service.dart` 兩處 `dead_null_aware_expression`：`SignInWithAppleAuthorizationException.message` 為 non-null，移除多餘的 `??` fallback，讓 `dart analyze --fatal-infos` 可通過。 |

@@ -22,7 +22,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.1.1";
+const FUNCTIONS_VERSION = "1.1.2";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -1418,7 +1418,27 @@ export const initUserSession = onCall(
         !userRecord.phoneNumber &&
         (!userRecord.providerData || userRecord.providerData.length === 0);
 
-      credits = isAnonymous ? kGuestInitialCredits : kNewAccountCredits;
+      // 檢查 provider UID 黑名單：曾刪除過帳號的 provider 不再發放初始點數
+      let wasDeleted = false;
+      if (!isAnonymous) {
+        for (const provider of userRecord.providerData ?? []) {
+          const key = Buffer.from(`${provider.providerId}:${provider.uid}`)
+            .toString("base64url");
+          const snap = await tx.get(
+            db.collection("_deletedProviders").doc(key)
+          );
+          if (snap.exists) {
+            wasDeleted = true;
+            break;
+          }
+        }
+      }
+
+      credits = isAnonymous
+        ? kGuestInitialCredits
+        : wasDeleted
+        ? kGuestInitialCredits
+        : kNewAccountCredits;
       created = true;
 
       tx.set(userRef, {
@@ -1675,6 +1695,28 @@ export const deleteUserAccount = onCall(
     log("deleteUserAccount: auth OK", {uid});
 
     try {
+      // 刪除前，記錄 provider UID 黑名單，防止刪帳號後重複領初始點數
+      const userRecord = await admin.auth().getUser(uid);
+      if (userRecord.providerData && userRecord.providerData.length > 0) {
+        const batch = db.batch();
+        for (const provider of userRecord.providerData) {
+          const key = Buffer.from(`${provider.providerId}:${provider.uid}`)
+            .toString("base64url");
+          const ref = db.collection("_deletedProviders").doc(key);
+          batch.set(ref, {
+            providerId: provider.providerId,
+            providerUid: provider.uid,
+            email: provider.email ?? null,
+            deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+        await batch.commit();
+        log("deleteUserAccount: provider blacklist saved", {
+          uid,
+          providers: userRecord.providerData.map((p) => p.providerId),
+        });
+      }
+
       const userRef = db.collection("users").doc(uid);
 
       // 刪除所有子集合
