@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.17.1+468 |
+| 目前 App 版本 | v3.17.3+470 |
 | 目前 Functions 版本 | v1.1.3 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
@@ -323,6 +323,8 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.17.3 | 2026-04-01 | **chore(ci): 解決 PR #317 衝突並保持檢查穩定**：在 `pr_check.yml` 的 workflow-level `concurrency.group` 改為包含 `github.workflow`，避免不同 workflow 意外共用同一 group；其餘 timeout 與 Version Guard API timeout 設定維持。 |
+| v3.17.2 | 2026-04-01 | **ci(pr-check): 修復 PR check 卡住問題**：`pr_check.yml` 新增 `concurrency`（同一 PR 僅保留最新一次執行、取消舊 run），並為 `version-check` / `analyze-and-test` / `functions-check` 設定 `timeout-minutes`，避免 workflow 因網路或 runner 異常長時間 pending；另外在回報 `Version Guard` commit status 的 curl 新增 `--connect-timeout 10 --max-time 30`，防止 API 呼叫無限等待導致檢查卡住。 |
 | v3.17.1 | 2026-04-02 | **fix(security): 阻擋匿名用戶分享獎勵循環**：`shareRewardGrant` CF 在 transaction 讀取 `users/{uid}` 後，若 `isAnonymous === true` 直接 return `reason: "anon_user"` 不給點；防止「生成→分享→拿回 1 點→再生成」無限循環。分享獎勵保留給已登入的正式用戶。Functions v1.1.3。 |
 | v3.17.0 | 2026-04-02 | **fix(privacy): 刪除帳號同步清除本機生成紀錄**：sticker history 存在本地（SharedPreferences + 本機檔案），CF 無法自動刪除；`StickerArchiveService` 新增 `clearAll()`（清除 SharedPreferences key + 刪除 `sticker_archives/` 目錄）；`AuthService.deleteAccount()` 在登出後呼叫 `clearAll()`；確認 Dialog 文字補充「本機貼圖生成紀錄」說明。 |
 | v3.16.9 | 2026-04-02 | **fix(ux): editor 頂部列點數徽章統一**：`editor_screen.dart` `_TopBar` 右上角自定義 `Container` 點數顯示改用 `CreditBadge()`，外觀與首頁一致，同時具備點擊開啟帳號 sheet 功能。 |

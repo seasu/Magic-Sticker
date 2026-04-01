@@ -4,12 +4,17 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   version-check:
     name: Version Guard (App)
     runs-on: ubuntu-latest
     permissions:
       statuses: write
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,7 +62,7 @@ jobs:
         run: |
           STATE=$([ "$JOB_STATUS" = "success" ] && echo "success" || echo "failure")
           echo "Posting Version Guard → ${STATE} for ${SHA}"
-          HTTP=$(curl -s -o /tmp/status_resp.json -w "%{http_code}" -X POST \
+          HTTP=$(curl -s -o /tmp/status_resp.json -w "%{http_code}" --connect-timeout 10 --max-time 30 -X POST \
             -H "Authorization: token ${GH_TOKEN}" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/repos/${REPO}/statuses/${SHA}" \
@@ -70,6 +75,7 @@ jobs:
     name: Analyze & Test
     runs-on: ubuntu-latest
     needs: version-check
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -116,6 +122,7 @@ jobs:
   functions-check:
     name: Cloud Functions Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
