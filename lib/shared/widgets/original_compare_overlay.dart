@@ -232,7 +232,9 @@ class _OriginalCompareOverlayState extends State<OriginalCompareOverlay> {
                     height: h,
                     child: Transform(
                       transform: Matrix4.identity()
+                        // ignore: deprecated_member_use — CI Flutter 3.29 無 translateByDouble
                         ..translate(_leftOffset.dx, _leftOffset.dy)
+                        // ignore: deprecated_member_use — CI Flutter 3.29 無 scaleByDouble
                         ..scale(_leftScale),
                       alignment: Alignment.center,
                       child: Image.file(
@@ -255,7 +257,9 @@ class _OriginalCompareOverlayState extends State<OriginalCompareOverlay> {
                     height: h,
                     child: Transform(
                       transform: Matrix4.identity()
+                        // ignore: deprecated_member_use — CI Flutter 3.29 無 translateByDouble
                         ..translate(_rightOffset.dx, _rightOffset.dy)
+                        // ignore: deprecated_member_use — CI Flutter 3.29 無 scaleByDouble
                         ..scale(_rightScale),
                       alignment: Alignment.center,
                       child: Image.memory(

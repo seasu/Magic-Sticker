@@ -3,8 +3,8 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.16.9+466 |
-| 目前 Functions 版本 | v1.1.2 |
+| 目前 App 版本 | v3.17.5+472 |
+| 目前 Functions 版本 | v1.1.3 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,12 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.17.5 | 2026-04-02 | **fix(ci): PR Check（Flutter 3.29.1）與新版 SDK 雙相容**：`Switch` 改回 `activeColor`、`Matrix4` 改回 `translate` / `scale`，並以 `// ignore: deprecated_member_use` 壓制新版 analyzer info；`ThemeData.cardTheme` 維持 `CardThemeData`；解鎖 PR #319「Analyze & Test」。`pubspec` 3.17.5+472。 |
+| v3.17.4 | 2026-04-02 | **chore(merge): 合併 `main` 解決 PR #319 衝突**：同步 `main` 上 v3.16.9 之後的變更，保留 PR 分支 App Store 退審修復與 CI 調整；`pubspec` 遞增至 3.17.4+471；順應 Flutter 3.35 analyzer：`ThemeData.cardTheme` 改用 `CardThemeData`、`Matrix4` 改用 `translateByDouble` / `scaleByDouble`、`Switch` 改用 `activeThumbColor`。 |
+| v3.17.3 | 2026-04-01 | **chore(ci): 解決 PR #317 衝突並保持檢查穩定**：在 `pr_check.yml` 的 workflow-level `concurrency.group` 改為包含 `github.workflow`，避免不同 workflow 意外共用同一 group；其餘 timeout 與 Version Guard API timeout 設定維持。 |
+| v3.17.2 | 2026-04-01 | **ci(pr-check): 修復 PR check 卡住問題**：`pr_check.yml` 新增 `concurrency`（同一 PR 僅保留最新一次執行、取消舊 run），並為 `version-check` / `analyze-and-test` / `functions-check` 設定 `timeout-minutes`，避免 workflow 因網路或 runner 異常長時間 pending；另外在回報 `Version Guard` commit status 的 curl 新增 `--connect-timeout 10 --max-time 30`，防止 API 呼叫無限等待導致檢查卡住。 |
+| v3.17.1 | 2026-04-02 | **fix(security): 阻擋匿名用戶分享獎勵循環**：`shareRewardGrant` CF 在 transaction 讀取 `users/{uid}` 後，若 `isAnonymous === true` 直接 return `reason: "anon_user"` 不給點；防止「生成→分享→拿回 1 點→再生成」無限循環。分享獎勵保留給已登入的正式用戶。Functions v1.1.3。 |
+| v3.17.0 | 2026-04-02 | **fix(privacy): 刪除帳號同步清除本機生成紀錄**：sticker history 存在本地（SharedPreferences + 本機檔案），CF 無法自動刪除；`StickerArchiveService` 新增 `clearAll()`（清除 SharedPreferences key + 刪除 `sticker_archives/` 目錄）；`AuthService.deleteAccount()` 在登出後呼叫 `clearAll()`；確認 Dialog 文字補充「本機貼圖生成紀錄」說明。 |
 | v3.16.9 | 2026-04-02 | **fix(ux): editor 頂部列點數徽章統一**：`editor_screen.dart` `_TopBar` 右上角自定義 `Container` 點數顯示改用 `CreditBadge()`，外觀與首頁一致，同時具備點擊開啟帳號 sheet 功能。 |
 | v3.16.8 | 2026-04-02 | **feat(ux): 點數手動更新功能**：① 帳號 sheet「剩餘點數」卡片右側新增 refresh 圖示，點擊觸發 `creditProvider.reload()` 並顯示 loading spinner；② 首頁下拉（pull-to-refresh）觸發點數更新 — 將 `Expanded(_buildHero())` 包裝成 `LayoutBuilder + RefreshIndicator + SingleChildScrollView + ConstrainedBox`，保持原有版面的同時支援下拉手勢。 |
 | v3.16.7 | 2026-04-02 | **fix(ads): iOS 廣告無填充修復**：① `ads_service.dart` 在 `MobileAds.instance.initialize()` 前加入 `Permission.appTrackingTransparency.request()`（iOS ATT）— 未授權時 AdMob 僅投放非個人化廣告導致 fill rate 趨近 0；② `ios/Runner/Info.plist` 新增 50 項 `SKAdNetworkItems` — 讓 Google AdMob 合作廣告商可透過 SKAdNetwork 歸因並參與競價。 |

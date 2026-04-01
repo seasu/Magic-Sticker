@@ -11,6 +11,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import 'firebase_service.dart';
 import '../../features/billing/models/credit_history_entry.dart';
+import '../../features/sticker_history/services/sticker_archive_service.dart';
 
 /// 點數常數
 const int kGuestInitialCredits = 1;      // 訪客初始點數（刻意給少，降低重裝誘因）
@@ -316,6 +317,9 @@ class AuthService {
     // CF 已刪除 server 端用戶，但本地 SDK 還快取舊 currentUser；
     // 必須先 signOut() 清除本地狀態，再建立新匿名帳號
     await _auth.signOut();
+    // 清除本機生成紀錄（sticker history 存在本地，CF 無法刪除）
+    await StickerArchiveService.instance.clearAll();
+    FirebaseService.log('AuthService: local sticker history cleared');
     await signInAnonymouslyIfNeeded();
     FirebaseService.log('AuthService: delete complete → new anonymous session');
   }

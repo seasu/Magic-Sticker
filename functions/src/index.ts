@@ -22,7 +22,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.1.2";
+const FUNCTIONS_VERSION = "1.1.3";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -1629,6 +1629,12 @@ export const shareRewardGrant = onCall(
       ]);
 
       newBalance = (userDoc.data()?.credits as number) ?? 0;
+
+      // 匿名用戶不給分享獎勵，防止「生成→分享→拿回點數→無限循環」
+      if (userDoc.data()?.isAnonymous === true) {
+        reason = "anon_user";
+        return;
+      }
 
       if (dailyDoc.exists && dailyDoc.data()?.shareGranted === true) {
         return; // 今日已領，冪等回傳

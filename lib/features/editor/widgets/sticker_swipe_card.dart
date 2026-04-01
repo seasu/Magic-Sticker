@@ -139,6 +139,7 @@ class _StickerSwipeCardState extends State<StickerSwipeCard>
         child: Center(
           child: Transform(
             transform: Matrix4.identity()
+              // ignore: deprecated_member_use — CI Flutter 3.29 無 translateByDouble
               ..translate(_offset.dx, _offset.dy)
               ..rotateZ(angle),
             alignment: FractionalOffset.bottomCenter,
