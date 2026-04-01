@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.16.9+466 |
+| 目前 App 版本 | v3.17.0+467 |
 | 目前 Functions 版本 | v1.1.2 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
@@ -323,6 +323,7 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.17.0 | 2026-04-02 | **fix(privacy): 刪除帳號同步清除本機生成紀錄**：sticker history 存在本地（SharedPreferences + 本機檔案），CF 無法自動刪除；`StickerArchiveService` 新增 `clearAll()`（清除 SharedPreferences key + 刪除 `sticker_archives/` 目錄）；`AuthService.deleteAccount()` 在登出後呼叫 `clearAll()`；確認 Dialog 文字補充「本機貼圖生成紀錄」說明。 |
 | v3.16.9 | 2026-04-02 | **fix(ux): editor 頂部列點數徽章統一**：`editor_screen.dart` `_TopBar` 右上角自定義 `Container` 點數顯示改用 `CreditBadge()`，外觀與首頁一致，同時具備點擊開啟帳號 sheet 功能。 |
 | v3.16.8 | 2026-04-02 | **feat(ux): 點數手動更新功能**：① 帳號 sheet「剩餘點數」卡片右側新增 refresh 圖示，點擊觸發 `creditProvider.reload()` 並顯示 loading spinner；② 首頁下拉（pull-to-refresh）觸發點數更新 — 將 `Expanded(_buildHero())` 包裝成 `LayoutBuilder + RefreshIndicator + SingleChildScrollView + ConstrainedBox`，保持原有版面的同時支援下拉手勢。 |
 | v3.16.7 | 2026-04-02 | **fix(ads): iOS 廣告無填充修復**：① `ads_service.dart` 在 `MobileAds.instance.initialize()` 前加入 `Permission.appTrackingTransparency.request()`（iOS ATT）— 未授權時 AdMob 僅投放非個人化廣告導致 fill rate 趨近 0；② `ios/Runner/Info.plist` 新增 50 項 `SKAdNetworkItems` — 讓 Google AdMob 合作廣告商可透過 SKAdNetwork 歸因並參與競價。 |

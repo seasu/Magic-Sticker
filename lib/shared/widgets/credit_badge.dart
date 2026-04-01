@@ -574,7 +574,7 @@ class _UserAccountSheetState extends ConsumerState<_UserAccountSheet> {
           style: TextStyle(fontFamily: 'OpenHuninn', fontWeight: FontWeight.w800),
         ),
         content: const Text(
-          '刪除後，您的帳號資料（包含點數與紀錄）將永久消失，且無法恢復。\n\n確定要刪除嗎？',
+          '刪除後，以下資料將永久消失且無法恢復：\n\n• 帳號點數與交易紀錄\n• 本機貼圖生成紀錄\n\n確定要刪除嗎？',
           style: TextStyle(fontFamily: 'OpenHuninn', height: 1.6),
         ),
         actions: [

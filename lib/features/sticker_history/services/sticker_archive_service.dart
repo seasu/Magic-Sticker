@@ -122,6 +122,22 @@ class StickerArchiveService {
     await prefs.setStringList(_prefKey, _encodeList(records));
   }
 
+  /// 刪除全部生成紀錄（本地檔案 + SharedPreferences）。
+  /// 用於帳號刪除時清除本機資料。
+  Future<void> clearAll() async {
+    final prefs = await SharedPreferences.getInstance();
+    final records = _decodeList(prefs.getStringList(_prefKey) ?? []);
+    for (final r in records) {
+      _deleteRecordFiles(r);
+    }
+    await prefs.remove(_prefKey);
+    // 刪除整個目錄（清除殘留檔案）
+    final dir = await _archiveDir();
+    if (dir.existsSync()) {
+      await dir.delete(recursive: true);
+    }
+  }
+
   /// 將存檔圖片重新儲存至裝置相簿。
   Future<void> saveToGallery(StickerRecord record) async {
     await Gal.putImage(record.filePath);
