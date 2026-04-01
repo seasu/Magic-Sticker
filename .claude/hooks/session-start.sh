@@ -48,6 +48,26 @@ done
 echo "[session-start] 對 origin/main 執行 rebase..."
 if git rebase origin/main; then
   echo "[session-start] rebase 成功。"
+
+  # 若 local 與 remote tracking branch 有 diverge（rebase 改變了 SHA），
+  # 自動 force push 讓 PR head 保持同步，避免之後 push 被 reject。
+  TRACKING=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || true)
+  if [ -n "$TRACKING" ]; then
+    LOCAL_SHA=$(git rev-parse HEAD)
+    REMOTE_SHA=$(git rev-parse "$TRACKING" 2>/dev/null || true)
+    if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
+      REMOTE_NAME=$(echo "$TRACKING" | cut -d'/' -f1)
+      REMOTE_BRANCH=$(echo "$TRACKING" | cut -d'/' -f2-)
+      echo "[session-start] 偵測到 SHA 不一致，force push 同步 remote..."
+      if git push "$REMOTE_NAME" HEAD:"$REMOTE_BRANCH" --force-with-lease 2>&1; then
+        echo "[session-start] remote branch 已同步。"
+      else
+        echo "[session-start] force push 失敗，請手動處理。"
+      fi
+    else
+      echo "[session-start] local 與 remote SHA 一致，無需 push。"
+    fi
+  fi
 else
   echo "[session-start] rebase 失敗，中止並還原（conflict 需手動處理）。"
   git rebase --abort 2>/dev/null || true
