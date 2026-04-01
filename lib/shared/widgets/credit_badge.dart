@@ -211,7 +211,7 @@ class _InitialFallback extends StatelessWidget {
 
 // ── 帳號資訊 Bottom Sheet ──────────────────────────────────────────────────────
 
-class _UserAccountSheet extends ConsumerWidget {
+class _UserAccountSheet extends ConsumerStatefulWidget {
   final int credits;
 
   const _UserAccountSheet({required this.credits});
@@ -226,7 +226,14 @@ class _UserAccountSheet extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_UserAccountSheet> createState() => _UserAccountSheetState();
+}
+
+class _UserAccountSheetState extends ConsumerState<_UserAccountSheet> {
+  bool _deleting = false;
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final photoUrl = user?.photoURL;
     final displayName = user?.displayName;
@@ -385,7 +392,7 @@ class _UserAccountSheet extends ConsumerWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '$credits',
+                      '${widget.credits}',
                       style: TextStyle(fontFamily: 'OpenHuninn',
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -489,20 +496,44 @@ class _UserAccountSheet extends ConsumerWidget {
           // ── 刪除帳號 ───────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: TextButton.icon(
-              onPressed: () => _confirmDeleteAccount(context),
-              icon: Icon(Icons.delete_forever_rounded,
-                  size: 16,
-                  color: AppColors.nope.withValues(alpha: 0.5)),
-              label: Text(
-                '刪除帳號',
-                style: TextStyle(fontFamily: 'OpenHuninn',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.nope.withValues(alpha: 0.5),
-                ),
-              ),
-            ),
+            child: _deleting
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          '刪除中...',
+                          style: TextStyle(
+                            fontFamily: 'OpenHuninn',
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : TextButton.icon(
+                    onPressed: _confirmDeleteAccount,
+                    icon: Icon(Icons.delete_forever_rounded,
+                        size: 16,
+                        color: AppColors.nope.withValues(alpha: 0.5)),
+                    label: Text(
+                      '刪除帳號',
+                      style: TextStyle(
+                        fontFamily: 'OpenHuninn',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.nope.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ),
           ),
           const SizedBox(height: 8),
         ],
@@ -510,16 +541,13 @@ class _UserAccountSheet extends ConsumerWidget {
     );
   }
 
-  void _confirmDeleteAccount(BuildContext sheetContext) {
+  void _confirmDeleteAccount() {
     showDialog<void>(
-      context: sheetContext,
+      context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text(
           '確認刪除帳號',
-          style: TextStyle(
-            fontFamily: 'OpenHuninn',
-            fontWeight: FontWeight.w800,
-          ),
+          style: TextStyle(fontFamily: 'OpenHuninn', fontWeight: FontWeight.w800),
         ),
         content: const Text(
           '刪除後，您的帳號資料（包含點數與紀錄）將永久消失，且無法恢復。\n\n確定要刪除嗎？',
@@ -528,19 +556,62 @@ class _UserAccountSheet extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text(
-              '取消',
-              style: TextStyle(fontFamily: 'OpenHuninn'),
-            ),
+            child: const Text('取消', style: TextStyle(fontFamily: 'OpenHuninn')),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.of(dialogContext).pop();
-              Navigator.of(sheetContext).pop();
+              Navigator.of(dialogContext).pop(); // 關閉確認 dialog，sheet 保持開啟
+              setState(() => _deleting = true);
               try {
                 await AuthService.deleteAccount();
+                if (!mounted) return;
+                setState(() => _deleting = false);
+                // 顯示成功提示，等用戶確認後再關閉 sheet
+                await showDialog<void>(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => AlertDialog(
+                    title: const Text(
+                      '帳號已刪除',
+                      style: TextStyle(
+                        fontFamily: 'OpenHuninn',
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    content: const Text(
+                      '您的帳號資料已成功刪除。',
+                      style: TextStyle(fontFamily: 'OpenHuninn', height: 1.6),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text(
+                          '確認',
+                          style: TextStyle(
+                            fontFamily: 'OpenHuninn',
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+                if (mounted) Navigator.of(context).pop(); // 關閉 sheet
               } catch (_) {
-                // 錯誤已由 AuthService 記錄至 Crashlytics
+                if (!mounted) return;
+                setState(() => _deleting = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text(
+                      '刪除帳號失敗，請稍後再試',
+                      style: TextStyle(fontFamily: 'OpenHuninn'),
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                );
               }
             },
             child: Text(
