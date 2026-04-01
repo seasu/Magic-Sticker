@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'firebase_service.dart';
@@ -69,6 +70,12 @@ class AdsService {
 
   Future<void> initialize() async {
     try {
+      // iOS 14.5+：先請求 ATT 追蹤授權，再初始化 AdMob。
+      // 未授權時 AdMob 只能投放非個人化廣告，fill rate 極低。
+      if (Platform.isIOS) {
+        final status = await Permission.appTrackingTransparency.request();
+        FirebaseService.log('AdsService: ATT status=$status');
+      }
       await MobileAds.instance.initialize();
       FirebaseService.log('AdsService: MobileAds initialized');
       loadRewardedAd(); // 預載廣告

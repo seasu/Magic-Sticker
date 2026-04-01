@@ -11,6 +11,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../../app.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../features/billing/providers/credit_provider.dart';
 import '../../../shared/widgets/credit_badge.dart';
 import '../widgets/pick_image_button.dart';
 
@@ -112,7 +113,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildAppBar(),
-            Expanded(child: _buildHero()),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) => RefreshIndicator(
+                  onRefresh: () =>
+                      ref.read(creditProvider.notifier).reload(),
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: ConstrainedBox(
+                      constraints:
+                          BoxConstraints(minHeight: constraints.maxHeight),
+                      child: _buildHero(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
             _buildBottomActions(context),
           ],
         ),

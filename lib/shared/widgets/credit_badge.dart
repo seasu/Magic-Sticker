@@ -231,6 +231,14 @@ class _UserAccountSheet extends ConsumerStatefulWidget {
 
 class _UserAccountSheetState extends ConsumerState<_UserAccountSheet> {
   bool _deleting = false;
+  bool _refreshing = false;
+
+  Future<void> _handleRefresh() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    await ref.read(creditProvider.notifier).reload();
+    if (mounted) setState(() => _refreshing = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -399,6 +407,22 @@ class _UserAccountSheetState extends ConsumerState<_UserAccountSheet> {
                         color: AppColors.textPrimary,
                       ),
                     ),
+                    const SizedBox(width: 6),
+                    _refreshing
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 1.5),
+                          )
+                        : GestureDetector(
+                            onTap: _handleRefresh,
+                            child: Icon(
+                              Icons.refresh_rounded,
+                              size: 16,
+                              color: AppColors.textSecondary
+                                  .withValues(alpha: 0.5),
+                            ),
+                          ),
                   ],
                 ),
               ],
