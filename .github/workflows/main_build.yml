@@ -449,9 +449,12 @@ jobs:
           else
             sed -i '' "s/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Manual;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"$PP_NAME\";/g" "$PBXPROJ"
           fi
-          # Set code sign identity
+          # Set code sign identity（涵蓋條件式 key 與舊式寫法）
+          sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";/g' "$PBXPROJ"
+          sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "Apple Development";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";/g' "$PBXPROJ"
           sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' "$PBXPROJ"
-          sed -i '' 's/CODE_SIGN_IDENTITY = "";/CODE_SIGN_IDENTITY = "iPhone Distribution";/g' "$PBXPROJ"
+          sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development";/CODE_SIGN_IDENTITY = "Apple Distribution";/g' "$PBXPROJ"
+          sed -i '' 's/CODE_SIGN_IDENTITY = "";/CODE_SIGN_IDENTITY = "Apple Distribution";/g' "$PBXPROJ"
           echo "✅ Xcode project: Manual signing, team=$APPLE_TEAM_ID, profile=$PP_NAME"
 
       - name: Create ExportOptions.plist
@@ -488,7 +491,10 @@ jobs:
       - name: Sign archive with entitlements
         run: |
           APP="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
-          CERT=$(security find-identity -v -p codesigning | grep "iPhone Distribution" | head -1 | awk '{print $2}')
+          echo "--- Available identities ---"
+          security find-identity -v -p codesigning
+          echo "----------------------------"
+          CERT=$(security find-identity -v -p codesigning | grep -E "iPhone Distribution|Apple Distribution" | head -1 | awk '{print $2}')
           echo "🔏 Certificate: $CERT"
           [ -z "$CERT" ] && echo "❌ No distribution certificate found" && exit 1
           # 先簽 Frameworks（內層 → 外層）
