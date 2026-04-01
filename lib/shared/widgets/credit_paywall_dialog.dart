@@ -38,6 +38,7 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
   bool _isWatchingAd = false;
   bool _isLoggingIn = false;
   int _todayAdCount = 0;
+  String? _adErrorMsg;
 
   @override
   void initState() {
@@ -51,7 +52,7 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
 
   Future<void> _watchAd() async {
     if (_isWatchingAd || _isLoggingIn) return;
-    setState(() => _isWatchingAd = true);
+    setState(() { _isWatchingAd = true; _adErrorMsg = null; });
 
     bool rewarded = false;
     await AdsService.instance.showRewardedAd(
@@ -60,14 +61,7 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
       // 避免 Firestore Security Rules 封鎖 App 端直接寫入。
       onRewarded: () => rewarded = true,
       onFailed: () {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('廣告載入中，請稍後再試',
-                style: TextStyle(fontFamily: 'OpenHuninn',fontSize: 13)),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
-          ));
-        }
+        if (mounted) setState(() => _adErrorMsg = '廣告載入中，請稍後再試');
       },
     );
 
@@ -212,6 +206,18 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
               foregroundColor: AppColors.textPrimary,
               borderColor: AppColors.divider,
             ),
+            if (_adErrorMsg != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                _adErrorMsg!,
+                style: const TextStyle(
+                  fontFamily: 'OpenHuninn',
+                  fontSize: 12,
+                  color: Colors.red,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
             const SizedBox(height: 10),
 
             // ── 購買點數包 ────────────────────────────────────────────

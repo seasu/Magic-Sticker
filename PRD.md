@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.17.5+472 |
+| 目前 App 版本 | v3.17.6+473 |
 | 目前 Functions 版本 | v1.1.3 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
@@ -323,6 +323,7 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.17.6 | 2026-04-02 | **fix(prompt+ux): 貼圖頭部截切 + 廣告失敗提示**：① 生成 Prompt 角色高度上限從 70% 下修為 60%，消除與「頭頂距上緣 ≥ 20% 空白」的數學矛盾（70% 置中僅 15% 上邊距），使 Gemini 不再截切頭部；② `CreditPaywallDialog` 廣告失敗改為 Dialog 內 inline 紅字提示，取代原本在 Dialog context 呼叫 `ScaffoldMessenger.showSnackBar` 導致提示泡泡壓在底部的問題。 |
 | v3.17.5 | 2026-04-02 | **fix(ci): PR Check（Flutter 3.29.1）與新版 SDK 雙相容**：`Switch` 改回 `activeColor`、`Matrix4` 改回 `translate` / `scale`，並以 `// ignore: deprecated_member_use` 壓制新版 analyzer info；`ThemeData.cardTheme` 維持 `CardThemeData`；解鎖 PR #319「Analyze & Test」。`pubspec` 3.17.5+472。 |
 | v3.17.4 | 2026-04-02 | **chore(merge): 合併 `main` 解決 PR #319 衝突**：同步 `main` 上 v3.16.9 之後的變更，保留 PR 分支 App Store 退審修復與 CI 調整；`pubspec` 遞增至 3.17.4+471；順應 Flutter 3.35 analyzer：`ThemeData.cardTheme` 改用 `CardThemeData`、`Matrix4` 改用 `translateByDouble` / `scaleByDouble`、`Switch` 改用 `activeThumbColor`。 |
 | v3.17.3 | 2026-04-01 | **chore(ci): 解決 PR #317 衝突並保持檢查穩定**：在 `pr_check.yml` 的 workflow-level `concurrency.group` 改為包含 `github.workflow`，避免不同 workflow 意外共用同一 group；其餘 timeout 與 Version Guard API timeout 設定維持。 |
