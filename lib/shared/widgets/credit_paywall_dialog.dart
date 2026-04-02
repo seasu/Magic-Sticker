@@ -59,19 +59,39 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
 
   // ── 看廣告 ────────────────────────────────────────────────────────────────
 
-  // ATT 被永久拒絕時，引導用戶至系統設定開啟廣告追蹤
-  Future<void> _openAttSettings() async {
-    await openAppSettings();
-    if (!mounted) return;
-    // 返回後重新確認狀態（用戶可能在設定中已授權）
-    if (Platform.isIOS) {
-      final status = await Permission.appTrackingTransparency.status;
-      if (mounted) setState(() => _attDenied = status == PermissionStatus.permanentlyDenied);
-    }
+  // ATT 被永久拒絕時，彈出說明 Dialog 指引用戶前往正確設定路徑
+  void _showAttInstructions() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('開啟廣告追蹤', style: TextStyle(fontFamily: 'OpenHuninn')),
+        content: const Text(
+          '請按照以下步驟開啟 Magic Sticker 的廣告追蹤：\n\n'
+          '1. 開啟「設定」App\n'
+          '2. 前往「隱私權與安全性」\n'
+          '3. 點選「追蹤」\n'
+          '4. 開啟「Magic Sticker」的追蹤開關\n\n'
+          '開啟後回到此畫面即可觀看廣告。',
+          style: TextStyle(fontFamily: 'OpenHuninn', height: 1.6),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('知道了', style: TextStyle(fontFamily: 'OpenHuninn')),
+          ),
+        ],
+      ),
+    ).then((_) async {
+      // Dialog 關閉後重新確認 ATT 狀態（用戶可能已去設定開啟）
+      if (mounted && Platform.isIOS) {
+        final status = await Permission.appTrackingTransparency.status;
+        if (mounted) setState(() => _attDenied = status == PermissionStatus.permanentlyDenied);
+      }
+    });
   }
 
   Future<void> _watchAd() async {
-    if (_attDenied) { await _openAttSettings(); return; }
+    if (_attDenied) { _showAttInstructions(); return; }
     if (_isWatchingAd || _isLoggingIn) return;
     setState(() { _isWatchingAd = true; _adErrorMsg = null; });
     unawaited(AnalyticsService.logAdWatchStarted());
@@ -227,7 +247,7 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
               sublabel: adLimitReached
                   ? '今日已達上限（$_todayAdCount/${AdsService.kDailyAdLimit}）'
                   : _attDenied
-                      ? '需允許廣告追蹤 → 前往設定'
+                      ? '需允許廣告追蹤 → 查看說明'
                       : '短片約 15–30 秒',
               gradient: null,
               foregroundColor: AppColors.textPrimary,
