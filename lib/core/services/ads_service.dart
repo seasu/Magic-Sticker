@@ -63,8 +63,13 @@ class AdsService {
   RewardedAd? _rewardedAd;
   bool _isLoading = false;
   Completer<void>? _adCompleter;
+  PermissionStatus _attStatus = PermissionStatus.denied;
 
   bool get isAdReady => _rewardedAd != null;
+
+  /// iOS：ATT 被永久拒絕，AdMob 無法投放個人化廣告（fill rate 趨近 0）
+  bool get isAttPermanentlyDenied =>
+      Platform.isIOS && _attStatus == PermissionStatus.permanentlyDenied;
 
   // ── 初始化 ─────────────────────────────────────────────────────────────────
 
@@ -73,8 +78,10 @@ class AdsService {
       // iOS 14.5+：先請求 ATT 追蹤授權，再初始化 AdMob。
       // 未授權時 AdMob 只能投放非個人化廣告，fill rate 極低。
       if (Platform.isIOS) {
-        final status = await Permission.appTrackingTransparency.request();
-        FirebaseService.log('AdsService: ATT status=$status');
+        _attStatus = await Permission.appTrackingTransparency.request();
+        FirebaseService.log('AdsService: ATT status=$_attStatus');
+      } else {
+        _attStatus = PermissionStatus.granted;
       }
       await MobileAds.instance.initialize();
       FirebaseService.log('AdsService: MobileAds initialized');

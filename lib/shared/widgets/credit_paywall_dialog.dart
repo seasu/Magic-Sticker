@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/services/ads_service.dart';
 import '../../core/theme/app_colors.dart';
@@ -39,10 +42,12 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
   bool _isLoggingIn = false;
   int _todayAdCount = 0;
   String? _adErrorMsg;
+  bool _attDenied = false;
 
   @override
   void initState() {
     super.initState();
+    _attDenied = AdsService.instance.isAttPermanentlyDenied;
     AdsService.instance.getTodayAdCount().then((count) {
       if (mounted) setState(() => _todayAdCount = count);
     });
@@ -50,7 +55,19 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
 
   // ── 看廣告 ────────────────────────────────────────────────────────────────
 
+  // ATT 被永久拒絕時，引導用戶至系統設定開啟廣告追蹤
+  Future<void> _openAttSettings() async {
+    await openAppSettings();
+    if (!mounted) return;
+    // 返回後重新確認狀態（用戶可能在設定中已授權）
+    if (Platform.isIOS) {
+      final status = await Permission.appTrackingTransparency.status;
+      if (mounted) setState(() => _attDenied = status == PermissionStatus.permanentlyDenied);
+    }
+  }
+
   Future<void> _watchAd() async {
+    if (_attDenied) { await _openAttSettings(); return; }
     if (_isWatchingAd || _isLoggingIn) return;
     setState(() { _isWatchingAd = true; _adErrorMsg = null; });
 
@@ -197,11 +214,15 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
               isLoading: _isWatchingAd,
               enabled: !isLoading && !adLimitReached,
               onTap: _watchAd,
-              icon: Icons.play_circle_outline_rounded,
+              icon: _attDenied
+                  ? Icons.settings_outlined
+                  : Icons.play_circle_outline_rounded,
               label: '看廣告，獲得 1 點',
               sublabel: adLimitReached
                   ? '今日已達上限（$_todayAdCount/${AdsService.kDailyAdLimit}）'
-                  : '短片約 15–30 秒',
+                  : _attDenied
+                      ? '需允許廣告追蹤 → 前往設定'
+                      : '短片約 15–30 秒',
               gradient: null,
               foregroundColor: AppColors.textPrimary,
               borderColor: AppColors.divider,
