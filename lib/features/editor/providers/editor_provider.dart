@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/build_config.dart';
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/models/sticker_spec.dart';
+import '../../../core/services/analytics_service.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/services/gemini_service.dart';
 import '../../../core/services/sticker_generation_service.dart';
@@ -278,7 +279,9 @@ class _EditorFamilyNotifier
 
       // 更新 credit（Cloud Function 回傳剩餘點數）
       if (result.remainingCredits >= 0) {
+        final creditsBefore = ref.read(creditProvider);
         ref.read(creditProvider.notifier).updateCredits(result.remainingCredits);
+        unawaited(AnalyticsService.logCreditSpent(creditsBefore: creditsBefore));
       }
 
       final updated = List<Uint8List?>.from(state.generatedImages);
@@ -321,6 +324,7 @@ class _EditorFamilyNotifier
         // 重設為特殊 sentinel：空 Uint8List(1) 表示「未選擇生成」
         reset[index] = _kNotGeneratedSentinel;
         state = state.copyWith(generatedImages: reset);
+        unawaited(AnalyticsService.logCreditInsufficient());
         return 'insufficient';
       }
       await FirebaseService.recordError(e, stack,

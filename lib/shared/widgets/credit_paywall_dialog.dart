@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_functions/cloud_functions.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/services/ads_service.dart';
+import '../../core/services/analytics_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/widgets/login_bottom_sheet.dart';
@@ -51,6 +53,8 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
     AdsService.instance.getTodayAdCount().then((count) {
       if (mounted) setState(() => _todayAdCount = count);
     });
+    // ref.read 在 initState 中合法（ConsumerState 已初始化）
+    unawaited(AnalyticsService.logPaywallShown(isGuest: ref.read(isGuestProvider)));
   }
 
   // ── 看廣告 ────────────────────────────────────────────────────────────────
@@ -70,6 +74,7 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
     if (_attDenied) { await _openAttSettings(); return; }
     if (_isWatchingAd || _isLoggingIn) return;
     setState(() { _isWatchingAd = true; _adErrorMsg = null; });
+    unawaited(AnalyticsService.logAdWatchStarted());
 
     bool rewarded = false;
     await AdsService.instance.showRewardedAd(
@@ -91,6 +96,7 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
         final credits = (result.data['credits'] as num?)?.toInt();
         if (credits != null && mounted) {
           ref.read(creditProvider.notifier).updateCredits(credits);
+          unawaited(AnalyticsService.logAdWatchCompleted(creditsAfter: credits));
         }
       } catch (e) {
         // CF 失敗時從 Firestore 重讀，保持 UI 一致

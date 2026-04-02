@@ -86,4 +86,56 @@ class AnalyticsService {
           'resolved': resolved ? 1 : 0,
         },
       );
+
+  // ── 點數漏斗埋點 ──────────────────────────────────────────────────────────
+
+  /// Paywall 對話框出現時呼叫。
+  ///
+  /// [isGuest] 是否為訪客（匿名用戶）
+  static Future<void> logPaywallShown({required bool isGuest}) =>
+      _analytics.logEvent(
+        name: 'paywall_shown',
+        parameters: {'is_guest': isGuest ? 1 : 0},
+      );
+
+  /// 用戶點擊「看廣告」按鈕（ATT 未被拒絕、廣告流程正常啟動）。
+  static Future<void> logAdWatchStarted() =>
+      _analytics.logEvent(name: 'ad_watch_started');
+
+  /// 廣告完整看完且點數已透過 CF 入帳。
+  ///
+  /// [creditsAfter] CF 回傳的最新點數餘額
+  static Future<void> logAdWatchCompleted({required int creditsAfter}) =>
+      _analytics.logEvent(
+        name: 'ad_watch_completed',
+        parameters: {'credits_after': creditsAfter},
+      );
+
+  /// Cloud Function 成功扣點（生成一張貼圖）。
+  ///
+  /// [creditsBefore] 扣點前的本機點數快照
+  static Future<void> logCreditSpent({required int creditsBefore}) =>
+      _analytics.logEvent(
+        name: 'credit_spent',
+        parameters: {'credits_before': creditsBefore},
+      );
+
+  /// Cloud Function 回傳點數不足（server-side 驗證失敗）。
+  static Future<void> logCreditInsufficient() =>
+      _analytics.logEvent(name: 'credit_insufficient');
+
+  /// `generateStickerImage` Cloud Function 失敗時呼叫。
+  ///
+  /// [reason] 失敗原因：
+  ///   'auth_failed'     — Auth session 無法建立
+  ///   'iam_blocked'     — Cloud Run IAM 拒絕
+  ///   'unauthenticated' — Token 問題，重試後仍失敗
+  ///   'rate_limited'    — Gemini 流量限制，重試上限耗盡
+  ///   'cf_error'        — 其他 FirebaseFunctionsException
+  ///   'unknown'         — 非 CF 的未知例外
+  static Future<void> logStickerGenFailed({required String reason}) =>
+      _analytics.logEvent(
+        name: 'sticker_gen_failed',
+        parameters: {'reason': reason},
+      );
 }
