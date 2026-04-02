@@ -123,4 +123,19 @@ class AnalyticsService {
   /// Cloud Function 回傳點數不足（server-side 驗證失敗）。
   static Future<void> logCreditInsufficient() =>
       _analytics.logEvent(name: 'credit_insufficient');
+
+  /// `generateStickerImage` Cloud Function 失敗時呼叫。
+  ///
+  /// [reason] 失敗原因：
+  ///   'auth_failed'     — Auth session 無法建立
+  ///   'iam_blocked'     — Cloud Run IAM 拒絕
+  ///   'unauthenticated' — Token 問題，重試後仍失敗
+  ///   'rate_limited'    — Gemini 流量限制，重試上限耗盡
+  ///   'cf_error'        — 其他 FirebaseFunctionsException
+  ///   'unknown'         — 非 CF 的未知例外
+  static Future<void> logStickerGenFailed({required String reason}) =>
+      _analytics.logEvent(
+        name: 'sticker_gen_failed',
+        parameters: {'reason': reason},
+      );
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_functions/cloud_functions.dart';
@@ -9,6 +10,7 @@ import '../constants/build_config.dart';
 import '../models/sticker_shape.dart';
 import '../models/sticker_spec.dart';
 import '../models/sticker_style.dart';
+import 'analytics_service.dart';
 import 'auth_service.dart';
 import 'firebase_service.dart';
 
@@ -42,6 +44,7 @@ class StickerGenerationService {
     // 確保呼叫前有 Firebase Auth session + 有效 token
     final preflightOk = await _ensureValidAuth(index);
     if (!preflightOk) {
+      unawaited(AnalyticsService.logStickerGenFailed(reason: 'auth_failed'));
       return (bytes: null, remainingCredits: -1);
     }
 
@@ -113,17 +116,22 @@ class StickerGenerationService {
             await FirebaseService.recordError(
               e, stack, reason: 'sticker_single_gen_fn_failed_no_auth_index$index',
             );
+            unawaited(AnalyticsService.logStickerGenFailed(reason: 'auth_failed'));
             return (bytes: null, remainingCredits: -1);
           }
           continue;
         }
         if (e.code == 'unauthenticated') {
+          final isIam = _isIamBlock(e);
           await FirebaseService.recordError(
             e, stack,
-            reason: _isIamBlock(e)
+            reason: isIam
                 ? 'sticker_single_gen_fn_iam_blocked_index$index'
                 : 'sticker_single_gen_fn_failed_index$index',
           );
+          unawaited(AnalyticsService.logStickerGenFailed(
+            reason: isIam ? 'iam_blocked' : 'unauthenticated',
+          ));
           return (bytes: null, remainingCredits: -1);
         }
 
@@ -149,15 +157,19 @@ class StickerGenerationService {
         await FirebaseService.recordError(
           e, stack, reason: 'sticker_single_gen_fn_failed_index$index',
         );
+        unawaited(AnalyticsService.logStickerGenFailed(reason: 'cf_error'));
         return (bytes: null, remainingCredits: -1);
       } catch (e, stack) {
         await FirebaseService.recordError(
           e, stack, reason: 'sticker_single_gen_failed_index$index',
         );
+        unawaited(AnalyticsService.logStickerGenFailed(reason: 'unknown'));
         return (bytes: null, remainingCredits: -1);
       }
     }
 
+    // 重試次數耗盡（rate_limited）
+    unawaited(AnalyticsService.logStickerGenFailed(reason: 'rate_limited'));
     return (bytes: null, remainingCredits: -1);
   }
 

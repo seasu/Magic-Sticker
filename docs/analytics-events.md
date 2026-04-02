@@ -45,8 +45,32 @@ credit_insufficient          → 理論上應 ≈ 0（client 側已先檢查）�
 |---|---|---|---|
 | `ai_specs_generated` | Gemini 成功生成 Spec | — | `gemini_service.dart` |
 | `ai_specs_fallback` | Gemini 失敗，使用 fallback spec | — | `gemini_service.dart` |
-| `sticker_image_generated` | 單張貼圖圖片生成完成 | — | `sticker_generation_service.dart` |
+| `sticker_image_generated` | 單張貼圖圖片生成成功 | — | `sticker_generation_service.dart` |
 | `sticker_generated` | 整組貼圖完成（Editor 確認） | — | `editor_screen.dart` |
+| `sticker_gen_failed` | `generateStickerImage` CF 失敗 | `reason` (string) | `sticker_generation_service.dart` |
+
+### `sticker_gen_failed` reason 值
+
+| reason | 說明 |
+|---|---|
+| `auth_failed` | Firebase Auth session 無法建立（preflight 或 retry 後仍失敗） |
+| `iam_blocked` | Cloud Run IAM 拒絕（invoker 未設為 public，部署問題） |
+| `unauthenticated` | Token 無效，重試上限耗盡 |
+| `rate_limited` | Gemini API 流量限制，3 次重試全部失敗 |
+| `cf_error` | 其他 `FirebaseFunctionsException` |
+| `unknown` | 非 CF 的未知例外 |
+
+### 建議 Analytics 查詢
+
+```
+// 整體失敗率
+sticker_gen_failed / (sticker_image_generated + sticker_gen_failed) × 100%
+
+// 按原因拆分 → 找主因
+sticker_gen_failed WHERE reason = 'rate_limited'   → Gemini quota 問題
+sticker_gen_failed WHERE reason = 'cf_error'       → Functions bug
+sticker_gen_failed WHERE reason = 'iam_blocked'    → 部署問題（應趨近 0）
+```
 
 ---
 
