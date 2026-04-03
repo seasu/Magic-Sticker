@@ -135,6 +135,15 @@ class StickerGenerationService {
           return (bytes: null, remainingCredits: -1);
         }
 
+        // 內容被 Gemini 封鎖（版權/安全）→ rethrow 讓 UI 顯示友善提示，無需 retry
+        if (e.code == 'invalid-argument') {
+          await FirebaseService.recordError(
+            e, stack, reason: 'sticker_content_blocked_index$index',
+          );
+          unawaited(AnalyticsService.logStickerGenFailed(reason: 'content_blocked'));
+          rethrow;
+        }
+
         final isRateLimit = e.code == 'resource-exhausted';
 
         // rate-limited without credit message → retry（Cloud Function 已退點）
