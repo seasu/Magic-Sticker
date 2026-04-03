@@ -242,6 +242,10 @@ class StickerGenerationService {
   }) {
     // Pro 自訂描述注入段落（最高優先級）
     final proSection = _buildProSection(customStyleDesc, customEmotionDesc, personFeatures);
+    // 有自訂風格時直接取代預設 promptSuffix，避免預設風格在 prompt 末尾覆蓋自訂輸入
+    final styleSuffix = (customStyleDesc != null && customStyleDesc.trim().isNotEmpty)
+        ? '${customStyleDesc.trim()}風格，請忽略上方預設風格描述，以此為準。'
+        : style.promptSuffix;
 
     if (shape == StickerShape.circle) {
       if (kStickerBgChromaKey) {
@@ -268,7 +272,7 @@ class StickerGenerationService {
 【裝飾】在角色周圍點綴 2–4 個小閃光或星星（集中在角色周邊，不接觸背景邊緣）
 $proSection
 【輸出】單一正方形 PNG，背景為純平塗 #FFFFFF，無任何光影處理。
-風格：${style.promptSuffix}
+風格：$styleSuffix
 ''';
       } else {
         return '''
@@ -293,7 +297,7 @@ $proSection
 【配色】背景色：${spec.bgColor}
 $proSection
 【輸出】單一正方形 PNG，背景完全不透明。
-風格：${style.promptSuffix}
+風格：$styleSuffix
 ''';
       }
     } else {
@@ -320,7 +324,7 @@ $proSection
 - 角色周圍點綴 3–5 個小閃光或星星（集中在角色周邊，不接觸背景邊緣）
 $proSection
 【輸出】單一正方形 PNG，背景為純平塗 #FFFFFF，無任何光影處理。
-風格：${style.promptSuffix}
+風格：$styleSuffix
 ''';
       } else {
         return '''
@@ -339,7 +343,7 @@ $proSection
 - 禁止出現任何白色邊框或白色描邊
 $proSection
 【輸出】單一正方形 PNG，無白色背景。
-風格：${style.promptSuffix}
+風格：$styleSuffix
 ''';
       }
     }
