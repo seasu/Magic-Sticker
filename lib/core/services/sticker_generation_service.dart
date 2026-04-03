@@ -246,6 +246,10 @@ class StickerGenerationService {
     final styleSuffix = (customStyleDesc != null && customStyleDesc.trim().isNotEmpty)
         ? '${customStyleDesc.trim()}風格，請忽略上方預設風格描述，以此為準。'
         : style.promptSuffix;
+    // 有自訂情緒時，直接取代 spec.emotion，避免 CATEGORY_HINTS 強制值覆蓋用戶輸入
+    final emotionLine = (customEmotionDesc != null && customEmotionDesc.trim().isNotEmpty)
+        ? customEmotionDesc.trim()
+        : spec.emotion;
 
     if (shape == StickerShape.circle) {
       if (kStickerBgChromaKey) {
@@ -261,7 +265,7 @@ class StickerGenerationService {
 
 【角色設計】
 - 根據參考照片，繪製可愛 Q 版卡通人物
-- 表情 / 動作：${spec.emotion}
+- 表情 / 動作：$emotionLine
 - ${style.characterDesc}
 - 將角色完整置於畫布正中央（水平、垂直皆置中），角色高度不超過畫布的 60%
 - 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
@@ -284,7 +288,7 @@ $proSection
 
 【角色設計】
 - 根據參考照片，繪製可愛 Q 版卡通人物
-- 表情 / 動作：${spec.emotion}
+- 表情 / 動作：$emotionLine
 - ${style.characterDesc}
 - 將角色完整置於畫布正中央（水平、垂直皆置中），角色高度不超過畫布的 60%
 - 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
@@ -314,7 +318,7 @@ $proSection
 
 【角色設計】
 - 根據參考照片，繪製可愛 Q 版卡通人物
-- 表情 / 動作：${spec.emotion}
+- 表情 / 動作：$emotionLine
 - ${style.characterDesc}
 - 將角色完整置於畫布正中央（水平、垂直皆置中），角色高度不超過畫布的 60%
 - 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
@@ -332,7 +336,7 @@ $proSection
 
 【設計規格】
 - 整個正方形畫布以 ${spec.bgColor} 填色作為背景
-- 角色表情 / 動作：${spec.emotion}
+- 角色表情 / 動作：$emotionLine
 - ${style.characterDesc}
 - 將角色完整置於畫布正中央（水平、垂直皆置中），角色高度不超過畫布的 60%
 - 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
