@@ -22,7 +22,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.1.3";
+const FUNCTIONS_VERSION = "1.1.4";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -268,8 +268,20 @@ export const generateStickerSpecs = onCall(
     }
 
     const json = (await res.json()) as {
-      candidates: Array<{content: {parts: Array<{text?: string}>}}>;
+      candidates?: Array<{content: {parts: Array<{text?: string}>}; finishReason?: string}>;
+      promptFeedback?: {blockReason?: string};
     };
+
+    // Gemini 因版權/安全審查封鎖請求時，candidates 為空或 finishReason=SAFETY/COPYRIGHT
+    const blockReason = json.promptFeedback?.blockReason
+      ?? json.candidates?.[0]?.finishReason;
+    if (!json.candidates?.length || blockReason === "SAFETY" || blockReason === "OTHER" || blockReason === "PROHIBITED_CONTENT" || blockReason === "COPYRIGHT") {
+      throw new HttpsError(
+        "invalid-argument",
+        `Gemini blocked the request (reason: ${blockReason ?? "no candidates"}). ` +
+        "Please avoid copyrighted brand names or sensitive terms in style/emotion descriptions."
+      );
+    }
 
     const text = json.candidates?.[0]?.content?.parts
       ?.map((p) => p.text ?? "")
@@ -299,7 +311,12 @@ export const generateStickerSpecs = onCall(
       if (!objMatch) {
         throw new HttpsError("internal", "Invalid Gemini response format (expected object).");
       }
-      const parsed = JSON.parse(objMatch[0]) as {specs?: unknown[]; personFeatures?: string};
+      let parsed: {specs?: unknown[]; personFeatures?: string};
+      try {
+        parsed = JSON.parse(objMatch[0]) as {specs?: unknown[]; personFeatures?: string};
+      } catch {
+        throw new HttpsError("internal", "Failed to parse Gemini response JSON (object).");
+      }
       const specsArr = Array.isArray(parsed.specs) ? parsed.specs : [];
       if (specsArr.length < ids.length) {
         throw new HttpsError(
@@ -316,7 +333,12 @@ export const generateStickerSpecs = onCall(
       if (!match) {
         throw new HttpsError("internal", "Invalid Gemini response format.");
       }
-      const specs = JSON.parse(match[0]) as unknown[];
+      let specs: unknown[];
+      try {
+        specs = JSON.parse(match[0]) as unknown[];
+      } catch {
+        throw new HttpsError("internal", "Failed to parse Gemini response JSON (array).");
+      }
       if (!Array.isArray(specs) || specs.length < ids.length) {
         throw new HttpsError(
           "internal",
@@ -468,16 +490,27 @@ export const generateStickerImage = onCall(
     }
 
     const json = (await res.json()) as {
-      candidates: Array<{
+      candidates?: Array<{
         content: {
           parts: Array<{
             inlineData?: {mimeType: string; data: string};
           }>;
         };
+        finishReason?: string;
       }>;
+      promptFeedback?: {blockReason?: string};
     };
 
-    const parts = json.candidates?.[0]?.content?.parts ?? [];
+    // 檢查 Gemini 是否封鎖此請求（版權/安全審查）
+    const imgBlockReason = json.promptFeedback?.blockReason
+      ?? json.candidates?.[0]?.finishReason;
+    const isBlocked = !json.candidates?.length
+      || imgBlockReason === "SAFETY"
+      || imgBlockReason === "OTHER"
+      || imgBlockReason === "PROHIBITED_CONTENT"
+      || imgBlockReason === "COPYRIGHT";
+
+    const parts = isBlocked ? [] : (json.candidates?.[0]?.content?.parts ?? []);
     for (const part of parts) {
       if (part.inlineData?.mimeType?.startsWith("image/")) {
         return {imageBase64: part.inlineData.data, remainingCredits};
@@ -493,9 +526,16 @@ export const generateStickerImage = onCall(
       writeCreditHistory(tx, uid, {
         type: "refund",
         amount: 1,
-        reason: "no_image_returned",
+        reason: isBlocked ? "content_blocked" : "no_image_returned",
       });
     });
+    if (isBlocked) {
+      throw new HttpsError(
+        "invalid-argument",
+        `Gemini blocked the image request (reason: ${imgBlockReason ?? "no candidates"}). ` +
+        "Please avoid copyrighted brand names or sensitive terms."
+      );
+    }
     throw new HttpsError("internal", "No image returned by Gemini.");
   }
 );

@@ -316,6 +316,15 @@ class _EditorFamilyNotifier
 
       return result.bytes != null ? 'ok' : 'error';
     } on FirebaseFunctionsException catch (e, stack) {
+      if (e.code == 'invalid-argument') {
+        // Gemini 封鎖版權/安全內容（已退點）→ 顯示友善提示，讓 UI 知道是描述問題
+        final failed = List<Uint8List?>.from(state.generatedImages);
+        failed[index] = Uint8List(0);
+        final errors = List<String?>.from(state.imageErrors);
+        errors[index] = '此描述包含版權保護詞彙，請改用其他描述（已退還點數）';
+        state = state.copyWith(generatedImages: failed, imageErrors: errors);
+        return 'error';
+      }
       if (e.code == 'resource-exhausted' &&
           e.message?.contains('Insufficient') == true) {
         // 點數不足，還原 loading 狀態（sentinel = Uint8List(0) 表示「未生成/待生成」）

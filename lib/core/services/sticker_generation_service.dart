@@ -135,6 +135,15 @@ class StickerGenerationService {
           return (bytes: null, remainingCredits: -1);
         }
 
+        // 內容被 Gemini 封鎖（版權/安全）→ rethrow 讓 UI 顯示友善提示，無需 retry
+        if (e.code == 'invalid-argument') {
+          await FirebaseService.recordError(
+            e, stack, reason: 'sticker_content_blocked_index$index',
+          );
+          unawaited(AnalyticsService.logStickerGenFailed(reason: 'content_blocked'));
+          rethrow;
+        }
+
         final isRateLimit = e.code == 'resource-exhausted';
 
         // rate-limited without credit message → retry（Cloud Function 已退點）
@@ -233,6 +242,14 @@ class StickerGenerationService {
   }) {
     // Pro 自訂描述注入段落（最高優先級）
     final proSection = _buildProSection(customStyleDesc, customEmotionDesc, personFeatures);
+    // 有自訂風格時直接取代預設 promptSuffix，避免預設風格在 prompt 末尾覆蓋自訂輸入
+    final styleSuffix = (customStyleDesc != null && customStyleDesc.trim().isNotEmpty)
+        ? '${customStyleDesc.trim()}風格，請忽略上方預設風格描述，以此為準。'
+        : style.promptSuffix;
+    // 有自訂情緒時，直接取代 spec.emotion，避免 CATEGORY_HINTS 強制值覆蓋用戶輸入
+    final emotionLine = (customEmotionDesc != null && customEmotionDesc.trim().isNotEmpty)
+        ? customEmotionDesc.trim()
+        : spec.emotion;
 
     if (shape == StickerShape.circle) {
       if (kStickerBgChromaKey) {
@@ -248,7 +265,7 @@ class StickerGenerationService {
 
 【角色設計】
 - 根據參考照片，繪製可愛 Q 版卡通人物
-- 表情 / 動作：${spec.emotion}
+- 表情 / 動作：$emotionLine
 - ${style.characterDesc}
 - 將角色完整置於畫布正中央（水平、垂直皆置中），角色高度不超過畫布的 60%
 - 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
@@ -259,7 +276,7 @@ class StickerGenerationService {
 【裝飾】在角色周圍點綴 2–4 個小閃光或星星（集中在角色周邊，不接觸背景邊緣）
 $proSection
 【輸出】單一正方形 PNG，背景為純平塗 #FFFFFF，無任何光影處理。
-風格：${style.promptSuffix}
+風格：$styleSuffix
 ''';
       } else {
         return '''
@@ -271,7 +288,7 @@ $proSection
 
 【角色設計】
 - 根據參考照片，繪製可愛 Q 版卡通人物
-- 表情 / 動作：${spec.emotion}
+- 表情 / 動作：$emotionLine
 - ${style.characterDesc}
 - 將角色完整置於畫布正中央（水平、垂直皆置中），角色高度不超過畫布的 60%
 - 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
@@ -284,7 +301,7 @@ $proSection
 【配色】背景色：${spec.bgColor}
 $proSection
 【輸出】單一正方形 PNG，背景完全不透明。
-風格：${style.promptSuffix}
+風格：$styleSuffix
 ''';
       }
     } else {
@@ -301,7 +318,7 @@ $proSection
 
 【角色設計】
 - 根據參考照片，繪製可愛 Q 版卡通人物
-- 表情 / 動作：${spec.emotion}
+- 表情 / 動作：$emotionLine
 - ${style.characterDesc}
 - 將角色完整置於畫布正中央（水平、垂直皆置中），角色高度不超過畫布的 60%
 - 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
@@ -311,7 +328,7 @@ $proSection
 - 角色周圍點綴 3–5 個小閃光或星星（集中在角色周邊，不接觸背景邊緣）
 $proSection
 【輸出】單一正方形 PNG，背景為純平塗 #FFFFFF，無任何光影處理。
-風格：${style.promptSuffix}
+風格：$styleSuffix
 ''';
       } else {
         return '''
@@ -319,7 +336,7 @@ $proSection
 
 【設計規格】
 - 整個正方形畫布以 ${spec.bgColor} 填色作為背景
-- 角色表情 / 動作：${spec.emotion}
+- 角色表情 / 動作：$emotionLine
 - ${style.characterDesc}
 - 將角色完整置於畫布正中央（水平、垂直皆置中），角色高度不超過畫布的 60%
 - 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
@@ -330,7 +347,7 @@ $proSection
 - 禁止出現任何白色邊框或白色描邊
 $proSection
 【輸出】單一正方形 PNG，無白色背景。
-風格：${style.promptSuffix}
+風格：$styleSuffix
 ''';
       }
     }
