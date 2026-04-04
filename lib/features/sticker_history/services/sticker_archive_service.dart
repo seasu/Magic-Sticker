@@ -29,6 +29,9 @@ class StickerArchiveService {
     required StickerShape shape,
     String? originalImagePath,
     List<int>? rawAiBytes,
+    String? customStyleDesc,
+    String? customEmotionDesc,
+    bool enhancePersonFeatures = false,
   }) async {
     final dir = await _archiveDir();
     final ts = DateTime.now().millisecondsSinceEpoch;
@@ -75,6 +78,9 @@ class StickerArchiveService {
       shapeStr: shape.name,
       originalThumbnailPath: thumbnailPath,
       rawAiImagePath: rawAiPath,
+      customStyleDesc: customStyleDesc,
+      customEmotionDesc: customEmotionDesc,
+      enhancePersonFeatures: enhancePersonFeatures,
     );
 
     final prefs = await SharedPreferences.getInstance();

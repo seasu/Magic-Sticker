@@ -204,7 +204,13 @@ class _StickerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCircle = record.shapeStr == 'circle';
     final file = File(record.filePath);
-    final styleName = _styleName(record.styleIndex);
+    final styleName = record.customStyleDesc != null && record.customStyleDesc!.isNotEmpty
+        ? '✨ ${record.customStyleDesc}'
+        : _styleName(record.styleIndex);
+    final emotionLine = record.customEmotionDesc != null && record.customEmotionDesc!.isNotEmpty
+        ? record.customEmotionDesc!
+        : null;
+    final hasPersonDetect = record.enhancePersonFeatures;
 
     return GestureDetector(
       onTap: () => _openReplay(context),
@@ -275,6 +281,32 @@ class _StickerCard extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                               color: Color(0xFF555555),
                             ),
+                          ),
+                        if (emotionLine != null || hasPersonDetect)
+                          Row(
+                            children: [
+                              if (emotionLine != null)
+                                Flexible(
+                                  child: Text(
+                                    '🎭 $emotionLine',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontFamily: 'OpenHuninn',
+                                      fontSize: 10,
+                                      color: Color(0xFF888888),
+                                    ),
+                                  ),
+                                ),
+                              if (hasPersonDetect)
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 4),
+                                  child: Text(
+                                    '👁',
+                                    style: TextStyle(fontSize: 10),
+                                  ),
+                                ),
+                            ],
                           ),
                         Text(
                           _formatDate(record.createdAt),

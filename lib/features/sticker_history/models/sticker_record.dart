@@ -7,6 +7,9 @@ class StickerRecord {
   final String shapeStr; // 'circle' or 'square'
   final String? originalThumbnailPath; // 原圖縮圖路徑（新紀錄才有，舊紀錄為 null）
   final String? rawAiImagePath; // AI 去背原圖路徑（用於再次編輯，舊紀錄為 null）
+  final String? customStyleDesc;    // Pro 自訂風格描述（舊紀錄為 null）
+  final String? customEmotionDesc;  // Pro 自訂情緒描述（舊紀錄為 null）
+  final bool enhancePersonFeatures; // Pro 角色偵測（舊紀錄預設 false）
 
   const StickerRecord({
     required this.id,
@@ -17,6 +20,9 @@ class StickerRecord {
     required this.shapeStr,
     this.originalThumbnailPath,
     this.rawAiImagePath,
+    this.customStyleDesc,
+    this.customEmotionDesc,
+    this.enhancePersonFeatures = false,
   });
 
   factory StickerRecord.fromJson(Map<String, dynamic> json) => StickerRecord(
@@ -28,6 +34,9 @@ class StickerRecord {
         shapeStr: json['shapeStr'] as String,
         originalThumbnailPath: json['originalThumbnailPath'] as String?,
         rawAiImagePath: json['rawAiImagePath'] as String?,
+        customStyleDesc: json['customStyleDesc'] as String?,
+        customEmotionDesc: json['customEmotionDesc'] as String?,
+        enhancePersonFeatures: json['enhancePersonFeatures'] as bool? ?? false,
       );
 
   Map<String, dynamic> toJson() => {
@@ -41,5 +50,8 @@ class StickerRecord {
           'originalThumbnailPath': originalThumbnailPath,
         if (rawAiImagePath != null)
           'rawAiImagePath': rawAiImagePath,
+        if (customStyleDesc != null) 'customStyleDesc': customStyleDesc,
+        if (customEmotionDesc != null) 'customEmotionDesc': customEmotionDesc,
+        if (enhancePersonFeatures) 'enhancePersonFeatures': true,
       };
 }
