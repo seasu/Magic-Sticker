@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.18.8 |
+| 目前 App 版本 | v3.18.9 |
 | 目前 Functions 版本 | v1.1.3 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
@@ -323,6 +323,7 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.18.9 | 2026-04-04 | **feat(editor): 貼圖編輯新增框型切換 + 預設改方形**：① `StickerEditSheet` 配色 Tab 頂端新增「框型」分段選擇器（圓形 / 方形），切換即時反映在預覽畫布並透過 `onShapeChanged` 回呼更新父層狀態；② 編輯 Sheet（`sticker_replay_screen.dart`）同步支援框型切換；③ 全流程預設框型從圓形改為方形（`style_selection_screen`、`EditorState`、`StickerEditSheet`、`editor_provider.initialize()`、`sticker_generation_service` 一律改為 `StickerShape.square`）。 |
 | v3.18.8 | 2026-04-04 | **fix(ux): 帳號 Sheet 點數即時同步**：`_UserAccountSheet` 原以 constructor 傳入靜態 `credits` 快照顯示，購買完成或按重新整理後 `creditProvider` 已更新，但 Sheet 畫面不會重繪。修正方式：改用 `ref.watch(creditProvider)` 直接讀取 provider，並移除不再需要的 `credits` constructor 參數；現在購買完成或按 C 後，Sheet 內數字與右上角徽章同步更新。 |
 | v3.18.7 | 2026-04-04 | **fix(prompt): 修正客製化風格頭部截切**：① `_buildProSection` 自訂風格提示改為「取代預設視覺風格，但構圖邊界留白規則絕對不可變動」，移除原「最高優先」措辭避免 Gemini 將構圖規則一起覆蓋；② `characterDescLine`（自訂風格版本）嵌入邊界約束「角色高度 ≤ 60%，頭頂距上緣 ≥ 20% 空白，此留白規則適用於所有風格，不可忽略」，讓模型在讀到風格描述的同時即看到留白規則。 |
 | v3.18.6 | 2026-04-04 | **feat(history): 生成紀錄完整呈現自訂參數**：① `StickerRecord` 新增 `customStyleDesc`、`customEmotionDesc`、`enhancePersonFeatures` 三欄位（向後相容，舊紀錄 JSON fallback 為 null/false）；② `StickerArchiveService.archive()` 接收並序列化新欄位；③ `EditorScreen` 傳入新欄位至 archive；④ 歷史列表卡片底部資訊列更新：自訂風格顯示「✨ 風格名」、情緒顯示「🎭 情緒」、角色偵測顯示「👁」徽章；⑤ `StickerReplayScreen` 頂部新增香檳金參數列，有自訂風格/情緒/角色偵測才顯示（版面不變時完全收起）。 |

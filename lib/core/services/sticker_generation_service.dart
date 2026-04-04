@@ -29,7 +29,7 @@ class StickerGenerationService {
     StickerSpec spec, {
     int index = 0,
     int styleIndex = 0,
-    StickerShape shape = StickerShape.circle,
+    StickerShape shape = StickerShape.square,
     String? customStyleDesc,
     String? customEmotionDesc,
     String? personFeatures,

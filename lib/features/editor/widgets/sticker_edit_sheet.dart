@@ -75,6 +75,9 @@ class StickerEditSheet extends StatefulWidget {
     double sizeScale,
   ) onTextGestureChanged;
 
+  /// 框型切換回呼（optional）
+  final ValueChanged<StickerShape>? onShapeChanged;
+
   const StickerEditSheet({
     super.key,
     required this.stickerIndex,
@@ -92,7 +95,8 @@ class StickerEditSheet extends StatefulWidget {
     this.initialImageAngle = 0.0,
     this.subjectBytes,
     this.generatedImage,
-    this.stickerShape = StickerShape.circle,
+    this.stickerShape = StickerShape.square,
+    this.onShapeChanged,
     required this.onTextChanged,
     required this.onSchemeChanged,
     required this.onBgColorChanged,
@@ -115,6 +119,7 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
   late double _textYAlign;
   late double _textAngle;
   late double _textSizeScale;
+  late StickerShape _currentShape;
 
   /// 目前開啟的面板（預設進入即為圖片編輯模式）
   _PanelMode _panelMode = _PanelMode.image;
@@ -137,6 +142,14 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
     _textYAlign = widget.initialTextYAlign;
     _textAngle = widget.initialTextAngle;
     _textSizeScale = widget.initialFontSizeScale;
+    _currentShape = widget.stickerShape;
+  }
+
+  void _onShapeChanged(StickerShape shape) {
+    if (_currentShape == shape) return;
+    HapticFeedback.selectionClick();
+    setState(() => _currentShape = shape);
+    widget.onShapeChanged?.call(shape);
   }
 
   void _togglePanel(_PanelMode mode) {
@@ -201,14 +214,14 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
                       width: side,
                       height: side,
                       child: StickerCanvasFrame(
-                        stickerShape: widget.stickerShape,
+                        stickerShape: _currentShape,
                         showBoundary: true,
                         child: StickerCanvas(
                           subjectBytes: widget.subjectBytes,
                           generatedImage: widget.generatedImage,
                           text: _textCtrl.text,
                           config: config,
-                          stickerShape: widget.stickerShape,
+                          stickerShape: _currentShape,
                           initialScale: widget.initialScale,
                           initialOffset: widget.initialOffset,
                           initialImageAngle: widget.initialImageAngle,
@@ -361,6 +374,31 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── 框型 ──────────────────────────────────────────────────────
+          const _SectionLabel('框型'),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _ShapeToggleButton(
+                  icon: Icons.circle_outlined,
+                  label: '圓形',
+                  isSelected: _currentShape == StickerShape.circle,
+                  onTap: () => _onShapeChanged(StickerShape.circle),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _ShapeToggleButton(
+                  icon: Icons.crop_square_rounded,
+                  label: '方形',
+                  isSelected: _currentShape == StickerShape.square,
+                  onTap: () => _onShapeChanged(StickerShape.square),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
           // ── 配色（邊框 / 文字色）─────────────────────────────────────
           const _SectionLabel('配色'),
           const SizedBox(height: 10),
@@ -559,6 +597,63 @@ class _StickerEditSheetState extends State<StickerEditSheet> {
         child: const Text(
           '完成',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── 框型切換按鈕 ─────────────────────────────────────────────────────────────
+
+class _ShapeToggleButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ShapeToggleButton({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  static const _activeColor = Color(0xFFE91E63);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? _activeColor.withValues(alpha: 0.10)
+              : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? _activeColor : Colors.grey.shade200,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon,
+                size: 17,
+                color: isSelected ? _activeColor : Colors.grey.shade500),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? _activeColor : Colors.grey.shade600,
+              ),
+            ),
+          ],
         ),
       ),
     );
