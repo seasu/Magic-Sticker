@@ -177,6 +177,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               shape: widget.stickerShape,
               originalImagePath: widget.imagePath,
               rawAiBytes: img, // AI 去背原圖（Uint8List）
+              customStyleDesc: widget.customStyleDesc,
+              customEmotionDesc: widget.customEmotionDesc,
+              enhancePersonFeatures: widget.enhancePersonFeatures,
             )
             .catchError((Object e, StackTrace s) {
               FirebaseService.recordError(e, s, reason: 'sticker_archive_failed');

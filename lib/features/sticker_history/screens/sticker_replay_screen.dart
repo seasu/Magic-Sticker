@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../core/models/sticker_shape.dart';
+import '../../../core/models/sticker_style.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../editor/models/sticker_compare_args.dart';
@@ -18,6 +19,78 @@ import '../../editor/widgets/sticker_canvas.dart';
 import '../../editor/widgets/sticker_canvas_frame.dart';
 import '../../editor/widgets/sticker_edit_sheet.dart';
 import '../models/sticker_record.dart';
+
+// ─── 自訂參數列 ────────────────────────────────────────────────────────────────
+
+class _ParamInfoRow extends StatelessWidget {
+  final StickerRecord record;
+
+  const _ParamInfoRow({required this.record});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasStyle = record.customStyleDesc != null && record.customStyleDesc!.isNotEmpty;
+    final hasEmotion = record.customEmotionDesc != null && record.customEmotionDesc!.isNotEmpty;
+    final hasPerson = record.enhancePersonFeatures;
+
+    if (!hasStyle && !hasEmotion && !hasPerson) return const SizedBox.shrink();
+
+    final styleName = hasStyle
+        ? record.customStyleDesc!
+        : (record.styleIndex >= 0 && record.styleIndex < StickerStyle.values.length
+            ? StickerStyle.values[record.styleIndex].label
+            : '');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFAFAF5), Color(0xFFF5EDD8)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE8D9B0), width: 0.8),
+        ),
+        child: Wrap(
+          spacing: 10,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (styleName.isNotEmpty)
+              _ParamChip(label: '🎨 $styleName'),
+            if (hasEmotion)
+              _ParamChip(label: '🎭 ${record.customEmotionDesc!}'),
+            if (hasPerson)
+              _ParamChip(label: '👁 角色偵測'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ParamChip extends StatelessWidget {
+  final String label;
+
+  const _ParamChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+        fontFamily: 'OpenHuninn',
+        fontSize: 12,
+        color: Color(0xFF7A6545),
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+}
 
 class StickerReplayScreen extends StatefulWidget {
   final StickerRecord record;
@@ -263,6 +336,9 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // ── 自訂參數列（有自訂參數才顯示）────────────────────────────
+            _ParamInfoRow(record: widget.record),
+
             const SizedBox(height: 16),
 
             // ── 貼圖畫布（正方形，可點擊編輯）────────────────────────────
