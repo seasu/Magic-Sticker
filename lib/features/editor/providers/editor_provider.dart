@@ -53,7 +53,7 @@ class _EditorFamilyNotifier
   /// [enhancePersonFeatures] Pro 人物特徵強化
   Future<void> initialize({
     int defaultStyleIndex = 0,
-    StickerShape stickerShape = StickerShape.circle,
+    StickerShape stickerShape = StickerShape.square,
     List<String>? initialCategoryIds,
     String? customStyleDesc,
     String? customEmotionDesc,
@@ -375,6 +375,11 @@ class _EditorFamilyNotifier
     final updated = List<int>.from(state.colorSchemeIndices);
     updated[stickerIdx] = schemeIdx;
     state = state.copyWith(colorSchemeIndices: updated);
+  }
+
+  /// 使用者在編輯 popup 切換框型（圓形 / 方形）
+  void updateStickerShape(StickerShape shape) {
+    state = state.copyWith(stickerShape: shape);
   }
 
   /// 使用者在編輯 popup 選擇字型

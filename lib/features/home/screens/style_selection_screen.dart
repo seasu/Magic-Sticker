@@ -25,7 +25,7 @@ class StyleSelectionScreen extends ConsumerStatefulWidget {
 class _StyleSelectionScreenState extends ConsumerState<StyleSelectionScreen>
     with SingleTickerProviderStateMixin {
   int? _selectedStyleIndex;
-  StickerShape _shape = StickerShape.circle;
+  StickerShape _shape = StickerShape.square;
   late final AnimationController _entryCtrl;
   final _proStyleCtrl = TextEditingController();
 

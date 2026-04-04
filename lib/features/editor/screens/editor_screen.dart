@@ -314,6 +314,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             notifier.updateImageTransform(idx, s, o, a),
         onFontChanged: (fi) => notifier.updateFontIndex(idx, fi),
         onStyleChanged: (si) => notifier.updateStyleIndex(idx, si),
+        onShapeChanged: (shape) => notifier.updateStickerShape(shape),
         onTextGestureChanged: (xAlign, yAlign, angle, sizeScale) =>
             notifier.updateTextTransform(
           idx,

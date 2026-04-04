@@ -48,7 +48,7 @@ class EditorState {
     List<String?>? imageErrors,
     this.status = EditorStatus.idle,
     this.errorMessage,
-    this.stickerShape = StickerShape.circle,
+    this.stickerShape = StickerShape.square,
     List<int>? colorSchemeIndices,
     List<int>? bgColorIndices,
     List<double>? imageScales,

@@ -186,6 +186,7 @@ class _StickerReplayScreenState extends State<StickerReplayScreen> {
         }),
         onFontChanged: (fi) => setState(() => _fontIndex = fi),
         onStyleChanged: (si) async => setState(() => _styleIndex = si),
+        onShapeChanged: (shape) => setState(() => _stickerShape = shape),
         onTextGestureChanged: (xAlign, yAlign, angle, sizeScale) {
           setState(() {
             _textXAlign = xAlign;
