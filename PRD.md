@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.18.6 |
+| 目前 App 版本 | v3.18.7 |
 | 目前 Functions 版本 | v1.1.3 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
@@ -323,6 +323,7 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.18.7 | 2026-04-04 | **fix(prompt): 修正客製化風格頭部截切**：① `_buildProSection` 自訂風格提示改為「取代預設視覺風格，但構圖邊界留白規則絕對不可變動」，移除原「最高優先」措辭避免 Gemini 將構圖規則一起覆蓋；② `characterDescLine`（自訂風格版本）嵌入邊界約束「角色高度 ≤ 60%，頭頂距上緣 ≥ 20% 空白，此留白規則適用於所有風格，不可忽略」，讓模型在讀到風格描述的同時即看到留白規則。 |
 | v3.18.6 | 2026-04-04 | **feat(history): 生成紀錄完整呈現自訂參數**：① `StickerRecord` 新增 `customStyleDesc`、`customEmotionDesc`、`enhancePersonFeatures` 三欄位（向後相容，舊紀錄 JSON fallback 為 null/false）；② `StickerArchiveService.archive()` 接收並序列化新欄位；③ `EditorScreen` 傳入新欄位至 archive；④ 歷史列表卡片底部資訊列更新：自訂風格顯示「✨ 風格名」、情緒顯示「🎭 情緒」、角色偵測顯示「👁」徽章；⑤ `StickerReplayScreen` 頂部新增香檳金參數列，有自訂風格/情緒/角色偵測才顯示（版面不變時完全收起）。 |
 | v3.17.6 | 2026-04-02 | **fix(prompt+ux): 貼圖頭部截切 + 廣告失敗提示**：① 生成 Prompt 角色高度上限從 70% 下修為 60%，消除與「頭頂距上緣 ≥ 20% 空白」的數學矛盾（70% 置中僅 15% 上邊距），使 Gemini 不再截切頭部；② `CreditPaywallDialog` 廣告失敗改為 Dialog 內 inline 紅字提示，取代原本在 Dialog context 呼叫 `ScaffoldMessenger.showSnackBar` 導致提示泡泡壓在底部的問題。 |
 | v3.17.5 | 2026-04-02 | **fix(ci): PR Check（Flutter 3.29.1）與新版 SDK 雙相容**：`Switch` 改回 `activeColor`、`Matrix4` 改回 `translate` / `scale`，並以 `// ignore: deprecated_member_use` 壓制新版 analyzer info；`ThemeData.cardTheme` 維持 `CardThemeData`；解鎖 PR #319「Analyze & Test」。`pubspec` 3.17.5+472。 |

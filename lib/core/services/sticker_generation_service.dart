@@ -252,7 +252,7 @@ class StickerGenerationService {
         : spec.emotion;
     // 有自訂風格時，取代 style.characterDesc（含 Q版/Chibi 特定描述），改用中性描述
     final characterDescLine = (customStyleDesc != null && customStyleDesc.trim().isNotEmpty)
-        ? '以${customStyleDesc.trim()}風格呈現角色，頭頂至腳底完整呈現，比例與外型依照該風格自然繪製'
+        ? '以${customStyleDesc.trim()}風格呈現角色，頭頂（含髮型）至腳底完整呈現；角色高度 ≤ 畫布 60%，頭頂距上緣 ≥ 20% 空白，此留白規則適用於所有風格，不可忽略'
         : style.characterDesc;
     // 有自訂風格時，取代 prompt 開場白的「Q版卡通」字樣
     final artStyleOpening = (customStyleDesc != null && customStyleDesc.trim().isNotEmpty)
@@ -366,7 +366,7 @@ $proSection- $characterDescLine
     final hints = <String>[];
     if (customStyleDesc != null && customStyleDesc.trim().isNotEmpty) {
       hints.add(
-        '🎨 視覺風格（最高優先，取代預設風格）：「${customStyleDesc.trim()}」',
+        '🎨 視覺風格（取代預設視覺風格，但構圖邊界留白規則絕對不可變動）：「${customStyleDesc.trim()}」',
       );
     }
     if (customEmotionDesc != null && customEmotionDesc.trim().isNotEmpty) {
