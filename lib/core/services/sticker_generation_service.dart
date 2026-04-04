@@ -250,6 +250,14 @@ class StickerGenerationService {
     final emotionLine = (customEmotionDesc != null && customEmotionDesc.trim().isNotEmpty)
         ? customEmotionDesc.trim()
         : spec.emotion;
+    // 有自訂風格時，取代 style.characterDesc（含 Q版/Chibi 特定描述），改用中性描述
+    final characterDescLine = (customStyleDesc != null && customStyleDesc.trim().isNotEmpty)
+        ? '以${customStyleDesc.trim()}風格呈現角色，比例與外型依照該風格自然繪製'
+        : style.characterDesc;
+    // 有自訂風格時，取代 prompt 開場白的「Q版卡通」字樣
+    final artStyleOpening = (customStyleDesc != null && customStyleDesc.trim().isNotEmpty)
+        ? '繪製${customStyleDesc.trim()}風格人物'
+        : '繪製可愛 Q 版卡通人物';
 
     if (shape == StickerShape.circle) {
       if (kStickerBgChromaKey) {
@@ -264,9 +272,9 @@ class StickerGenerationService {
 - 四個角落像素必須為精確的 #FFFFFF
 
 【角色設計】
-- 根據參考照片，繪製可愛 Q 版卡通人物
+- 根據參考照片，$artStyleOpening
 - 表情 / 動作：$emotionLine
-- ${style.characterDesc}
+$proSection- $characterDescLine
 - 將角色完整置於畫布正中央（水平、垂直皆置中），角色高度不超過畫布的 60%
 - 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
 - 角色左右兩側各保留 ≥ 10% 空白
@@ -274,7 +282,6 @@ class StickerGenerationService {
 - 【禁止文字】畫面任何位置禁止出現任何文字、中文字、英文字母、數字、符號、Logo 或品牌名稱；若參考照片的服裝或配件上有文字圖案，請以純色或簡單幾何紋樣取代，切勿照實重現
 
 【裝飾】在角色周圍點綴 2–4 個小閃光或星星（集中在角色周邊，不接觸背景邊緣）
-$proSection
 【輸出】單一正方形 PNG，背景為純平塗 #FFFFFF，無任何光影處理。
 風格：$styleSuffix
 ''';
@@ -287,9 +294,9 @@ $proSection
 - 禁止出現任何透明區域、白色邊框或描邊
 
 【角色設計】
-- 根據參考照片，繪製可愛 Q 版卡通人物
+- 根據參考照片，$artStyleOpening
 - 表情 / 動作：$emotionLine
-- ${style.characterDesc}
+$proSection- $characterDescLine
 - 將角色完整置於畫布正中央（水平、垂直皆置中），角色高度不超過畫布的 60%
 - 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
 - 角色左右兩側各保留 ≥ 10% 空白
@@ -299,7 +306,6 @@ $proSection
 【裝飾】在角色周圍點綴 2–4 個小閃光或星星（集中在畫布中央區域）
 
 【配色】背景色：${spec.bgColor}
-$proSection
 【輸出】單一正方形 PNG，背景完全不透明。
 風格：$styleSuffix
 ''';
@@ -317,16 +323,15 @@ $proSection
 - 四個角落像素必須為精確的 #FFFFFF
 
 【角色設計】
-- 根據參考照片，繪製可愛 Q 版卡通人物
+- 根據參考照片，$artStyleOpening
 - 表情 / 動作：$emotionLine
-- ${style.characterDesc}
+$proSection- $characterDescLine
 - 將角色完整置於畫布正中央（水平、垂直皆置中），角色高度不超過畫布的 60%
 - 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
 - 角色左右兩側各保留 ≥ 10% 空白
 - 嚴禁角色的任何部位（頭頂、耳朵、手臂、腳）被畫布邊緣截斷
 - 【禁止文字】畫面任何位置禁止出現任何文字、中文字、英文字母、數字、符號、Logo 或品牌名稱；若參考照片的服裝或配件上有文字圖案，請以純色或簡單幾何紋樣取代，切勿照實重現
 - 角色周圍點綴 3–5 個小閃光或星星（集中在角色周邊，不接觸背景邊緣）
-$proSection
 【輸出】單一正方形 PNG，背景為純平塗 #FFFFFF，無任何光影處理。
 風格：$styleSuffix
 ''';
@@ -337,7 +342,7 @@ $proSection
 【設計規格】
 - 整個正方形畫布以 ${spec.bgColor} 填色作為背景
 - 角色表情 / 動作：$emotionLine
-- ${style.characterDesc}
+$proSection- $characterDescLine
 - 將角色完整置於畫布正中央（水平、垂直皆置中），角色高度不超過畫布的 60%
 - 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
 - 角色左右兩側各保留 ≥ 10% 空白
@@ -345,7 +350,6 @@ $proSection
 - 【禁止文字】畫面任何位置禁止出現任何文字、中文字、英文字母、數字、符號、Logo 或品牌名稱；若參考照片的服裝或配件上有文字圖案，請以純色或簡單幾何紋樣取代，切勿照實重現
 - 背景中點綴 3–5 個小閃光或星星
 - 禁止出現任何白色邊框或白色描邊
-$proSection
 【輸出】單一正方形 PNG，無白色背景。
 風格：$styleSuffix
 ''';
