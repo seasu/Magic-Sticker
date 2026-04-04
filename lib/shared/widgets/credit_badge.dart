@@ -34,7 +34,7 @@ class CreditBadge extends ConsumerWidget {
     return _LoggedInBadge(
       credits: credits,
       isLow: isLow,
-      onTap: () => _UserAccountSheet.show(context, credits),
+      onTap: () => _UserAccountSheet.show(context),
     );
   }
 }
@@ -212,16 +212,14 @@ class _InitialFallback extends StatelessWidget {
 // ── 帳號資訊 Bottom Sheet ──────────────────────────────────────────────────────
 
 class _UserAccountSheet extends ConsumerStatefulWidget {
-  final int credits;
+  const _UserAccountSheet();
 
-  const _UserAccountSheet({required this.credits});
-
-  static void show(BuildContext context, int credits) {
+  static void show(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _UserAccountSheet(credits: credits),
+      builder: (_) => const _UserAccountSheet(),
     );
   }
 
@@ -400,7 +398,7 @@ class _UserAccountSheetState extends ConsumerState<_UserAccountSheet> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${widget.credits}',
+                      '${ref.watch(creditProvider)}',
                       style: TextStyle(fontFamily: 'OpenHuninn',
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
