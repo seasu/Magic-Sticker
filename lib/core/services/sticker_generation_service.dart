@@ -252,7 +252,7 @@ class StickerGenerationService {
         : spec.emotion;
     // 有自訂風格時，取代 style.characterDesc（含 Q版/Chibi 特定描述），改用中性描述
     final characterDescLine = (customStyleDesc != null && customStyleDesc.trim().isNotEmpty)
-        ? '以${customStyleDesc.trim()}風格呈現角色，比例與外型依照該風格自然繪製'
+        ? '以${customStyleDesc.trim()}風格呈現角色，頭頂至腳底完整呈現，比例與外型依照該風格自然繪製'
         : style.characterDesc;
     // 有自訂風格時，取代 prompt 開場白的「Q版卡通」字樣
     final artStyleOpening = (customStyleDesc != null && customStyleDesc.trim().isNotEmpty)
