@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "PLACEHOLDER_TEAM_ID.com.magicsticker.magic_sticker",
+        "paths": ["/c/*"]
+      }
+    ]
+  }
+}
