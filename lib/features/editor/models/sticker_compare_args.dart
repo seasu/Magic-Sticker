@@ -17,6 +17,10 @@ class StickerCompareArgs {
   /// 情緒類別 IDs（用於 ensureShareCode 建立挑戰碼的模板資訊）
   final List<String>? categoryIds;
 
+  /// Pro 自訂風格/情緒描述（用於 pro_custom 挑戰碼）
+  final String? customStyleDesc;
+  final String? customEmotionDesc;
+
   const StickerCompareArgs({
     required this.originalImagePath,
     required this.stickerBytes,
@@ -24,5 +28,7 @@ class StickerCompareArgs {
     this.from = 'editor',
     this.styleIndex,
     this.categoryIds,
+    this.customStyleDesc,
+    this.customEmotionDesc,
   });
 }

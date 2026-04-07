@@ -199,6 +199,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             stickerShape: widget.stickerShape,
             styleIndex: widget.styleIndex,
             categoryIds: widget.categoryIds,
+            customStyleDesc: widget.customStyleDesc,
+            customEmotionDesc: widget.customEmotionDesc,
           ),
         );
       }

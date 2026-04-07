@@ -1,24 +1,28 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app.dart';
 import '../../../core/services/analytics_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../billing/providers/pro_purchase_provider.dart';
+import '../../../shared/widgets/pro_unlock_sheet.dart';
 
 /// 朋友點擊分享連結後進入的挑戰預覽頁。
 ///
 /// 從 Firestore `challenges/{code}` 讀取挑戰資訊，
 /// 顯示模板摘要後讓使用者一鍵進入生成流程。
-class ChallengePreviewScreen extends StatefulWidget {
+class ChallengePreviewScreen extends ConsumerStatefulWidget {
   final String code;
 
   const ChallengePreviewScreen({super.key, required this.code});
 
   @override
-  State<ChallengePreviewScreen> createState() => _ChallengePreviewScreenState();
+  ConsumerState<ChallengePreviewScreen> createState() => _ChallengePreviewScreenState();
 }
 
-class _ChallengePreviewScreenState extends State<ChallengePreviewScreen> {
+class _ChallengePreviewScreenState extends ConsumerState<ChallengePreviewScreen> {
   Map<String, dynamic>? _challenge;
   bool _loading = true;
   String? _error;
@@ -89,9 +93,34 @@ class _ChallengePreviewScreenState extends State<ChallengePreviewScreen> {
   }
 
   void _startGenerate() {
-    // 帶入模板參數並導向首頁選照片流程
-    // styleIndex 與 categoryIds 若有值，日後可預選；
-    // 現階段導向首頁，讓使用者按正常流程選照片。
+    final data = _challenge!;
+    final isProChallenge = data['templateType'] == 'pro_custom' ||
+        data['customStyleDesc'] != null;
+
+    // Pro 挑戰：未購買 Pro 的用戶先彈出購買頁
+    if (isProChallenge) {
+      final isPro = ref.read(isProUnlockedProvider).valueOrNull ?? false;
+      if (!isPro) {
+        ProUnlockSheet.show(context);
+        return;
+      }
+    }
+
+    final styleIndex = (data['presetStyleIndex'] as num?)?.toInt();
+    final rawIds = data['presetCategoryIds'];
+    final categoryIds =
+        rawIds == null ? null : List<String>.from(rawIds as List);
+    final customStyleDesc = data['customStyleDesc'] as String?;
+    final customEmotionDesc = data['customEmotionDesc'] as String?;
+
+    ref.read(pendingChallengeProvider.notifier).state = ChallengeParams(
+      challengeCode: widget.code,
+      styleIndex: styleIndex,
+      categoryIds: categoryIds,
+      customStyleDesc: customStyleDesc,
+      customEmotionDesc: customEmotionDesc,
+      isProChallenge: isProChallenge,
+    );
     context.go('/');
   }
 

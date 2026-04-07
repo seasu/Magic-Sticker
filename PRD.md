@@ -3,8 +3,8 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.18.11 |
-| 目前 Functions 版本 | v1.1.3 |
+| 目前 App 版本 | v3.18.12 |
+| 目前 Functions 版本 | v1.1.5 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -323,6 +323,7 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.18.12 | 2026-04-07 | **feat(challenge): 完整挑戰碼流程（Pro 判斷 + 自訂風格/情緒）**：① `functions/src/index.ts` `ensureShareCode` 新增接收並寫入 `customStyleDesc`、`customEmotionDesc` 至 Firestore（Functions v1.1.5）；② `share_code_service.dart` 新增兩個 custom 參數，`templateType` 自動根據 custom 欄位判斷；③ `StickerCompareArgs` / `StickerCompareScreen` 新增 `customStyleDesc`、`customEmotionDesc`，傳遞至 `ensureShareCode`；④ `ChallengePreviewScreen` 轉換為 `ConsumerStatefulWidget`，按下「生成」先判斷是否 Pro 挑戰，未購買者彈出 `ProUnlockSheet`；⑤ `app.dart` 新增 `ChallengeParams` model 與 `pendingChallengeProvider`；⑥ `HomeScreen._pickImage()` 消費 `pendingChallengeProvider`，挑戰模式跳過風格/情緒選擇直接進 Editor；⑦ `HomeScreen` 新增 `_buildChallengeBanner()` 顯示挑戰模式提示（風格名 + 情緒行 + 取消按鈕），有 challenge 時隱藏「有挑戰碼？點此輸入」連結。 |
 | v3.18.11 | 2026-04-07 | **feat(home): 新增手動輸入挑戰碼入口**：首頁兩個選圖按鈕下方新增「有挑戰碼？點此輸入」連結，點擊彈出 Bottom Sheet，內含大字 TextField（自動大寫、最多 8 碼）與「前往挑戰」按鈕，輸入後直接導航至 `/challenge/:code` 完成網頁的「也可以在 App 內手動輸入上方的挑戰碼」說明。 |
 | v3.18.10 | 2026-04-07 | **fix(ios-deeplink): 修正 iOS Universal Links 無法開啟 App**：① `Runner.entitlements` 新增 `com.apple.developer.associated-domains`（`applinks:magic-sticker-8eaf4.web.app`）；② `Info.plist` 新增 `CFBundleURLTypes`（custom scheme `magicsticker://`）作為備用機制；③ `public/.well-known/apple-app-site-association` 新增（`/c/*` 路徑對應 App）；④ `firebase.json` 新增 AASA 檔案的 `Content-Type: application/json` header；⑤ `deploy_hosting.yml` 新增 CI step 自動將 `secrets.APPLE_TEAM_ID` 注入 AASA（與 Android assetlinks.json 注入機制對稱）；⑥ `public/c/index.html` App Store URL 從 TODO 補完為正式連結 `id6761015408`。⚠️ 需同步：Apple Developer Portal 的 App ID Capability 啟用 Associated Domains；Provisioning Profile 重新產生並更新 `IOS_PROVISIONING_PROFILE_BASE64` secret；`APPLE_TEAM_ID` secret 需已設定。 |
 | v3.18.9 | 2026-04-04 | **feat(editor): 貼圖編輯新增框型切換 + 預設改方形**：① `StickerEditSheet` 配色 Tab 頂端新增「框型」分段選擇器（圓形 / 方形），切換即時反映在預覽畫布並透過 `onShapeChanged` 回呼更新父層狀態；② 編輯 Sheet（`sticker_replay_screen.dart`）同步支援框型切換；③ 全流程預設框型從圓形改為方形（`style_selection_screen`、`EditorState`、`StickerEditSheet`、`editor_provider.initialize()`、`sticker_generation_service` 一律改為 `StickerShape.square`）。 |
