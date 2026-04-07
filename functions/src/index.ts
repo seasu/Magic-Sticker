@@ -22,7 +22,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.1.4";
+const FUNCTIONS_VERSION = "1.1.5";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -1553,11 +1553,14 @@ export const ensureShareCode = onCall(
     log("ensureShareCode: invoked");
     const uid = await resolveUid(request);
 
-    const {templateType, presetStyleIndex, presetCategoryIds} =
+    const {templateType, presetStyleIndex, presetCategoryIds,
+           customStyleDesc, customEmotionDesc} =
       request.data as {
         templateType: "preset" | "pro_custom";
         presetStyleIndex?: number;
         presetCategoryIds?: string[];
+        customStyleDesc?: string;
+        customEmotionDesc?: string;
       };
 
     if (!templateType) {
@@ -1613,6 +1616,8 @@ export const ensureShareCode = onCall(
       templateType,
       presetStyleIndex: presetStyleIndex ?? null,
       presetCategoryIds: presetCategoryIds ?? null,
+      customStyleDesc: customStyleDesc ?? null,
+      customEmotionDesc: customEmotionDesc ?? null,
       isActive: true,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       expiresAt,

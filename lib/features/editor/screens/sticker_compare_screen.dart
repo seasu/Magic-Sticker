@@ -43,6 +43,8 @@ class StickerCompareScreen extends StatefulWidget {
   /// 用於 ensureShareCode 的模板資訊
   final int? styleIndex;
   final List<String>? categoryIds;
+  final String? customStyleDesc;
+  final String? customEmotionDesc;
 
   const StickerCompareScreen({
     super.key,
@@ -52,6 +54,8 @@ class StickerCompareScreen extends StatefulWidget {
     this.from = 'editor',
     this.styleIndex,
     this.categoryIds,
+    this.customStyleDesc,
+    this.customEmotionDesc,
   });
 
   @override
@@ -103,6 +107,8 @@ class _StickerCompareScreenState extends State<StickerCompareScreen> {
       final codeFuture = ShareCodeService.ensureShareCode(
         presetStyleIndex: widget.styleIndex,
         presetCategoryIds: widget.categoryIds,
+        customStyleDesc: widget.customStyleDesc,
+        customEmotionDesc: widget.customEmotionDesc,
       ).timeout(const Duration(seconds: 8));
 
       // 截圖（本機操作，快）

@@ -33,18 +33,26 @@ class ShareCodeService {
 
   /// 建立或重用挑戰碼。
   ///
-  /// [templateType] 目前支援 'preset'（一般使用者分享）
+  /// [templateType] 'preset' 或 'pro_custom'（有自訂描述時自動設為 pro_custom）
   /// [presetStyleIndex] 風格索引（nullable）
   /// [presetCategoryIds] 情緒類別 IDs（nullable）
+  /// [customStyleDesc] Pro 自訂風格描述（nullable）
+  /// [customEmotionDesc] Pro 自訂情緒描述（nullable）
   static Future<ShareCodeResult> ensureShareCode({
-    String templateType = 'preset',
     int? presetStyleIndex,
     List<String>? presetCategoryIds,
+    String? customStyleDesc,
+    String? customEmotionDesc,
   }) async {
+    final templateType = (customStyleDesc != null || customEmotionDesc != null)
+        ? 'pro_custom'
+        : 'preset';
     final result = await _fn.call({
       'templateType': templateType,
       if (presetStyleIndex != null) 'presetStyleIndex': presetStyleIndex,
       if (presetCategoryIds != null) 'presetCategoryIds': presetCategoryIds,
+      if (customStyleDesc != null) 'customStyleDesc': customStyleDesc,
+      if (customEmotionDesc != null) 'customEmotionDesc': customEmotionDesc,
     });
     return ShareCodeResult.fromMap(
       Map<dynamic, dynamic>.from(result.data as Map),
