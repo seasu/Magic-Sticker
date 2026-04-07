@@ -1,5 +1,7 @@
 # 🤖 Claude 開發指令集 (CLAUDE.md) - v1.6
 
+> 🌐 **語言規定（必須遵守）：所有回覆一律使用繁體中文。**
+
 > ⚠️ **每次 commit 前的強制規則（不可跳過）：**
 > 1. 更新 `pubspec.yaml` 的 `version`（遞增 patch 或 minor）
 > 2. 更新 `PRD.md` 反映最新變更
