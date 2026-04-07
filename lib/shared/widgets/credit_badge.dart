@@ -212,14 +212,17 @@ class _InitialFallback extends StatelessWidget {
 // ── 帳號資訊 Bottom Sheet ──────────────────────────────────────────────────────
 
 class _UserAccountSheet extends ConsumerStatefulWidget {
-  const _UserAccountSheet();
+  final ScaffoldMessengerState messenger;
+
+  const _UserAccountSheet({required this.messenger});
 
   static void show(BuildContext context) {
+    final messenger = ScaffoldMessenger.of(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const _UserAccountSheet(),
+      builder: (_) => _UserAccountSheet(messenger: messenger),
     );
   }
 
@@ -326,16 +329,31 @@ class _UserAccountSheetState extends ConsumerState<_UserAccountSheet> {
               child: GestureDetector(
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: uid));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('UID 已複製'),
-                      duration: const Duration(seconds: 2),
-                      behavior: SnackBarBehavior.floating,
-                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ),
-                  );
+                  widget.messenger
+                    ..clearSnackBars()
+                    ..showSnackBar(
+                      SnackBar(
+                        content: const Row(
+                          children: [
+                            Icon(Icons.check_circle_rounded,
+                                color: Colors.white, size: 18),
+                            SizedBox(width: 8),
+                            Text('已複製到剪貼簿',
+                                style: TextStyle(
+                                  fontFamily: 'OpenHuninn',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                )),
+                          ],
+                        ),
+                        backgroundColor: AppColors.textPrimary,
+                        duration: const Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    );
                 },
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
