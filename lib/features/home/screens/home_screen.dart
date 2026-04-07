@@ -13,6 +13,7 @@ import '../../../core/models/emotion_category.dart';
 import '../../../core/models/sticker_shape.dart';
 import '../../../core/models/sticker_style.dart';
 import '../../../core/services/firebase_service.dart';
+import '../../../core/services/ads_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../features/billing/providers/credit_provider.dart';
 import '../../../shared/widgets/credit_badge.dart';
@@ -43,6 +44,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     )..forward();
     PackageInfo.fromPlatform().then((info) {
       if (mounted) setState(() => _version = 'v${info.version}');
+    });
+    // iOS ATT 追蹤授權彈窗必須在 UI 可見後才能顯示，
+    // 延遲 800ms 確保首頁動畫完成後再彈出，避免同時彈多個 dialog。
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) AdsService.instance.requestAttAndPreload();
     });
   }
 
