@@ -73,21 +73,31 @@ class AdsService {
 
   // ── 初始化 ─────────────────────────────────────────────────────────────────
 
+  /// 階段一：只初始化 AdMob SDK，不請求 ATT。
+  /// 在 main() 中、runApp() 之前呼叫。
   Future<void> initialize() async {
     try {
-      // iOS 14.5+：先請求 ATT 追蹤授權，再初始化 AdMob。
-      // 未授權時 AdMob 只能投放非個人化廣告，fill rate 極低。
+      await MobileAds.instance.initialize();
+      FirebaseService.log('AdsService: MobileAds initialized (pre-UI)');
+    } catch (e, stack) {
+      await FirebaseService.recordError(e, stack, reason: 'ads_init_failed');
+    }
+  }
+
+  /// 階段二：請求 iOS ATT 授權，授權後預載廣告。
+  /// 必須在 Flutter UI 可見後呼叫（例如 HomeScreen.initState）。
+  /// Android 直接預載，不需要 ATT。
+  Future<void> requestAttAndPreload() async {
+    try {
       if (Platform.isIOS) {
         _attStatus = await Permission.appTrackingTransparency.request();
         FirebaseService.log('AdsService: ATT status=$_attStatus');
       } else {
         _attStatus = PermissionStatus.granted;
       }
-      await MobileAds.instance.initialize();
-      FirebaseService.log('AdsService: MobileAds initialized');
       loadRewardedAd(); // 預載廣告
     } catch (e, stack) {
-      await FirebaseService.recordError(e, stack, reason: 'ads_init_failed');
+      await FirebaseService.recordError(e, stack, reason: 'ads_att_failed');
     }
   }
 
