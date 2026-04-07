@@ -10,6 +10,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../app.dart';
 import '../../../core/models/emotion_category.dart';
+import '../../../core/models/sticker_shape.dart';
 import '../../../core/models/sticker_style.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../core/theme/app_colors.dart';
