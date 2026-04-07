@@ -22,7 +22,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.1.5";
+const FUNCTIONS_VERSION = "1.1.6";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -1416,6 +1416,9 @@ export const initUserSession = onCall(
     const uid = await resolveUid(request);
     log("initUserSession: auth OK", {uid});
 
+    // Auth token 中的 email（匿名用戶為 undefined）
+    const tokenEmail = (request.auth?.token?.email as string | undefined) ?? null;
+
     const {anonCredits = 0, anonUid = ""} =
       (request.data ?? {}) as {anonCredits?: number; anonUid?: string};
     const mergeAmount = Math.max(0, Math.floor(anonCredits));
@@ -1428,15 +1431,21 @@ export const initUserSession = onCall(
       const doc = await tx.get(userRef);
       if (doc.exists) {
         credits = (doc.data()?.credits as number) ?? 0;
+        const updateFields: Record<string, unknown> = {};
+
+        // 同步 email：首次登入正式帳號、或 email 有變更時補入
+        if (tokenEmail && doc.data()?.email !== tokenEmail) {
+          updateFields.email = tokenEmail;
+          updateFields.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+        }
+
         // 合併匿名帳號點數（帳號切換時由 App 傳入）
         // 僅允許目標帳號仍為匿名狀態（isAnonymous: true）時合併；
         // 已綁定的正式帳號（isAnonymous: false）不接受合併，防止重複登出/登入刷點。
         if (mergeAmount > 0 && doc.data()?.isAnonymous === true) {
           credits += mergeAmount;
-          tx.update(userRef, {
-            credits,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
+          updateFields.credits = credits;
+          updateFields.updatedAt = admin.firestore.FieldValue.serverTimestamp();
           writeCreditHistory(tx, uid, {
             type: "earned",
             amount: mergeAmount,
@@ -1447,6 +1456,10 @@ export const initUserSession = onCall(
             const anonRef = db.collection("users").doc(anonUid);
             tx.set(anonRef, {credits: 0, updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
           }
+        }
+
+        if (Object.keys(updateFields).length > 0) {
+          tx.update(userRef, updateFields);
         }
         return;
       }
@@ -1484,6 +1497,7 @@ export const initUserSession = onCall(
       tx.set(userRef, {
         credits,
         isAnonymous,
+        ...(userRecord.email ? {email: userRecord.email} : {}),
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
