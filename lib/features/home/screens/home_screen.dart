@@ -9,9 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../app.dart';
-import '../../../core/models/emotion_category.dart';
-import '../../../core/models/sticker_shape.dart';
-import '../../../core/models/sticker_style.dart';
+
 import '../../../core/services/firebase_service.dart';
 import '../../../core/services/ads_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -131,6 +129,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 4,
+                color: AppColors.textPrimary,
               ),
               textAlign: TextAlign.center,
               decoration: InputDecoration(
@@ -142,13 +141,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 counterText: '',
                 filled: true,
-                fillColor: const Color(0xFFF5F5F5),
+                fillColor: const Color(0xFFF2F2F7),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(color: const Color(0xFFFF5864), width: 1.5),
                 ),
               ),
@@ -163,24 +162,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             SizedBox(
               width: double.infinity,
               height: 52,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF5864),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 0,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: AppColors.gradient,
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                onPressed: () {
-                  final code = controller.text.trim().toUpperCase();
-                  if (code.isEmpty) return;
-                  Navigator.of(ctx).pop();
-                  context.push('/challenge/$code');
-                },
-                child: Text('前往挑戰',
-                  style: TextStyle(fontFamily: 'OpenHuninn',
-                    fontSize: 16, fontWeight: FontWeight.w700,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 52),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    final code = controller.text.trim().toUpperCase();
+                    if (code.isEmpty) return;
+                    Navigator.of(ctx).pop();
+                    context.push('/challenge/$code');
+                  },
+                  child: const Text('前往挑戰',
+                    style: TextStyle(fontFamily: 'OpenHuninn',
+                      fontSize: 16, fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -214,24 +221,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           await Gal.putImage(picked.path);
         } catch (_) {}
       }
-    }
-
-    // 挑戰模式：直接帶入挑戰的風格/情緒，跳過選擇畫面
-    final challenge = ref.read(pendingChallengeProvider);
-    if (challenge != null) {
-      ref.read(pendingChallengeProvider.notifier).state = null;
-      context.push(
-        '/editor',
-        extra: EditorArgs(
-          imagePath: picked.path,
-          styleIndex: challenge.styleIndex ?? 0,
-          stickerShape: StickerShape.square,
-          categoryIds: challenge.categoryIds ?? kDefaultCategoryIds,
-          customStyleDesc: challenge.customStyleDesc,
-          customEmotionDesc: challenge.customEmotionDesc,
-        ),
-      );
-      return;
     }
 
     // 進入步驟 2：選擇風格
@@ -401,77 +390,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // ── 底部按鈕 ──────────────────────────────────────────────────────────────
 
-  Widget _buildChallengeBanner(ChallengeParams challenge) {
-    final styleIndex = challenge.styleIndex ?? 0;
-    final styleName = challenge.customStyleDesc != null
-        ? '✨ ${challenge.customStyleDesc}'
-        : StickerStyle.values[styleIndex.clamp(0, StickerStyle.values.length - 1)].label;
-    final emotionLine = challenge.customEmotionDesc != null
-        ? '🎭 ${challenge.customEmotionDesc}'
-        : '預設 8 種情緒';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFF5864).withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFFF5864).withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '🎯 挑戰模式：$styleName',
-                  style: const TextStyle(
-                    fontFamily: 'OpenHuninn',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFFFF5864),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  emotionLine,
-                  style: TextStyle(
-                    fontFamily: 'OpenHuninn',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFFFF5864).withValues(alpha: 0.75),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: () {
-              ref.read(pendingChallengeProvider.notifier).state = null;
-            },
-            child: Padding(
-              padding: const EdgeInsets.only(left: 12),
-              child: Text(
-                '取消',
-                style: TextStyle(
-                  fontFamily: 'OpenHuninn',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFFF5864).withValues(alpha: 0.75),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildBottomActions(BuildContext context) {
-    final challenge = ref.watch(pendingChallengeProvider);
-
     return AnimatedBuilder(
       animation: _entryCtrl,
       builder: (_, child) {
@@ -488,22 +407,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 36),
         child: Column(
           children: [
-            // 挑戰模式 banner 或步驟 1 提示
-            if (challenge != null)
-              _buildChallengeBanner(challenge)
-            else
-              Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: Text(
-                  '步驟 1／3　選一張照片，開始製作專屬貼圖',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontFamily: 'OpenHuninn',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Text(
+                '步驟 1／3　選一張照片，開始製作專屬貼圖',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontFamily: 'OpenHuninn',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
                 ),
               ),
+            ),
             PickImageButton(
               icon: Icons.photo_library_rounded,
               label: '從相簿選取',
@@ -516,7 +431,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               onTap: () => _pickImage(context, ImageSource.camera),
               outlined: true,
             ),
-            if (challenge == null) ...[
+            ...[
               const SizedBox(height: 16),
               GestureDetector(
                 onTap: () => _showChallengeCodeInput(context),

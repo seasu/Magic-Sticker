@@ -68,26 +68,6 @@ class EditorArgs {
   });
 }
 
-/// 挑戰模式暫存參數：ChallengePreviewScreen 寫入，HomeScreen._pickImage() 消費。
-class ChallengeParams {
-  final String challengeCode;
-  final int? styleIndex;
-  final List<String>? categoryIds;
-  final String? customStyleDesc;
-  final String? customEmotionDesc;
-  final bool isProChallenge;
-
-  const ChallengeParams({
-    required this.challengeCode,
-    this.styleIndex,
-    this.categoryIds,
-    this.customStyleDesc,
-    this.customEmotionDesc,
-    this.isProChallenge = false,
-  });
-}
-
-final pendingChallengeProvider = StateProvider<ChallengeParams?>((ref) => null);
 
 final router = GoRouter(
   initialLocation: '/',

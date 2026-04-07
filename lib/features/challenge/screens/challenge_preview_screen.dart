@@ -1,9 +1,17 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gal/gal.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../app.dart';
+import '../../../core/models/emotion_category.dart';
+import '../../../core/models/sticker_shape.dart';
+import '../../../core/models/sticker_style.dart';
 import '../../../core/services/analytics_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../billing/providers/pro_purchase_provider.dart';
@@ -11,8 +19,8 @@ import '../../../shared/widgets/pro_unlock_sheet.dart';
 
 /// 朋友點擊分享連結後進入的挑戰預覽頁。
 ///
-/// 從 Firestore `challenges/{code}` 讀取挑戰資訊，
-/// 顯示模板摘要後讓使用者一鍵進入生成流程。
+/// 從 Firestore `challenges/{code}` 讀取挑戰資訊，顯示風格與情緒後
+/// 讓使用者直接在此頁選照片，進入生成流程（獨立挑戰流程，不跳回首頁）。
 class ChallengePreviewScreen extends ConsumerStatefulWidget {
   final String code;
 
@@ -71,7 +79,7 @@ class _ChallengePreviewScreenState extends ConsumerState<ChallengePreviewScreen>
       // 記錄 Analytics
       AnalyticsService.logChallengeLinkOpened(
         code: widget.code,
-        installed: true, // 已安裝才能到這頁
+        installed: true,
         resolved: true,
       );
 
@@ -92,12 +100,11 @@ class _ChallengePreviewScreenState extends ConsumerState<ChallengePreviewScreen>
     }
   }
 
-  void _startGenerate() {
+  Future<void> _pickPhoto(ImageSource source) async {
     final data = _challenge!;
-    final isProChallenge = data['templateType'] == 'pro_custom' ||
-        data['customStyleDesc'] != null;
+    final isProChallenge =
+        data['templateType'] == 'pro_custom' || data['customStyleDesc'] != null;
 
-    // Pro 挑戰：未購買 Pro 的用戶先彈出購買頁
     if (isProChallenge) {
       final isPro = ref.read(isProUnlockedProvider).valueOrNull ?? false;
       if (!isPro) {
@@ -106,37 +113,58 @@ class _ChallengePreviewScreenState extends ConsumerState<ChallengePreviewScreen>
       }
     }
 
-    final styleIndex = (data['presetStyleIndex'] as num?)?.toInt();
-    final rawIds = data['presetCategoryIds'];
-    final categoryIds =
-        rawIds == null ? null : List<String>.from(rawIds as List);
-    final customStyleDesc = data['customStyleDesc'] as String?;
-    final customEmotionDesc = data['customEmotionDesc'] as String?;
+    HapticFeedback.mediumImpact();
+    final picked = await ImagePicker().pickImage(source: source, imageQuality: 95);
+    if (picked == null || !mounted) return;
 
-    ref.read(pendingChallengeProvider.notifier).state = ChallengeParams(
-      challengeCode: widget.code,
-      styleIndex: styleIndex,
-      categoryIds: categoryIds,
-      customStyleDesc: customStyleDesc,
-      customEmotionDesc: customEmotionDesc,
-      isProChallenge: isProChallenge,
+    if (source == ImageSource.camera) {
+      final shouldSave = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => _SavePhotoDialog(imagePath: picked.path),
+      );
+      if (!mounted) return;
+      if (shouldSave == true) {
+        try {
+          if (!await Gal.hasAccess()) await Gal.requestAccess();
+          await Gal.putImage(picked.path);
+        } catch (_) {}
+      }
+    }
+
+    final styleIndex = (data['presetStyleIndex'] as num?)?.toInt() ?? 0;
+    final rawIds = data['presetCategoryIds'];
+    final categoryIds = rawIds == null ? null : List<String>.from(rawIds as List);
+
+    if (!mounted) return;
+    context.push(
+      '/editor',
+      extra: EditorArgs(
+        imagePath: picked.path,
+        styleIndex: styleIndex,
+        stickerShape: StickerShape.square,
+        categoryIds: categoryIds ?? kDefaultCategoryIds,
+        customStyleDesc: data['customStyleDesc'] as String?,
+        customEmotionDesc: data['customEmotionDesc'] as String?,
+      ),
     );
-    context.go('/');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.textPrimary,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: const Text(
           '挑戰預覽',
           style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
           ),
         ),
         centerTitle: true,
@@ -148,7 +176,7 @@ class _ChallengePreviewScreenState extends ConsumerState<ChallengePreviewScreen>
       body: SafeArea(
         child: _loading
             ? const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+                child: CircularProgressIndicator(color: Color(0xFFFF5864)),
               )
             : _error != null
                 ? _ErrorView(
@@ -158,7 +186,7 @@ class _ChallengePreviewScreenState extends ConsumerState<ChallengePreviewScreen>
                 : _ChallengeContent(
                     code: widget.code,
                     challenge: _challenge!,
-                    onStart: _startGenerate,
+                    onPickPhoto: _pickPhoto,
                   ),
       ),
     );
@@ -170,72 +198,118 @@ class _ChallengePreviewScreenState extends ConsumerState<ChallengePreviewScreen>
 class _ChallengeContent extends StatelessWidget {
   final String code;
   final Map<String, dynamic> challenge;
-  final VoidCallback onStart;
+  final void Function(ImageSource) onPickPhoto;
 
   const _ChallengeContent({
     required this.code,
     required this.challenge,
-    required this.onStart,
+    required this.onPickPhoto,
   });
 
   @override
   Widget build(BuildContext context) {
+    // 計算風格資訊
+    final styleIndex = (challenge['presetStyleIndex'] as num?)?.toInt() ?? 0;
+    final customStyleDesc = challenge['customStyleDesc'] as String?;
+    final style = StickerStyle.values[styleIndex.clamp(0, StickerStyle.values.length - 1)];
+    final styleName = customStyleDesc ?? style.label;
+    final styleEmoji = customStyleDesc != null ? '✨' : style.emoji;
+
+    // 計算情緒資訊
+    final customEmotionDesc = challenge['customEmotionDesc'] as String?;
+    final rawIds = challenge['presetCategoryIds'];
+    final categoryIds = rawIds == null ? null : List<String>.from(rawIds as List);
+    final emotionSummary = customEmotionDesc ??
+        (categoryIds != null ? '${categoryIds.length} 種情緒' : '預設 8 種情緒');
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 標題區
-          const Text(
-            '✨',
-            style: TextStyle(fontSize: 64),
+          // ── 邀請頭部 ──
+          Center(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: AppColors.gradient,
+                borderRadius: BorderRadius.circular(99),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                child: Text(
+                  '✨ 朋友挑戰邀請',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           const Text(
             '朋友邀你試試同款貼圖！',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.w800,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           const Text(
-            '用 AI 把你的照片變成 LINE 貼圖',
-            style: TextStyle(color: Colors.white60, fontSize: 14),
+            '選張照片，立刻生成同款 LINE 貼圖',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 36),
+          const SizedBox(height: 28),
 
-          // 挑戰碼展示
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: Column(
+          // ── 風格卡片 ──
+          _InfoCard(
+            emoji: styleEmoji,
+            label: '風格',
+            value: styleName,
+          ),
+          const SizedBox(height: 12),
+
+          // ── 情緒卡片 ──
+          _InfoCard(
+            emoji: '🎭',
+            label: '情緒',
+            value: emotionSummary,
+          ),
+          const SizedBox(height: 20),
+
+          // ── 挑戰碼（次要顯示）──
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  '挑戰碼',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  '挑戰碼　',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-                const SizedBox(height: 6),
                 Text(
                   code.toUpperCase(),
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 6,
+                    letterSpacing: 3,
                   ),
                 ),
               ],
             ),
           ),
+
           const Spacer(),
 
-          // CTA 按鈕
+          // ── 選照片按鈕 ──
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: AppColors.gradient,
@@ -246,22 +320,92 @@ class _ChallengeContent extends StatelessWidget {
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
                 foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 56),
+                minimumSize: const Size(double.infinity, 52),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
+                elevation: 0,
               ),
-              onPressed: onStart,
+              onPressed: () => onPickPhoto(ImageSource.gallery),
               child: const Text(
-                '用這款風格生成貼圖 →',
-                style: TextStyle(
+                '從相簿選取照片',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFFFF5864),
+              side: const BorderSide(color: Color(0xFFFF5864)),
+              minimumSize: const Size(double.infinity, 52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            onPressed: () => onPickPhoto(ImageSource.camera),
+            child: const Text(
+              '拍照',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+// ── _InfoCard ─────────────────────────────────────────────────────────────────
+
+class _InfoCard extends StatelessWidget {
+  final String emoji;
+  final String label;
+  final String value;
+
+  const _InfoCard({required this.emoji, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 28)),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 16),
         ],
       ),
     );
@@ -288,20 +432,118 @@ class _ErrorView extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               message,
-              style: const TextStyle(color: Colors.white70, fontSize: 15),
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
             OutlinedButton(
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white38),
+                foregroundColor: const Color(0xFFFF5864),
+                side: const BorderSide(color: Color(0xFFFF5864)),
               ),
               onPressed: onBack,
               child: const Text('返回'),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── _SavePhotoDialog ──────────────────────────────────────────────────────────
+
+class _SavePhotoDialog extends StatelessWidget {
+  final String imagePath;
+
+  const _SavePhotoDialog({required this.imagePath});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            child: Image.file(
+              File(imagePath),
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+            child: Column(
+              children: [
+                const Text(
+                  '要把這張照片存到相簿嗎？',
+                  style: TextStyle(
+                    fontFamily: 'OpenHuninn',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '下次可直接從相簿選取，不用重拍',
+                  style: TextStyle(
+                    fontFamily: 'OpenHuninn',
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: AppColors.gradient,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        '存到相簿',
+                        style: TextStyle(
+                          fontFamily: 'OpenHuninn',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text(
+                    '不用，直接繼續',
+                    style: TextStyle(
+                      fontFamily: 'OpenHuninn',
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
