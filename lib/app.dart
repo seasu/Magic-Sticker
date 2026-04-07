@@ -71,6 +71,26 @@ class EditorArgs {
 
 final router = GoRouter(
   initialLocation: '/',
+  // GoRouter 14 在 cold start 時會收到平台傳入的原始 deep link URI
+  // （例如 magicsticker://challenge/XSHGKP），必須在此轉換成路徑格式，
+  // 否則找不到對應 route 會拋出 GoException。
+  redirect: (context, state) {
+    final uri = state.uri;
+    if (uri.scheme == 'magicsticker') {
+      // magicsticker://challenge/XSHGKP → /challenge/XSHGKP
+      if (uri.host == 'challenge' && uri.pathSegments.isNotEmpty) {
+        return '/challenge/${uri.pathSegments.first}';
+      }
+      return '/';
+    }
+    if (uri.scheme == 'https' &&
+        uri.pathSegments.length == 2 &&
+        uri.pathSegments.first == 'c') {
+      // https://magic-sticker-8eaf4.web.app/c/XSHGKP → /challenge/XSHGKP
+      return '/challenge/${uri.pathSegments.last}';
+    }
+    return null;
+  },
   routes: [
     GoRoute(
       path: '/',
@@ -194,7 +214,13 @@ class _MagicStickerAppState extends ConsumerState<MagicStickerApp>
     // ── Cold start：App 從連結啟動（已安裝，直接開啟）──────────────────────
     try {
       final initialUri = await _appLinks.getInitialLink();
-      if (initialUri != null) _handleDeepLink(initialUri);
+      if (initialUri != null) {
+        // magicsticker:// cold start：GoRouter.redirect 已攔截並轉換路徑，
+        // 此處跳過以避免雙重導航。
+        if (initialUri.scheme != 'magicsticker') {
+          _handleDeepLink(initialUri);
+        }
+      }
     } catch (_) {}
 
     // ── Hot link：App 已在前景，收到連結 ──────────────────────────────────
