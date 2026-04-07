@@ -71,6 +71,38 @@ jobs:
           print("✅ assetlinks.json 已注入真實 fingerprint")
           PYEOF
 
+      - name: Inject Apple Team ID into apple-app-site-association
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$APPLE_TEAM_ID" ]; then
+            echo "⚠️  APPLE_TEAM_ID not set — apple-app-site-association 將保留 placeholder，Universal Links 無法通過 iOS 驗證"
+            exit 0
+          fi
+
+          python3 - <<PYEOF
+          import json, os
+
+          team_id = os.environ["APPLE_TEAM_ID"]
+          content = {
+            "applinks": {
+              "apps": [],
+              "details": [
+                {
+                  "appID": f"{team_id}.com.magicsticker.magic_sticker",
+                  "paths": ["/c/*"]
+                }
+              ]
+            }
+          }
+
+          with open("public/.well-known/apple-app-site-association", "w") as f:
+            json.dump(content, f, indent=2)
+            f.write("\n")
+
+          print(f"✅ apple-app-site-association 已注入 Team ID: {team_id}")
+          PYEOF
+
       - name: Deploy to Firebase Hosting
         uses: w9jds/firebase-action@master
         with:
