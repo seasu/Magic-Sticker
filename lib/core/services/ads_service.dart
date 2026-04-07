@@ -73,25 +73,36 @@ class AdsService {
 
   // ── 初始化 ─────────────────────────────────────────────────────────────────
 
-  /// 階段一：只初始化 AdMob SDK，不請求 ATT。
-  /// 在 main() 中、runApp() 之前呼叫。
+  /// 階段一：Android 初始化 AdMob SDK。
+  /// iOS 刻意略過：必須先取得 ATT 授權才能初始化 MobileAds，
+  /// 否則系統可能直接封鎖 ATT dialog，參見 requestAttAndPreload()。
   Future<void> initialize() async {
+    if (Platform.isIOS) {
+      FirebaseService.log('AdsService: iOS — skip pre-ATT MobileAds init');
+      return;
+    }
+    await _initMobileAds();
+  }
+
+  Future<void> _initMobileAds() async {
     try {
       await MobileAds.instance.initialize();
-      FirebaseService.log('AdsService: MobileAds initialized (pre-UI)');
+      FirebaseService.log('AdsService: MobileAds initialized');
     } catch (e, stack) {
       await FirebaseService.recordError(e, stack, reason: 'ads_init_failed');
     }
   }
 
-  /// 階段二：請求 iOS ATT 授權，授權後預載廣告。
-  /// 必須在 Flutter UI 可見後呼叫（例如 HomeScreen.initState）。
-  /// Android 直接預載，不需要 ATT。
+  /// 階段二（iOS）：ATT 授權 → 初始化 MobileAds → 預載廣告。
+  /// 階段二（Android）：直接預載（initialize() 已在 main 完成）。
+  /// 必須在 Flutter UI 可見後呼叫（HomeScreen.initState）。
   Future<void> requestAttAndPreload() async {
     try {
       if (Platform.isIOS) {
         _attStatus = await Permission.appTrackingTransparency.request();
         FirebaseService.log('AdsService: ATT status=$_attStatus');
+        // 取得 ATT 結果後才初始化 SDK（符合 Google AdMob iOS 規範）
+        await _initMobileAds();
       } else {
         _attStatus = PermissionStatus.granted;
       }
