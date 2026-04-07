@@ -4,6 +4,7 @@ import 'dart:math' show min;
 import 'dart:ui' as ui;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -338,6 +339,19 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     ref.read(editorStateProvider(widget.imagePath).notifier).regenerateTexts();
   }
 
+  /// Gemini PROHIBITED_CONTENT：照片含版權圖案，引導使用者換照片
+  void _showContentBlockedSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ContentBlockedSheet(onChangePhoto: () {
+        Navigator.of(context).pop(); // 關閉 sheet
+        context.go('/');             // 回首頁重選照片
+      }),
+    );
+  }
+
   /// 右上角「重新來過」：確認後回首頁重選照片與風格
   Future<void> _confirmRestart() async {
     final confirmed = await showDialog<bool>(
@@ -434,6 +448,19 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         isReady &&
         state.generatedImages.isNotEmpty &&
         isNotGeneratedSentinel(state.generatedImages[0]);
+
+    // 版權封鎖：照片含卡通人物/品牌 Logo，Gemini 拒絕生成 → 引導換照片
+    ref.listen<bool>(
+      editorStateProvider(widget.imagePath).select((s) => s.isContentBlocked),
+      (_, isBlocked) {
+        if (isBlocked) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _showContentBlockedSheet(context);
+          });
+        }
+      },
+    );
 
     // regenerateTexts 完成時，提示使用者新概念就緒
     ref.listen<EditorState>(editorStateProvider(widget.imagePath), (prev, next) {
@@ -926,17 +953,20 @@ class _StickerCard extends StatelessWidget {
 /// 圖片生成失敗時，蓋在整張卡片上的友善錯誤提示。
 /// 磨砂玻璃背景保留卡片背景紋理感；點擊重試按鈕不扣點（CF 已退還）。
 /// 長按（debug only）顯示原始錯誤訊息。
+/// 當 reason == 'prohibited_content' 時顯示版權封鎖版型，引導換照片。
 class _FailedOverlay extends StatelessWidget {
   final String? reason;
   final VoidCallback? onRetry;
 
   const _FailedOverlay({this.reason, this.onRetry});
 
+  bool get _isProhibited => reason == 'prohibited_content';
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onLongPress: reason == null
+      onLongPress: (!kDebugMode || reason == null || _isProhibited)
           ? null
           : () => showDialog<void>(
                 context: context,
@@ -962,84 +992,138 @@ class _FailedOverlay extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 圖標
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFFF0F3),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.auto_awesome_outlined,
-                      size: 36,
-                      color: Color(0xFFFF5864),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // 主標題
-                  const Text(
-                    '生成失敗',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  // 副標題：說明不扣點
-                  const Text(
-                    '點數已退還，免費重試',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // 重試按鈕
-                  GestureDetector(
-                    onTap: () {
-                      HapticFeedback.mediumImpact();
-                      onRetry?.call();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 28, vertical: 13),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 圖標
+                    Container(
+                      width: 72,
+                      height: 72,
                       decoration: BoxDecoration(
-                        gradient: AppColors.gradient,
-                        borderRadius: BorderRadius.circular(28),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF5864).withValues(alpha: 0.35),
-                            blurRadius: 14,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
+                        color: _isProhibited
+                            ? const Color(0xFFFFF3E0)
+                            : const Color(0xFFFFF0F3),
+                        shape: BoxShape.circle,
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.refresh_rounded,
-                              size: 18, color: Colors.white),
-                          SizedBox(width: 8),
-                          Text(
-                            '重新生成',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
+                      child: Icon(
+                        _isProhibited
+                            ? Icons.block_rounded
+                            : Icons.auto_awesome_outlined,
+                        size: 36,
+                        color: _isProhibited
+                            ? const Color(0xFFFF9500)
+                            : const Color(0xFFFF5864),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    // 主標題
+                    Text(
+                      _isProhibited ? '含版權保護圖案' : '生成失敗',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // 副標題
+                    Text(
+                      _isProhibited
+                          ? '照片含卡通或品牌圖案，\nAI 無法生成此類貼圖'
+                          : '點數已退還，免費重試',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    // 行動按鈕
+                    if (_isProhibited)
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.mediumImpact();
+                          context.go('/');
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12),
+                          decoration: BoxDecoration(
+                            gradient: AppColors.gradient,
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF5864)
+                                    .withValues(alpha: 0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.photo_library_rounded,
+                                  size: 16, color: Colors.white),
+                              SizedBox(width: 6),
+                              Text(
+                                '換一張照片',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.mediumImpact();
+                          onRetry?.call();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 28, vertical: 13),
+                          decoration: BoxDecoration(
+                            gradient: AppColors.gradient,
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFF5864)
+                                    .withValues(alpha: 0.35),
+                                blurRadius: 14,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.refresh_rounded,
+                                  size: 18, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text(
+                                '重新生成',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1636,4 +1720,114 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
+// ─── 版權封鎖底部彈窗 ─────────────────────────────────────────────────────────
+
+/// 當 Gemini 偵測到照片含版權保護圖案（PROHIBITED_CONTENT）時顯示，
+/// 引導使用者回首頁重選一張不含版權圖案的照片。
+class _ContentBlockedSheet extends StatelessWidget {
+  final VoidCallback onChangePhoto;
+
+  const _ContentBlockedSheet({required this.onChangePhoto});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        left: 24, right: 24, top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 40,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 拖曳把手
+          Container(
+            width: 36, height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.divider,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // 警告圖示
+          Container(
+            width: 72, height: 72,
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFF3E0),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.block_rounded,
+              size: 36,
+              color: Color(0xFFFF9500),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // 標題
+          const Text(
+            'AI 無法處理這張照片',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 10),
+
+          // 說明
+          const Text(
+            '照片中含有卡通人物、品牌 Logo 等版權保護圖案，'
+            'Gemini 基於版權規定拒絕生成貼圖。\n\n'
+            '請換一張照片，建議使用人物的真實照片（不含版權圖案）。',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              height: 1.6,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 28),
+
+          // 主要行動：換照片（漸層按鈕）
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: AppColors.gradient,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: () {
+                  HapticFeedback.mediumImpact();
+                  onChangePhoto();
+                },
+                icon: const Icon(Icons.photo_library_rounded, size: 18),
+                label: const Text(
+                  '換一張照片',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 

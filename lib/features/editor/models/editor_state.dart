@@ -39,6 +39,7 @@ class EditorState {
   final List<double> imageAngles;         // 圖片旋轉角度（弧度，0=不旋轉）
   final List<String> categoryIds;         // 每張貼圖對應的情感 id（來自 AI specs）
   final List<String> selectedCategoryIds; // 使用者選中的情感 id（4–12 種，預設 8 種）
+  final bool isContentBlocked;             // Gemini PROHIBITED_CONTENT → 照片含版權圖案
 
   EditorState({
     required this.originalImagePath,
@@ -62,6 +63,7 @@ class EditorState {
     List<double>? imageAngles,
     List<String>? categoryIds,
     List<String>? selectedCategoryIds,
+    this.isContentBlocked = false,
   })  : categoryIds = categoryIds ?? List.filled(8, ''),
         selectedCategoryIds = selectedCategoryIds ?? List<String>.from(kDefaultCategoryIds),
         stickerTexts = stickerTexts ?? List.from(_kFallbackTexts),
@@ -100,6 +102,7 @@ class EditorState {
     List<double>? imageAngles,
     List<String>? categoryIds,
     List<String>? selectedCategoryIds,
+    bool? isContentBlocked,
   }) {
     return EditorState(
       originalImagePath: originalImagePath,
@@ -123,6 +126,7 @@ class EditorState {
       imageAngles: imageAngles ?? this.imageAngles,
       categoryIds: categoryIds ?? this.categoryIds,
       selectedCategoryIds: selectedCategoryIds ?? this.selectedCategoryIds,
+      isContentBlocked: isContentBlocked ?? this.isContentBlocked,
     );
   }
 }
