@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.18.13 |
+| 目前 App 版本 | v3.18.14 |
 | 目前 Functions 版本 | v1.1.5 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
@@ -323,6 +323,7 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.18.14 | 2026-04-07 | **fix(ci): deploy_hosting — keystore 未設時改為 exit 1 阻止部署**：原 `exit 0` 會讓 CI 靜默跳過注入、繼續部署含 TODO placeholder 的 `assetlinks.json`，導致 Android App Links domain 驗證永遠失敗；改為 `exit 1` 讓 CI 明確失敗並顯示錯誤訊息，強制設定 `ANDROID_KEYSTORE_BASE64 / ANDROID_STORE_PASSWORD / ANDROID_KEY_ALIAS` secrets 後才能部署。⚠️ 須同時在 Firebase Console → Hosting 設定 `magicsticker.app` 為 custom domain，使 `assetlinks.json` 可從該 domain 讀取。 |
 | v3.18.13 | 2026-04-07 | **fix(ads): ATT 彈窗不顯示 + app-ads.txt Content-Type**：① `AdsService.initialize()` 拆分為兩階段：`initialize()`（main()呼叫，只初始化 AdMob SDK）與 `requestAttAndPreload()`（HomeScreen initState 延遲 800ms 後呼叫，確保 iOS UIWindow 已建立才彈 ATT 追蹤授權 dialog）；② `HomeScreen.initState` 加入 `Future.delayed(800ms, requestAttAndPreload)` 呼叫；③ `firebase.json` 為 `/app-ads.txt` 加入明確 `Content-Type: text/plain` header 與短快取（300s）供 AdMob crawler 正確讀取。 |
 | v3.18.12 | 2026-04-07 | **feat(challenge): 完整挑戰碼流程（Pro 判斷 + 自訂風格/情緒）**：① `functions/src/index.ts` `ensureShareCode` 新增接收並寫入 `customStyleDesc`、`customEmotionDesc` 至 Firestore（Functions v1.1.5）；② `share_code_service.dart` 新增兩個 custom 參數，`templateType` 自動根據 custom 欄位判斷；③ `StickerCompareArgs` / `StickerCompareScreen` 新增 `customStyleDesc`、`customEmotionDesc`，傳遞至 `ensureShareCode`；④ `ChallengePreviewScreen` 轉換為 `ConsumerStatefulWidget`，按下「生成」先判斷是否 Pro 挑戰，未購買者彈出 `ProUnlockSheet`；⑤ `app.dart` 新增 `ChallengeParams` model 與 `pendingChallengeProvider`；⑥ `HomeScreen._pickImage()` 消費 `pendingChallengeProvider`，挑戰模式跳過風格/情緒選擇直接進 Editor；⑦ `HomeScreen` 新增 `_buildChallengeBanner()` 顯示挑戰模式提示（風格名 + 情緒行 + 取消按鈕），有 challenge 時隱藏「有挑戰碼？點此輸入」連結。 |
 | v3.18.11 | 2026-04-07 | **feat(home): 新增手動輸入挑戰碼入口**：首頁兩個選圖按鈕下方新增「有挑戰碼？點此輸入」連結，點擊彈出 Bottom Sheet，內含大字 TextField（自動大寫、最多 8 碼）與「前往挑戰」按鈕，輸入後直接導航至 `/challenge/:code` 完成網頁的「也可以在 App 內手動輸入上方的挑戰碼」說明。 |
