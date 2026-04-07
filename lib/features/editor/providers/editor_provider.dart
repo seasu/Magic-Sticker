@@ -244,6 +244,16 @@ class _EditorFamilyNotifier
   ///   'insufficient'    — 點數不足（呼叫方應彈出 paywall）
   ///   'error'           — 其他錯誤
   Future<String> generateSingleImage(int index) async {
+    // 照片已因版權問題被 Gemini 封鎖，跳過剩餘生成，節省時間與點數
+    if (state.isContentBlocked) {
+      final failed = List<Uint8List?>.from(state.generatedImages);
+      failed[index] = Uint8List(0);
+      final errors = List<String?>.from(state.imageErrors);
+      errors[index] = 'prohibited_content';
+      state = state.copyWith(generatedImages: failed, imageErrors: errors);
+      return 'error';
+    }
+
     // 設定 loading 狀態（先讓 UI 顯示動畫）
     final loading = List<Uint8List?>.from(state.generatedImages);
     final clearErrors = List<String?>.from(state.imageErrors);
@@ -317,12 +327,28 @@ class _EditorFamilyNotifier
       return result.bytes != null ? 'ok' : 'error';
     } on FirebaseFunctionsException catch (e, stack) {
       if (e.code == 'invalid-argument') {
-        // Gemini 封鎖版權/安全內容（已退點）→ 顯示友善提示，讓 UI 知道是描述問題
         final failed = List<Uint8List?>.from(state.generatedImages);
         failed[index] = Uint8List(0);
         final errors = List<String?>.from(state.imageErrors);
-        errors[index] = '此描述包含版權保護詞彙，請改用其他描述（已退還點數）';
-        state = state.copyWith(generatedImages: failed, imageErrors: errors);
+
+        if (e.message?.contains('PROHIBITED_CONTENT') == true) {
+          // 照片含版權保護圖案（卡通人物、品牌 Logo 等）→ 設全局封鎖旗標，
+          // 剩餘卡片生成將全部跳過，UI 會顯示換照片提示。
+          errors[index] = 'prohibited_content';
+          await FirebaseService.recordError(
+            e, stack, reason: 'sticker_content_blocked_index$index',
+          );
+          unawaited(AnalyticsService.logStickerGenFailed(reason: 'content_blocked'));
+          state = state.copyWith(
+            generatedImages: failed,
+            imageErrors: errors,
+            isContentBlocked: true,
+          );
+        } else {
+          // 其他 invalid-argument（描述含版權詞彙等）
+          errors[index] = '此描述包含版權保護詞彙，請改用其他描述（已退還點數）';
+          state = state.copyWith(generatedImages: failed, imageErrors: errors);
+        }
         return 'error';
       }
       if (e.code == 'resource-exhausted' &&
