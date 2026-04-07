@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.18.10 |
+| 目前 App 版本 | v3.18.11 |
 | 目前 Functions 版本 | v1.1.3 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
@@ -323,6 +323,7 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.18.11 | 2026-04-07 | **feat(home): 新增手動輸入挑戰碼入口**：首頁兩個選圖按鈕下方新增「有挑戰碼？點此輸入」連結，點擊彈出 Bottom Sheet，內含大字 TextField（自動大寫、最多 8 碼）與「前往挑戰」按鈕，輸入後直接導航至 `/challenge/:code` 完成網頁的「也可以在 App 內手動輸入上方的挑戰碼」說明。 |
 | v3.18.10 | 2026-04-07 | **fix(ios-deeplink): 修正 iOS Universal Links 無法開啟 App**：① `Runner.entitlements` 新增 `com.apple.developer.associated-domains`（`applinks:magic-sticker-8eaf4.web.app`）；② `Info.plist` 新增 `CFBundleURLTypes`（custom scheme `magicsticker://`）作為備用機制；③ `public/.well-known/apple-app-site-association` 新增（`/c/*` 路徑對應 App）；④ `firebase.json` 新增 AASA 檔案的 `Content-Type: application/json` header；⑤ `deploy_hosting.yml` 新增 CI step 自動將 `secrets.APPLE_TEAM_ID` 注入 AASA（與 Android assetlinks.json 注入機制對稱）；⑥ `public/c/index.html` App Store URL 從 TODO 補完為正式連結 `id6761015408`。⚠️ 需同步：Apple Developer Portal 的 App ID Capability 啟用 Associated Domains；Provisioning Profile 重新產生並更新 `IOS_PROVISIONING_PROFILE_BASE64` secret；`APPLE_TEAM_ID` secret 需已設定。 |
 | v3.18.9 | 2026-04-04 | **feat(editor): 貼圖編輯新增框型切換 + 預設改方形**：① `StickerEditSheet` 配色 Tab 頂端新增「框型」分段選擇器（圓形 / 方形），切換即時反映在預覽畫布並透過 `onShapeChanged` 回呼更新父層狀態；② 編輯 Sheet（`sticker_replay_screen.dart`）同步支援框型切換；③ 全流程預設框型從圓形改為方形（`style_selection_screen`、`EditorState`、`StickerEditSheet`、`editor_provider.initialize()`、`sticker_generation_service` 一律改為 `StickerShape.square`）。 |
 | v3.18.8 | 2026-04-04 | **fix(ux): 帳號 Sheet 點數即時同步**：`_UserAccountSheet` 原以 constructor 傳入靜態 `credits` 快照顯示，購買完成或按重新整理後 `creditProvider` 已更新，但 Sheet 畫面不會重繪。修正方式：改用 `ref.watch(creditProvider)` 直接讀取 provider，並移除不再需要的 `credits` constructor 參數；現在購買完成或按 C 後，Sheet 內數字與右上角徽章同步更新。 |

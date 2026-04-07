@@ -72,6 +72,116 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
+  void _showChallengeCodeInput(BuildContext context) {
+    final controller = TextEditingController();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 24, right: 24, top: 24,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 32,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36, height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text('輸入挑戰碼',
+              style: TextStyle(fontFamily: 'OpenHuninn',
+                fontSize: 20, fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text('輸入朋友分享的挑戰碼，試試同款貼圖風格',
+              style: TextStyle(fontFamily: 'OpenHuninn',
+                fontSize: 13, color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              maxLength: 8,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 4,
+              ),
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                hintText: 'ABC123',
+                hintStyle: TextStyle(
+                  fontSize: 22, letterSpacing: 4,
+                  color: Colors.grey.shade400,
+                  fontWeight: FontWeight.w400,
+                ),
+                counterText: '',
+                filled: true,
+                fillColor: const Color(0xFFF5F5F5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: const Color(0xFFFF5864), width: 1.5),
+                ),
+              ),
+              onSubmitted: (v) {
+                final code = v.trim().toUpperCase();
+                if (code.isEmpty) return;
+                Navigator.of(ctx).pop();
+                context.push('/challenge/$code');
+              },
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF5864),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: () {
+                  final code = controller.text.trim().toUpperCase();
+                  if (code.isEmpty) return;
+                  Navigator.of(ctx).pop();
+                  context.push('/challenge/$code');
+                },
+                child: Text('前往挑戰',
+                  style: TextStyle(fontFamily: 'OpenHuninn',
+                    fontSize: 16, fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// 選圖後推入風格選擇畫面（步驟 2）
   Future<void> _pickImage(BuildContext context, ImageSource source) async {
     HapticFeedback.mediumImpact();
@@ -303,6 +413,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               label: '立即拍照',
               onTap: () => _pickImage(context, ImageSource.camera),
               outlined: true,
+            ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () => _showChallengeCodeInput(context),
+              child: Text(
+                '有挑戰碼？點此輸入',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontFamily: 'OpenHuninn',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFFF5864).withValues(alpha: 0.75),
+                  decoration: TextDecoration.underline,
+                  decorationColor: const Color(0xFFFF5864).withValues(alpha: 0.5),
+                ),
+              ),
             ),
             if (_version.isNotEmpty) ...[
               const SizedBox(height: 12),
