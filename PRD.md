@@ -5,6 +5,8 @@
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
 | 目前 App 版本 | v3.18.30 |
 | 目前 Functions 版本 | v1.3.2 |
+| 目前 App 版本 | v3.18.15 |
+| 目前 Functions 版本 | v1.1.5 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
