@@ -160,7 +160,7 @@ class _ChallengePreviewScreenState extends ConsumerState<ChallengePreviewScreen>
         elevation: 0,
         scrolledUnderElevation: 0,
         title: const Text(
-          '挑戰預覽',
+          '朋友的挑戰',
           style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 18,
@@ -170,7 +170,13 @@ class _ChallengePreviewScreenState extends ConsumerState<ChallengePreviewScreen>
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
         ),
       ),
       body: SafeArea(
@@ -181,7 +187,13 @@ class _ChallengePreviewScreenState extends ConsumerState<ChallengePreviewScreen>
             : _error != null
                 ? _ErrorView(
                     message: _error!,
-                    onBack: () => context.pop(),
+                    onBack: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/');
+                      }
+                    },
                   )
                 : _ChallengeContent(
                     code: widget.code,
