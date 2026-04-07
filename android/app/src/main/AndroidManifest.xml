@@ -19,14 +19,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- App Links: https://magicsticker.app/c/{code} -->
+            <!-- App Links: https://magic-sticker-8eaf4.web.app/c/{code} -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="magicsticker.app"
+                    android:host="magic-sticker-8eaf4.web.app"
                     android:pathPrefix="/c/" />
             </intent-filter>
 

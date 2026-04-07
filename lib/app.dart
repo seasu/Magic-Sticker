@@ -226,7 +226,7 @@ class _MagicStickerAppState extends ConsumerState<MagicStickerApp>
 
   void _handleDeepLink(Uri uri) {
     // 支援格式：
-    //   https://magicsticker.app/c/{CODE}
+    //   https://magic-sticker-8eaf4.web.app/c/{CODE}
     //   magicsticker://challenge/{CODE}
     String? code;
 
