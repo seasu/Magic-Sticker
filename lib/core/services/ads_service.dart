@@ -66,6 +66,10 @@ class AdsService {
   PermissionStatus _attStatus = PermissionStatus.denied;
 
   bool get isAdReady => _rewardedAd != null;
+  int _consecutiveFailCount = 0;
+
+  /// 連續載入失敗（至少一次），代表廣告暫時無法取得
+  bool get hasAdLoadFailed => _consecutiveFailCount > 0;
 
   /// iOS：ATT 被永久拒絕，AdMob 無法投放個人化廣告（fill rate 趨近 0）
   bool get isAttPermanentlyDenied =>
@@ -114,17 +118,27 @@ class AdsService {
 
   // ── 載入 Rewarded Ad ───────────────────────────────────────────────────────
 
+  /// ATT 未授權時明確告知 AdMob 投放非個人化廣告（npa=1），
+  /// 避免 AdMob 因無法辨別同意狀態而拒絕填充（code: 1, No ad to show）。
+  AdRequest get _adRequest {
+    if (Platform.isIOS && _attStatus != PermissionStatus.granted) {
+      return const AdRequest(extras: {'npa': '1'});
+    }
+    return const AdRequest();
+  }
+
   void loadRewardedAd() {
     if (_isLoading || _rewardedAd != null) return;
     _isLoading = true;
 
     RewardedAd.load(
       adUnitId: _rewardedAdUnitId,
-      request: const AdRequest(),
+      request: _adRequest,
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
           _rewardedAd = ad;
           _isLoading = false;
+          _consecutiveFailCount = 0;
           FirebaseService.log('AdsService: rewarded ad loaded');
 
           ad.fullScreenContentCallback = FullScreenContentCallback(
@@ -147,6 +161,7 @@ class AdsService {
         },
         onAdFailedToLoad: (error) {
           _isLoading = false;
+          _consecutiveFailCount++;
           FirebaseService.log('AdsService: failed to load ad: $error');
           // 30 秒後重試
           Future.delayed(const Duration(seconds: 30), loadRewardedAd);
