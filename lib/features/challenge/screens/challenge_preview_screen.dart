@@ -199,6 +199,9 @@ class _ChallengePreviewScreenState extends ConsumerState<ChallengePreviewScreen>
                     code: widget.code,
                     challenge: _challenge!,
                     onPickPhoto: _pickPhoto,
+                    isProChallenge: _challenge!['templateType'] == 'pro_custom' ||
+                        _challenge!['customStyleDesc'] != null,
+                    isPro: ref.watch(isProUnlockedProvider).valueOrNull ?? false,
                   ),
       ),
     );
@@ -211,11 +214,15 @@ class _ChallengeContent extends StatelessWidget {
   final String code;
   final Map<String, dynamic> challenge;
   final void Function(ImageSource) onPickPhoto;
+  final bool isProChallenge;
+  final bool isPro;
 
   const _ChallengeContent({
     required this.code,
     required this.challenge,
     required this.onPickPhoto,
+    required this.isProChallenge,
+    required this.isPro,
   });
 
   @override
@@ -282,6 +289,7 @@ class _ChallengeContent extends StatelessWidget {
             emoji: styleEmoji,
             label: '風格',
             value: styleName,
+            showProBadge: isProChallenge,
           ),
           const SizedBox(height: 12),
 
@@ -290,6 +298,7 @@ class _ChallengeContent extends StatelessWidget {
             emoji: '🎭',
             label: '情緒',
             value: emotionSummary,
+            showProBadge: isProChallenge,
           ),
           const SizedBox(height: 20),
 
@@ -321,46 +330,52 @@ class _ChallengeContent extends StatelessWidget {
 
           const Spacer(),
 
-          // ── 選照片按鈕 ──
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: AppColors.gradient,
-              borderRadius: BorderRadius.circular(16),
+          // ── 選照片按鈕（Pro 鎖定時替換）──
+          if (isProChallenge && !isPro)
+            _ProLockedButtons(
+              onUnlock: () => ProUnlockSheet.show(context),
+            )
+          else ...[
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: AppColors.gradient,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: () => onPickPhoto(ImageSource.gallery),
+                child: const Text(
+                  '從相簿選取照片',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ),
             ),
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                foregroundColor: Colors.white,
+            const SizedBox(height: 12),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFFF5864),
+                side: const BorderSide(color: Color(0xFFFF5864)),
                 minimumSize: const Size(double.infinity, 52),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                elevation: 0,
               ),
-              onPressed: () => onPickPhoto(ImageSource.gallery),
+              onPressed: () => onPickPhoto(ImageSource.camera),
               child: const Text(
-                '從相簿選取照片',
+                '拍照',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFFFF5864),
-              side: const BorderSide(color: Color(0xFFFF5864)),
-              minimumSize: const Size(double.infinity, 52),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            onPressed: () => onPickPhoto(ImageSource.camera),
-            child: const Text(
-              '拍照',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-          ),
+          ],
           const SizedBox(height: 24),
         ],
       ),
@@ -374,52 +389,140 @@ class _InfoCard extends StatelessWidget {
   final String emoji;
   final String label;
   final String value;
+  final bool showProBadge;
 
-  const _InfoCard({required this.emoji, required this.label, required this.value});
+  const _InfoCard({
+    required this.emoji,
+    required this.label,
+    required this.value,
+    this.showProBadge = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 28)),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-        ],
-      ),
+          child: Row(
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 28)),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        // Pro badge（右上角）
+        if (showProBadge)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFAA00),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                '✦ PRO',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ── _ProLockedButtons ─────────────────────────────────────────────────────────
+
+/// Pro 挑戰且用戶尚未解鎖 Pro 時，取代底部選照片按鈕的鎖定提示區。
+class _ProLockedButtons extends StatelessWidget {
+  final VoidCallback onUnlock;
+
+  const _ProLockedButtons({required this.onUnlock});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const Text(
+          '🔒 此挑戰需要 Pro 方案才能參加',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: AppColors.gradient,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 0,
+            ),
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              onUnlock();
+            },
+            icon: const Icon(Icons.lock_open_rounded, size: 18),
+            label: const Text(
+              '解鎖 Pro，立即參加',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
     );
   }
 }
