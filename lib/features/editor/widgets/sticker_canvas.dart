@@ -254,11 +254,14 @@ class _StickerCanvasState extends State<StickerCanvas> {
   /// 在 isolate 中執行（透過 compute）。
   /// 回傳 [minX, minY, maxX, maxY, imageWidth, imageHeight]。
   ///
-  /// 跳過兩類像素：
-  ///   ① 透明（alpha ≤ 10）
-  ///   ② 近黑色（R < 40 && G < 40 && B < 40）— 排除貼圖外框線，只看彩色內容
+  /// 同時計算兩種 bounding box：
+  ///   - Color bounds：排除透明 + 近黑色（R < 40 && G < 40 && B < 40），
+  ///     用於大多數彩色風格，縮放更緊湊
+  ///   - Alpha bounds：所有不透明像素，含黑色輪廓
   ///
-  /// 若排除黑色後找不到有效像素，fallback 到只用 alpha 偵測。
+  /// 當 alpha bounds 的垂直範圍比 color bounds 大超過 8%（即角色頂/底有
+  /// 大量黑色輪廓，如 yuruDoodle ゆるい塗鴉 / showaManga 昭和漫畫），
+  /// 改用 alpha bounds，避免頭頂等黑色區域被誤算而截圖。
   static List<int>? _findContentBounds(Uint8List bytes) {
     final image = img.decodeImage(bytes);
     if (image == null) return null;
@@ -266,38 +269,47 @@ class _StickerCanvasState extends State<StickerCanvas> {
     final w = image.width;
     final h = image.height;
 
-    // Pass 1：彩色像素（排除透明 + 近黑色外框）
-    int minX = w, maxX = 0, minY = h, maxY = 0;
+    // 同一個 pass 計算 color bounds 和 alpha bounds
+    int cMinX = w, cMaxX = 0, cMinY = h, cMaxY = 0; // 彩色
+    int aMinX = w, aMaxX = 0, aMinY = h, aMaxY = 0; // alpha（含黑色輪廓）
+
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w; x++) {
         final i = (y * w + x) * 4;
         if (data[i + 3] <= 10) continue; // 透明
+
+        // alpha bounds（所有不透明像素）
+        if (x < aMinX) aMinX = x;
+        if (x > aMaxX) aMaxX = x;
+        if (y < aMinY) aMinY = y;
+        if (y > aMaxY) aMaxY = y;
+
+        // color bounds（排除近黑色輪廓線）
         final r = data[i], g = data[i + 1], b = data[i + 2];
-        if (r < 40 && g < 40 && b < 40) continue; // 近黑色外框
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
+        if (r < 40 && g < 40 && b < 40) continue;
+        if (x < cMinX) cMinX = x;
+        if (x > cMaxX) cMaxX = x;
+        if (y < cMinY) cMinY = y;
+        if (y > cMaxY) cMaxY = y;
       }
     }
 
-    // Pass 2 fallback：若彩色像素全無（全黑圖或純黑背景），改用 alpha 偵測
-    if (minX >= maxX || minY >= maxY) {
-      minX = w; maxX = 0; minY = h; maxY = 0;
-      for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-          if (data[(y * w + x) * 4 + 3] > 10) {
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
-          }
-        }
+    if (aMinX >= aMaxX || aMinY >= aMaxY) return null; // 完全透明
+
+    // 彩色像素充足時：比較 color bounds 與 alpha bounds 的垂直差距
+    // 差距 > 8%（如 yuruDoodle/showaManga 的厚黑輪廓風格），改用 alpha bounds，
+    // 避免頭頂、腳底的黑色輪廓被誤算為空白而造成截圖
+    final hasColorBounds = cMinX < cMaxX && cMinY < cMaxY;
+    if (hasColorBounds) {
+      final alphaH = aMaxY - aMinY;
+      final topExcess = (cMinY - aMinY) / alphaH; // 頂部黑色輪廓佔比
+      final botExcess = (aMaxY - cMaxY) / alphaH; // 底部黑色輪廓佔比
+      if (topExcess < 0.08 && botExcess < 0.08) {
+        return [cMinX, cMinY, cMaxX, cMaxY, w, h];
       }
     }
-
-    if (minX >= maxX || minY >= maxY) return null;
-    return [minX, minY, maxX, maxY, w, h];
+    // alpha bounds fallback：彩色像素全無，或黑色輪廓比例過高
+    return [aMinX, aMinY, aMaxX, aMaxY, w, h];
   }
 
   void _autoFitGeneratedImage(Uint8List bytes) {
