@@ -362,6 +362,20 @@ class _EditorFamilyNotifier
         unawaited(AnalyticsService.logCreditInsufficient());
         return 'insufficient';
       }
+      if (e.code == 'unavailable' || e.code == 'deadline-exceeded') {
+        // CF 無法連線或執行逾時——點數可能已扣，CF 內部有退款邏輯，
+        // 但為防萬一（容器被 SIGTERM 殺死來不及退款），從 Firestore 重讀點數。
+        ref.read(creditProvider.notifier).reload();
+        await FirebaseService.recordError(e, stack,
+            reason: 'generate_single_image_fn_${e.code}_index$index');
+        unawaited(AnalyticsService.logStickerGenFailed(reason: e.code));
+        final failed = List<Uint8List?>.from(state.generatedImages);
+        failed[index] = Uint8List(0);
+        final errors = List<String?>.from(state.imageErrors);
+        errors[index] = '伺服器忙碌，點數已退還，請稍後重試';
+        state = state.copyWith(generatedImages: failed, imageErrors: errors);
+        return 'error';
+      }
       await FirebaseService.recordError(e, stack,
           reason: 'generate_single_image_fn_failed_index$index');
       final failed = List<Uint8List?>.from(state.generatedImages);
