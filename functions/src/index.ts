@@ -24,7 +24,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.3.2";
+const FUNCTIONS_VERSION = "1.3.4";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
