@@ -330,14 +330,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     );
   }
 
-  Future<void> _regenerate() async {
-    // Spec 免費，直接重新生成文字規格
-    setState(() {
-      _currentIndex = 0;
-      _keptCount = 0;
-    });
-    ref.read(editorStateProvider(widget.imagePath).notifier).regenerateTexts();
-  }
 
   /// Gemini PROHIBITED_CONTENT：照片含版權圖案，引導使用者換照片
   void _showContentBlockedSheet(BuildContext context) {
@@ -556,7 +548,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                   Expanded(
                     child: _CompletionView(
                       keptCount: _keptCount,
-                      onRegenerate: isCustomEmotionMode ? null : _regenerate,
                       onFinish: () => context.go('/'),
                     ),
                   )
@@ -1318,12 +1309,10 @@ class _SaveButton extends StatelessWidget {
 
 class _CompletionView extends StatefulWidget {
   final int keptCount;
-  final VoidCallback? onRegenerate; // null = 客製情緒模式，隱藏重新生成
   final VoidCallback onFinish;
 
   const _CompletionView({
     required this.keptCount,
-    this.onRegenerate,
     required this.onFinish,
   });
 
@@ -1428,53 +1417,43 @@ class _CompletionViewState extends State<_CompletionView>
               ),
             ],
             const SizedBox(height: 40),
-            if (widget.onRegenerate != null) ...[
-              GestureDetector(
-                onTap: widget.onRegenerate,
-                child: Container(
-                  width: double.infinity,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.gradient,
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFFF5864).withValues(alpha: 0.30),
-                        blurRadius: 22,
-                        offset: const Offset(0, 8),
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                widget.onFinish();
+              },
+              child: Container(
+                width: double.infinity,
+                height: 56,
+                decoration: BoxDecoration(
+                  gradient: AppColors.gradient,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF5864).withValues(alpha: 0.30),
+                      blurRadius: 22,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.home_rounded,
+                          color: Colors.white, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        '回到首頁',
+                        style: TextStyle(
+                          fontFamily: 'OpenHuninn',
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ],
                   ),
-                  child: Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.refresh_rounded,
-                            color: Colors.white, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          '重新生成',
-                          style: TextStyle(fontFamily: 'OpenHuninn',
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            TextButton(
-              onPressed: widget.onFinish,
-              child: Text(
-                '回到首頁',
-                style: TextStyle(fontFamily: 'OpenHuninn',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
                 ),
               ),
             ),
