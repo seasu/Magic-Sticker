@@ -519,6 +519,32 @@ jobs:
             -exportOptionsPlist ios/ExportOptions.plist
           echo "✅ IPA exported to build/ios/ipa/"
 
+      - name: Upload dSYMs to Firebase Crashlytics
+        # continue-on-error 確保 dSYM 上傳失敗不阻斷 TestFlight 發佈
+        continue-on-error: true
+        run: |
+          DSYM_DIR="build/ios/archive/Runner.xcarchive/dSYMs"
+          GSP_PATH="ios/Runner/GoogleService-Info.plist"
+
+          # upload-symbols 隨 FirebaseCrashlytics Pod 一起安裝
+          UPLOAD_SCRIPT=$(find ios/Pods/FirebaseCrashlytics -name "upload-symbols" 2>/dev/null | head -1)
+          if [ -z "$UPLOAD_SCRIPT" ]; then
+            echo "❌ upload-symbols 找不到，跳過 dSYM 上傳"
+            exit 1
+          fi
+          echo "✅ upload-symbols: $UPLOAD_SCRIPT"
+
+          # 列出 archive 內的 dSYM
+          echo "📦 dSYMs in archive:"
+          ls "$DSYM_DIR" || (echo "❌ dSYMs 目錄不存在" && exit 1)
+
+          # 逐一上傳每個 .dSYM
+          find "$DSYM_DIR" -name "*.dSYM" | while read dsym; do
+            echo "⬆️  Uploading: $(basename "$dsym")"
+            "$UPLOAD_SCRIPT" -gsp "$GSP_PATH" -p ios "$dsym"
+          done
+          echo "✅ dSYMs 已上傳至 Firebase Crashlytics"
+
       - name: Verify IPA entitlements (Sign in with Apple)
         run: |
           IPA=$(ls build/ios/ipa/*.ipa | head -1)
