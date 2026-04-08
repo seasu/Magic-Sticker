@@ -49,6 +49,8 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
     AdsService.instance.getTodayAdCount().then((count) {
       if (mounted) setState(() => _todayAdCount = count);
     });
+    // 開啟時立即觸發預載，讓廣告有更多時間就緒再等使用者點擊
+    AdsService.instance.loadRewardedAd();
     // ref.read 在 initState 中合法（ConsumerState 已初始化）
     unawaited(AnalyticsService.logPaywallShown(isGuest: ref.read(isGuestProvider)));
   }
@@ -67,7 +69,13 @@ class _CreditPaywallDialogState extends ConsumerState<CreditPaywallDialog> {
       // 避免 Firestore Security Rules 封鎖 App 端直接寫入。
       onRewarded: () => rewarded = true,
       onFailed: () {
-        if (mounted) setState(() => _adErrorMsg = '廣告載入中，請稍後再試');
+        if (mounted) {
+          setState(() {
+            _adErrorMsg = AdsService.instance.hasAdLoadFailed
+                ? '廣告暫時無法使用，請稍後再試'
+                : '廣告載入中，請稍後再試';
+          });
+        }
       },
     );
 
