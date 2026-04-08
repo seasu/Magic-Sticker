@@ -22,7 +22,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.1.6";
+const FUNCTIONS_VERSION = "1.1.7";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -442,101 +442,133 @@ export const generateStickerImage = onCall(
       },
     };
 
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(110000),
-    });
-
-    if (res.status === 429) {
-      // 退還點數
-      await db.runTransaction(async (tx) => {
-        tx.update(userRef, {
-          credits: admin.firestore.FieldValue.increment(1),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        writeCreditHistory(tx, uid, {
-          type: "refund",
-          amount: 1,
-          reason: "rate_limited",
-        });
+    // ── try/catch 包覆所有 Gemini 呼叫，確保任何意外例外（AbortError、JSON 解析錯誤等）
+    // 都能退還已扣的點數。HttpsError 表示內部已自行處理退款，直接重拋。
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(110000),
       });
-      const retryAfter = res.headers.get("Retry-After") ?? "30";
-      throw new HttpsError(
-        "resource-exhausted",
-        `Rate limited. Retry after ${retryAfter}s.`
-      );
-    }
 
-    if (!res.ok) {
-      const errText = await res.text();
-      // 退還點數
-      await db.runTransaction(async (tx) => {
-        tx.update(userRef, {
-          credits: admin.firestore.FieldValue.increment(1),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      if (res.status === 429) {
+        // 退還點數
+        await db.runTransaction(async (tx) => {
+          tx.update(userRef, {
+            credits: admin.firestore.FieldValue.increment(1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          writeCreditHistory(tx, uid, {
+            type: "refund",
+            amount: 1,
+            reason: "rate_limited",
+          });
         });
-        writeCreditHistory(tx, uid, {
-          type: "refund",
-          amount: 1,
-          reason: "api_error",
-        });
-      });
-      throw new HttpsError(
-        "internal",
-        `Gemini image API error ${res.status}: ${errText.slice(0, 300)}`
-      );
-    }
-
-    const json = (await res.json()) as {
-      candidates?: Array<{
-        content: {
-          parts: Array<{
-            inlineData?: {mimeType: string; data: string};
-          }>;
-        };
-        finishReason?: string;
-      }>;
-      promptFeedback?: {blockReason?: string};
-    };
-
-    // 檢查 Gemini 是否封鎖此請求（版權/安全審查）
-    const imgBlockReason = json.promptFeedback?.blockReason
-      ?? json.candidates?.[0]?.finishReason;
-    const isBlocked = !json.candidates?.length
-      || imgBlockReason === "SAFETY"
-      || imgBlockReason === "OTHER"
-      || imgBlockReason === "PROHIBITED_CONTENT"
-      || imgBlockReason === "COPYRIGHT";
-
-    const parts = isBlocked ? [] : (json.candidates?.[0]?.content?.parts ?? []);
-    for (const part of parts) {
-      if (part.inlineData?.mimeType?.startsWith("image/")) {
-        return {imageBase64: part.inlineData.data, remainingCredits};
+        const retryAfter = res.headers.get("Retry-After") ?? "30";
+        throw new HttpsError(
+          "resource-exhausted",
+          `Rate limited. Retry after ${retryAfter}s.`
+        );
       }
-    }
 
-    // 沒拿到圖片 → 退點
-    await db.runTransaction(async (tx) => {
-      tx.update(userRef, {
-        credits: admin.firestore.FieldValue.increment(1),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      if (!res.ok) {
+        const errText = await res.text();
+        // 退還點數
+        await db.runTransaction(async (tx) => {
+          tx.update(userRef, {
+            credits: admin.firestore.FieldValue.increment(1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          writeCreditHistory(tx, uid, {
+            type: "refund",
+            amount: 1,
+            reason: "api_error",
+          });
+        });
+        throw new HttpsError(
+          "internal",
+          `Gemini image API error ${res.status}: ${errText.slice(0, 300)}`
+        );
+      }
+
+      const json = (await res.json()) as {
+        candidates?: Array<{
+          content: {
+            parts: Array<{
+              inlineData?: {mimeType: string; data: string};
+            }>;
+          };
+          finishReason?: string;
+        }>;
+        promptFeedback?: {blockReason?: string};
+      };
+
+      // 檢查 Gemini 是否封鎖此請求（版權/安全審查）
+      const imgBlockReason = json.promptFeedback?.blockReason
+        ?? json.candidates?.[0]?.finishReason;
+      const isBlocked = !json.candidates?.length
+        || imgBlockReason === "SAFETY"
+        || imgBlockReason === "OTHER"
+        || imgBlockReason === "PROHIBITED_CONTENT"
+        || imgBlockReason === "COPYRIGHT";
+
+      const parts = isBlocked ? [] : (json.candidates?.[0]?.content?.parts ?? []);
+      for (const part of parts) {
+        if (part.inlineData?.mimeType?.startsWith("image/")) {
+          return {imageBase64: part.inlineData.data, remainingCredits};
+        }
+      }
+
+      // 沒拿到圖片 → 退點
+      await db.runTransaction(async (tx) => {
+        tx.update(userRef, {
+          credits: admin.firestore.FieldValue.increment(1),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        writeCreditHistory(tx, uid, {
+          type: "refund",
+          amount: 1,
+          reason: isBlocked ? "content_blocked" : "no_image_returned",
+        });
       });
-      writeCreditHistory(tx, uid, {
-        type: "refund",
-        amount: 1,
-        reason: isBlocked ? "content_blocked" : "no_image_returned",
+      if (isBlocked) {
+        throw new HttpsError(
+          "invalid-argument",
+          `Gemini blocked the image request (reason: ${imgBlockReason ?? "no candidates"}). ` +
+          "Please avoid copyrighted brand names or sensitive terms."
+        );
+      }
+      throw new HttpsError("internal", "No image returned by Gemini.");
+    } catch (e) {
+      // HttpsError = 內部已自行處理退款邏輯（429、!ok、blocked、no image），直接重拋
+      if (e instanceof HttpsError) throw e;
+      // 意外例外（AbortError/逾時、JSON 解析失敗、網路錯誤等）→ 退還已扣的點數
+      warn("generateStickerImage: unexpected error after credit deduction, refunding", {
+        uid,
+        error: String(e),
       });
-    });
-    if (isBlocked) {
-      throw new HttpsError(
-        "invalid-argument",
-        `Gemini blocked the image request (reason: ${imgBlockReason ?? "no candidates"}). ` +
-        "Please avoid copyrighted brand names or sensitive terms."
-      );
+      try {
+        await db.runTransaction(async (tx) => {
+          tx.update(userRef, {
+            credits: admin.firestore.FieldValue.increment(1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          writeCreditHistory(tx, uid, {
+            type: "refund",
+            amount: 1,
+            reason: "unexpected_error",
+          });
+        });
+        log("generateStickerImage: credit refunded for unexpected error", {uid});
+      } catch (refundErr) {
+        warn("generateStickerImage: failed to refund credit after unexpected error", {
+          uid,
+          error: String(refundErr),
+        });
+      }
+      throw new HttpsError("internal", "生成失敗，點數已退還。請稍後重試。");
     }
-    throw new HttpsError("internal", "No image returned by Gemini.");
   }
 );
 
