@@ -3,8 +3,8 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.18.27 |
-| 目前 Functions 版本 | v1.1.7 |
+| 目前 App 版本 | v3.18.30 |
+| 目前 Functions 版本 | v1.2.0 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -57,7 +57,14 @@
 | Function | 記憶體 | 逾時 | 說明 |
 |---|---|---|---|
 | `generateStickerSpecs` | 512 MiB | 60s | AI 文字規格（免費，不扣點）|
-| `generateStickerImage` | 1 GiB | 120s | AI 圖片生成（1點/張，含 creditHistory）|
+| `generateStickerImage` | 1 GiB | 120s | AI 圖片生成 V1（凍結，供舊版 App ≤ v3.18.29 使用）|
+| `generateStickerImageV2` | 1 GiB | 120s | AI 圖片生成 V2（新版 App ≥ v3.18.30；純 metadata 協議，CF 端組 prompt）|
+
+**App-CF 版本相容性**
+| App 版本 | CF Function | 協議 |
+|---------|------------|------|
+| < v3.18.30 | `generateStickerImage` (V1) | 傳 `prompt` 字串（V1 凍結保留，永不移除）|
+| ≥ v3.18.30 | `generateStickerImageV2` (V2) | 傳 metadata；CF 端用 `buildPrompt()` 組 prompt |
 
 **輸出規格（LINE Creators Market 官方）**
 | 項目 | 規格 |
@@ -323,6 +330,8 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.18.30 | 2026-04-09 | **refactor(cf): 新增 `generateStickerImageV2` 版本化入口**：新增獨立 CF function `generateStickerImageV2`（CF v1.2.0），App ≥ v3.18.30 改呼叫 V2；V1（`generateStickerImage`）凍結保留，確保舊版 App 不中斷。V2 僅接受 metadata 協議（`styleIndex + specEmotion`），由 CF 端 `buildPrompt()` 組 prompt，不支援舊版 `prompt` 字串欄位。`CLAUDE.md` v1.8 補充 CF 版本化入口部署規則。 |
+| v3.18.29 | 2026-04-09 | **refactor: Prompt 邏輯移至 CF，雙協議相容**（CF v1.1.9）：`generateStickerImage` 新增雙協議支援；App 改傳 metadata（不含 prompt 字串），刪除 Dart 端 `_buildSinglePrompt` / `_buildProSection`。 |
 | v3.18.15 | 2026-04-07 | **fix(android): App Links domain 改為 magic-sticker-8eaf4.web.app**：AndroidManifest `intent-filter` 的 `android:host` 從 `magicsticker.app` 改為 `magic-sticker-8eaf4.web.app`，與 Cloud Functions 產生的 deepLink URL 及 Firebase Hosting 的 `assetlinks.json` 位置一致，修正 Play Console「Failed domain checks」錯誤。 |
 | v3.18.14 | 2026-04-07 | **fix(ci): deploy_hosting — keystore 未設時改為 exit 1 阻止部署**：原 `exit 0` 會讓 CI 靜默跳過注入、繼續部署含 TODO placeholder 的 `assetlinks.json`，導致 Android App Links domain 驗證永遠失敗；改為 `exit 1` 讓 CI 明確失敗並顯示錯誤訊息，強制設定 `ANDROID_KEYSTORE_BASE64 / ANDROID_STORE_PASSWORD / ANDROID_KEY_ALIAS` secrets 後才能部署。⚠️ 須同時在 Firebase Console → Hosting 設定 `magicsticker.app` 為 custom domain，使 `assetlinks.json` 可從該 domain 讀取。 |
 | v3.18.13 | 2026-04-07 | **fix(ads): ATT 彈窗不顯示 + app-ads.txt Content-Type**：① `AdsService.initialize()` 拆分為兩階段：`initialize()`（main()呼叫，只初始化 AdMob SDK）與 `requestAttAndPreload()`（HomeScreen initState 延遲 800ms 後呼叫，確保 iOS UIWindow 已建立才彈 ATT 追蹤授權 dialog）；② `HomeScreen.initState` 加入 `Future.delayed(800ms, requestAttAndPreload)` 呼叫；③ `firebase.json` 為 `/app-ads.txt` 加入明確 `Content-Type: text/plain` header 與短快取（300s）供 AdMob crawler 正確讀取。 |

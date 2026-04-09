@@ -22,7 +22,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.1.7";
+const FUNCTIONS_VERSION = "1.2.0";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -350,6 +350,253 @@ export const generateStickerSpecs = onCall(
   }
 );
 
+// ── Sticker Prompt Builder（Server-Side）─────────────────────────────────────
+//
+// 12 種風格的角色描述與結尾風格語句。
+// 索引對應 Flutter StickerStyle enum 順序：
+//   0:chibi 1:popArt 2:pixel 3:sketch 4:watercolor 5:webtoon
+//   6:celshade 7:pixar3d 8:plush 9:yuruDoodle 10:showaManga 11:claymation
+
+const STYLE_CHAR_DESC: string[] = [
+  // 0 chibi
+  "根據照片人物繪製卡通 Q 版臉型（可愛 Chibi 風格）\n" +
+    "  * 大閃亮眼睛、小鼻子、圓潤臉頰\n" +
+    "  * 乾淨平面插畫、粗黑色描邊、非寫實風格\n" +
+    "  * 臉部與上半身自然填滿圓形",
+  // 1 popArt
+  "根據照片人物繪製普普藝術風格的完整 Q 版卡通人物（非肖像、非半身，頭頂至腳底完整呈現）\n" +
+    "  * 大膽簡化的臉部特徵、鮮豔高對比色彩\n" +
+    "  * 平塗色塊、Ben-Day 網點陰影、無黑色描邊\n" +
+    "  * Andy Warhol / Roy Lichtenstein 美術風格\n" +
+    "  * 完整身形不被任何畫布邊緣截斷",
+  // 2 pixel
+  "根據照片人物繪製像素藝術角色\n" +
+    "  * 整張圖以 32×32 格子構成再放大，每格至少 4px，強制可見方塊感\n" +
+    "  * 限制色盤（≤16 色）、無任何反鋸齒或漸層\n" +
+    "  * 所有邊緣皆為直角硬邊；任天堂 / SNES 遊戲像素風",
+  // 3 sketch
+  "根據照片人物繪製鉛筆素描風格的完整 Q 版卡通人物（非肖像、非半身，頭頂至腳底完整呈現）\n" +
+    "  * 手繪線條捕捉照片人物神韻\n" +
+    "  * 交叉線條表現深度與陰影、粗糙有力的筆觸\n" +
+    "  * 單色或深褐色調\n" +
+    "  * 完整身形不被任何畫布邊緣截斷",
+  // 4 watercolor
+  "根據照片人物繪製水彩風格的完整 Q 版卡通人物（非肖像、非半身，頭頂至腳底完整呈現）\n" +
+    "  * 柔和圓潤的臉部、邊緣暈染的溫柔色調\n" +
+    "  * 透明疊色、隱約可見的紙張紋理\n" +
+    "  * 夢幻可愛的水彩質感\n" +
+    "  * 完整身形不被任何畫布邊緣截斷",
+  // 5 webtoon
+  "根據照片人物繪製韓式 Webtoon 扁平插畫\n" +
+    "  * 乾淨圓滑的黑色輪廓線、均勻平塗色彩\n" +
+    "  * 明亮柔和的大眼睛、Q 版可愛比例\n" +
+    "  * 接近 LINE Friends / NAVER Webtoon 的插畫風格",
+  // 6 celshade
+  "根據照片人物繪製日系動漫賽璐璐厚塗插畫\n" +
+    "  * 清晰的厚黑邊輪廓線、硬邊陰影分層（2–3 階，無漸層邊緣）\n" +
+    "  * 飽和鮮豔色彩、強烈光澤反光點\n" +
+    "  * 日本動漫賽璐璐作畫風格",
+  // 7 pixar3d
+  "根據照片人物繪製 Pixar / Disney 3D 渲染風格角色\n" +
+    "  * 精緻的 subsurface scattering 膚色、圓潤卡通比例\n" +
+    "  * 柔和的環境光遮蔽（AO）、明亮的鏡面高光點\n" +
+    "  * Pixar 動畫電影的 3D 渲染質感",
+  // 8 plush
+  "根據照片人物繪製毛絨布偶玩具風格角色（2D 插畫貼圖，非照片）\n" +
+    "  * 模擬短絨毛質感（細小筆觸表現毛流）\n" +
+    "  * 圓胖可愛比例、柔和邊緣輪廓\n" +
+    "  * 豐富的深淺毛色層次，外觀質感像手工布偶\n" +
+    "  * 角色為 2D 平面插圖，無任何攝影背景、地板、環境陰影或真實場景元素",
+  // 9 yuruDoodle
+  "根據照片人物繪製「ゆるい（鬆散可愛）」塗鴉風格的完整 Q 版角色（頭頂至腳底完整呈現）\n" +
+    "  * 刻意歪扭的不均勻輪廓線、五官大小不對稱（一大一小的眼睛等）\n" +
+    "  * 粗糙肥厚的黑色手繪線條、面部簡化但身體四肢完整可見\n" +
+    "  * 整體散漫自然、像小孩亂畫卻帶有獨特個性與溫度\n" +
+    "  * 完整身形（含動態姿勢中舉起的手臂、手掌末端）不被任何畫布邊緣截斷\n" +
+    "  * 舉臂揮手等動作時，手臂末端距畫布邊緣 ≥ 15%；角色整體邊界（含姿勢極端點）高度 ≤ 畫布 55%",
+  // 10 showaManga
+  "根據照片人物繪製昭和復古漫畫風格的完整 Q 版卡通人物（非肖像、非半身，頭頂至腳底完整呈現）\n" +
+    "  * 黑白為主（可有限度使用 1–2 種強調色）、手繪網點（スクリーントーン）陰影\n" +
+    "  * 粗獷有力的黑色輪廓線、誇張的速度線與動感線條僅集中於角色周邊，不延伸至畫布邊緣\n" +
+    "  * 大而明亮的 60 年代漫畫風眼睛、誇張表情框線\n" +
+    "  * 完整身形不被任何畫布邊緣截斷",
+  // 11 claymation
+  "根據照片人物繪製黏土捏塑風格的完整 Q 版角色（2D 插畫貼圖，非照片，頭頂至腳底完整呈現）\n" +
+    "  * 模擬手工黏土材質——可見輕微指痕、不均勻的表面起伏\n" +
+    "  * 圓潤厚重的造型比例、柔和的邊緣與輪廓\n" +
+    "  * 豐富的黏土色澤高光與陰影，外觀像手工捏製的玩偶\n" +
+    "  * 角色為 2D 平面插圖，無任何攝影背景、地板或真實場景元素\n" +
+    "  * 完整身形不被任何畫布邊緣截斷",
+];
+
+const STYLE_PROMPT_SUFFIX: string[] = [
+  "LINE Friends / Chiikawa 畫質水準。", // 0 chibi
+  "普普藝術風格——鮮豔平塗色彩、Ben-Day 網點陰影、無漸層、無黑色描邊。Andy Warhol / Roy Lichtenstein 美術風格。", // 1 popArt
+  "復古 8-bit 像素風格——整張圖如同在 32×32 畫布上繪製再放大 8 倍，每個像素必須明顯呈現方塊感、限制色盤（≤16 色）、絕對無反鋸齒或漸層、所有邊緣皆為直角方塊。任天堂 / SNES 像素風。", // 2 pixel
+  "鉛筆素描／手繪風格——單色或深褐色調、可見的鉛筆筆觸與交叉線條陰影、粗糙且富有表現力的線條品質。", // 3 sketch
+  "柔和水彩風格——邊緣暈染的溫柔色塊、透明疊色、隱約紙張紋理。可愛夢幻的水彩質感。", // 4 watercolor
+  "韓系 Webtoon 插畫風格——乾淨流暢線條、均勻平塗、明亮眼睛。LINE Friends / NAVER Webtoon 畫質水準。", // 5 webtoon
+  "日系動漫賽璐璐風格——粗黑輪廓線、硬邊分層陰影（無漸層邊緣）、飽和鮮豔色彩、明顯的高光反光點。", // 6 celshade
+  "Pixar 3D 動畫風格——圓潤立體卡通造型、精緻打光（主光源＋補光）、subsurface 膚色、鏡面高光。3D 渲染質感。", // 7 pixar3d
+  "毛絨玩偶插畫風格——以 2D 插圖形式模擬短絨毛材質、圓胖可愛比例、柔和邊緣輪廓、豐富毛色深淺層次。角色為純 2D 插圖貼圖，無攝影背景、無地面倒影、無環境投影，角色本體以外區域維持純技術背景色。", // 8 plush
+  "日本「下手上手（heta-uma）」ゆるキャラ 風格——刻意不精緻的歪扭線條與不對稱五官，散漫卻充滿個性，像地方吉祥物的手繪質感。", // 9 yuruDoodle
+  "昭和復古漫畫風格——黑白手繪、スクリーントーン 網點陰影、粗獷輪廓線、60 年代日本漫畫質感。手塚治虫 / 藤子不二雄 風格。", // 10 showaManga
+  "黏土捏塑插畫風格——以 2D 插圖形式模擬手工黏土材質、圓潤厚重比例、可見指痕與不均勻表面起伏。Aardman（笑笑羊）/ 定格動畫黏土玩偶風格。", // 11 claymation
+];
+
+interface PromptParams {
+  styleIndex: number;
+  shape: "circle" | "square";
+  specEmotion: string;
+  specBgColor: string;
+  chromaKey: boolean;
+  customStyleDesc?: string;
+  customEmotionDesc?: string;
+  personFeatures?: string;
+}
+
+/** Pro 自訂描述注入段落（與 Flutter 端 _buildProSection 邏輯一致） */
+function buildProSection(
+  customStyleDesc?: string,
+  customEmotionDesc?: string,
+  personFeatures?: string,
+): string {
+  const hints: string[] = [];
+  if (customStyleDesc?.trim()) {
+    hints.push(
+      `🎨 視覺風格（取代預設視覺風格，但構圖邊界留白規則絕對不可變動）：「${customStyleDesc.trim()}」`
+    );
+  }
+  if (customEmotionDesc?.trim()) {
+    hints.push(
+      `🎭 情緒氛圍（最高優先，貫穿整張貼圖）：「${customEmotionDesc.trim()}」`
+    );
+  }
+
+  let featureSection = "";
+  if (personFeatures?.trim()) {
+    featureSection =
+      "\n【構圖絕對規則 — 最先執行，任何指令不得覆蓋】\n" +
+      "• 角色全身必須完整顯示於畫布內，不得有任何部位超出邊緣\n" +
+      "• 頭頂（含髮型、髮飾、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，速度線等效果不得壓縮此空間）\n" +
+      "• 腳底距下緣保留 ≥ 12% 空白\n" +
+      "• 左右兩側各保留 ≥ 10% 空白\n" +
+      "• 違反以上規則視為生成失敗，請重新構圖\n" +
+      "\n【✨ 眼神特徵強化】\n" +
+      "請在 Q 版設計中，將以下眼部特徵以誇張手法放大呈現，讓眼神成為角色最鮮明的辨識點：\n" +
+      `${personFeatures.trim()}\n` +
+      "重點：眼睛形狀、眼神表情、眼部細節（如眼距、眼皮、眼珠大小）需誇大強調。\n" +
+      "其他五官與體型依 Q 版比例自然呈現即可，不需過度強調。\n";
+  }
+
+  if (!hints.length && !featureSection) return "";
+  const proHints = hints.length
+    ? `\n【✨ Pro 使用者指定（最高優先級，務必遵循）】\n${hints.join("\n")}\n`
+    : "";
+  return proHints + featureSection;
+}
+
+/** 根據 metadata 組出完整 Gemini prompt（與 Flutter 端 _buildSinglePrompt 邏輯一致） */
+function buildPrompt(p: PromptParams): string {
+  const idx = Math.max(0, Math.min(p.styleIndex, STYLE_CHAR_DESC.length - 1));
+  const hasCustomStyle = !!p.customStyleDesc?.trim();
+  const hasCustomEmotion = !!p.customEmotionDesc?.trim();
+
+  const artStyleOpening = hasCustomStyle
+    ? `繪製${p.customStyleDesc!.trim()}風格人物`
+    : "繪製可愛 Q 版卡通人物";
+  const emotionLine = hasCustomEmotion
+    ? p.customEmotionDesc!.trim()
+    : p.specEmotion;
+  const characterDescLine = hasCustomStyle
+    ? `以${p.customStyleDesc!.trim()}風格呈現角色，頭頂（含髮型）至腳底完整呈現；角色高度 ≤ 畫布 60%，頭頂距上緣 ≥ 20% 空白，此留白規則適用於所有風格，不可忽略`
+    : STYLE_CHAR_DESC[idx];
+  const styleSuffix = hasCustomStyle
+    ? `${p.customStyleDesc!.trim()}風格，請忽略上方預設風格描述，以此為準。`
+    : STYLE_PROMPT_SUFFIX[idx];
+  const proSection = buildProSection(
+    p.customStyleDesc, p.customEmotionDesc, p.personFeatures
+  );
+
+  const commonCharSection =
+    `- 根據參考照片，${artStyleOpening}\n` +
+    `- 表情 / 動作：${emotionLine}\n` +
+    `${proSection}- ${characterDescLine}\n` +
+    `- 將角色完整置於畫布正中央（水平、垂直皆置中），角色含動態姿勢（舉起的手、伸展的手臂末端等）的整體邊界高度不超過畫布的 55%\n` +
+    `- 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白\n` +
+    `- 角色左右兩側各保留 ≥ 10% 空白\n` +
+    `- 嚴禁角色的任何部位（頭頂、耳朵、手臂、手掌末端、腳）被畫布邊緣截斷；動態姿勢（如舉手揮手）的手臂末端距畫布邊緣 ≥ 15%\n` +
+    `- 【禁止文字】畫面任何位置禁止出現任何文字、中文字、英文字母、數字、符號、Logo 或品牌名稱；若參考照片的服裝或配件上有文字圖案，請以純色或簡單幾何紋樣取代，切勿照實重現`;
+
+  if (p.shape === "circle") {
+    if (p.chromaKey) {
+      return `你是一位專業的 LINE 貼圖插畫師。請根據參考照片，繪製一張正方形貼圖。
+
+【畫布規格 — Chroma Key 去背模式】
+背景是純技術用遮罩色，與插畫風格完全無關，必須嚴格遵守以下規則：
+- 所有背景區域（角色與裝飾以外的全部畫面）一律以電腦純色平塗填充為純白色 #FFFFFF（R=255, G=255, B=255）
+- 背景禁止任何藝術加工：無光暈、無漸層、無反光、無筆觸、無紋理、無陰影投射、無霧感
+- 角色或裝飾的陰影禁止落在背景上
+- 四個角落像素必須為精確的 #FFFFFF
+
+【角色設計】
+${commonCharSection}
+
+【裝飾】在角色周圍點綴 2–4 個小閃光或星星（集中在角色周邊，不接觸背景邊緣）
+【輸出】單一正方形 PNG，背景為純平塗 #FFFFFF，無任何光影處理。
+風格：${styleSuffix}
+`;
+    } else {
+      return `你是一位專業的 LINE 貼圖插畫師。請根據參考照片，繪製一張正方形貼圖。
+
+【畫布規格】
+- 整個正方形畫布以 ${p.specBgColor} 填色作為背景（含四個角落，不得有透明像素）
+- 禁止出現任何透明區域、白色邊框或描邊
+
+【角色設計】
+${commonCharSection}
+
+【裝飾】在角色周圍點綴 2–4 個小閃光或星星（集中在畫布中央區域）
+
+【配色】背景色：${p.specBgColor}
+【輸出】單一正方形 PNG，背景完全不透明。
+風格：${styleSuffix}
+`;
+    }
+  } else {
+    if (p.chromaKey) {
+      return `你是一位專業的 LINE 貼圖插畫師。請根據參考照片，繪製一張方形貼圖。
+
+【畫布規格 — Chroma Key 去背模式】
+背景是純技術用遮罩色，與插畫風格完全無關，必須嚴格遵守以下規則：
+- 所有背景區域（角色與裝飾以外的全部畫面）一律以電腦純色平塗填充為純白色 #FFFFFF（R=255, G=255, B=255）
+- 背景禁止任何藝術加工：無光暈、無漸層、無反光、無筆觸、無紋理、無陰影投射、無霧感
+- 角色或裝飾的陰影禁止落在背景上
+- 四個角落像素必須為精確的 #FFFFFF
+
+【角色設計】
+${commonCharSection}
+- 角色周圍點綴 3–5 個小閃光或星星（集中在角色周邊，不接觸背景邊緣）
+【輸出】單一正方形 PNG，背景為純平塗 #FFFFFF，無任何光影處理。
+風格：${styleSuffix}
+`;
+    } else {
+      return `你是一位專業的 LINE 貼圖插畫師。請根據參考照片，繪製一張方形貼圖。
+
+【設計規格】
+- 整個正方形畫布以 ${p.specBgColor} 填色作為背景
+- 角色表情 / 動作：${emotionLine}
+${proSection}- ${characterDescLine}
+${commonCharSection}
+- 背景中點綴 3–5 個小閃光或星星
+- 禁止出現任何白色邊框或白色描邊
+【輸出】單一正方形 PNG，無白色背景。
+風格：${styleSuffix}
+`;
+    }
+  }
+}
+
 // ── generateStickerImage ────────────────────────────────────────────────────
 //
 // 1. 驗證 Firebase Auth
@@ -379,15 +626,47 @@ export const generateStickerImage = onCall(
     const uid = await resolveUid(request);
     log("generateStickerImage: auth OK", {uid});
 
-    const {photoBase64, prompt} = request.data as {
+    // 雙協議相容：
+    //   舊協議（App < v3.18.29）：傳 { photoBase64, prompt } → 直接使用
+    //   新協議（App ≥ v3.18.29）：傳 metadata → CF 自行組 prompt
+    const data = request.data as {
       photoBase64: string;
-      prompt: string;
+      prompt?: string;           // 舊協議
+      styleIndex?: number;       // 新協議
+      shape?: string;
+      specEmotion?: string;
+      specBgColor?: string;
+      chromaKey?: boolean;
+      customStyleDesc?: string;
+      customEmotionDesc?: string;
+      personFeatures?: string;
     };
 
-    if (!photoBase64 || !prompt) {
+    const {photoBase64} = data;
+    if (!photoBase64) {
+      throw new HttpsError("invalid-argument", "photoBase64 is required.");
+    }
+
+    let finalPrompt: string;
+    if (data.prompt) {
+      // 舊協議：Flutter 端已組好 prompt，直接使用（向下相容）
+      finalPrompt = data.prompt;
+    } else if (data.styleIndex !== undefined && data.specEmotion) {
+      // 新協議：CF 從 metadata 組 prompt
+      finalPrompt = buildPrompt({
+        styleIndex: data.styleIndex,
+        shape: (data.shape ?? "square") as "circle" | "square",
+        specEmotion: data.specEmotion,
+        specBgColor: data.specBgColor ?? "",
+        chromaKey: data.chromaKey ?? true,
+        customStyleDesc: data.customStyleDesc,
+        customEmotionDesc: data.customEmotionDesc,
+        personFeatures: data.personFeatures,
+      });
+    } else {
       throw new HttpsError(
         "invalid-argument",
-        "photoBase64 and prompt are required."
+        "Either 'prompt' (legacy) or 'styleIndex + specEmotion' (v2) is required."
       );
     }
 
@@ -416,6 +695,9 @@ export const generateStickerImage = onCall(
       throw new HttpsError("resource-exhausted", "Insufficient credits.");
     }
 
+    // ── 記錄實際送出的 prompt（方便 debug 截圖截頭等構圖問題）────────────────
+    log("generateStickerImage: prompt_sent", {uid, protocol: data.prompt ? "legacy" : "v2", prompt: finalPrompt});
+
     // ── 呼叫 Gemini Image API ────────────────────────────────────────────────
     const apiKey = geminiApiKey.value();
     const imgModel = geminiImageModel.value();
@@ -427,7 +709,7 @@ export const generateStickerImage = onCall(
       contents: [
         {
           parts: [
-            {text: prompt},
+            {text: finalPrompt},
             {
               inlineData: {
                 mimeType: "image/jpeg",
@@ -563,6 +845,246 @@ export const generateStickerImage = onCall(
         log("generateStickerImage: credit refunded for unexpected error", {uid});
       } catch (refundErr) {
         warn("generateStickerImage: failed to refund credit after unexpected error", {
+          uid,
+          error: String(refundErr),
+        });
+      }
+      throw new HttpsError("internal", "生成失敗，點數已退還。請稍後重試。");
+    }
+  }
+);
+
+// ── generateStickerImageV2 ───────────────────────────────────────────────────
+//
+// 版本化入口（v2）：僅接受新協議（App ≥ v3.18.30），不支援舊版 prompt 字串。
+// 舊版 App 繼續使用 generateStickerImage (V1)，兩者互不影響。
+//
+// 1. 驗證 Firebase Auth
+// 2. Firestore Transaction 原子性扣 1 點 + 寫 creditHistory
+// 3. 由 metadata 組 prompt → proxy Gemini Image API
+// 4. 失敗時退還 1 點 + 寫退點紀錄
+
+export const generateStickerImageV2 = onCall(
+  {
+    region: "asia-east1",
+    timeoutSeconds: 120,
+    memory: "1GiB",
+    secrets: [geminiApiKey],
+    invoker: "public",
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    log("generateStickerImageV2: invoked", {
+      hasAuth: !!request.auth,
+      hasAuthHeader: !!request.rawRequest?.headers?.authorization,
+      hasAppCheck: !!request.app,
+    });
+    if (!request.app) {
+      warn("generateStickerImageV2: App Check token missing (App Distribution build?)");
+    }
+    const uid = await resolveUid(request);
+    log("generateStickerImageV2: auth OK", {uid});
+
+    const data = request.data as {
+      photoBase64: string;
+      styleIndex: number;
+      shape?: string;
+      specEmotion: string;
+      specBgColor?: string;
+      chromaKey?: boolean;
+      customStyleDesc?: string;
+      customEmotionDesc?: string;
+      personFeatures?: string;
+    };
+
+    const {photoBase64} = data;
+    if (!photoBase64) {
+      throw new HttpsError("invalid-argument", "photoBase64 is required.");
+    }
+    if (data.styleIndex === undefined || !data.specEmotion) {
+      throw new HttpsError(
+        "invalid-argument",
+        "'styleIndex' and 'specEmotion' are required. Please update the app."
+      );
+    }
+
+    const finalPrompt = buildPrompt({
+      styleIndex: data.styleIndex,
+      shape: (data.shape ?? "square") as "circle" | "square",
+      specEmotion: data.specEmotion,
+      specBgColor: data.specBgColor ?? "",
+      chromaKey: data.chromaKey ?? true,
+      customStyleDesc: data.customStyleDesc,
+      customEmotionDesc: data.customEmotionDesc,
+      personFeatures: data.personFeatures,
+    });
+
+    // ── 原子性扣點 + 寫 creditHistory ────────────────────────────────────────
+    const userRef = db.collection("users").doc(uid);
+    let remainingCredits = 0;
+
+    const deducted = await db.runTransaction(async (tx) => {
+      const doc = await tx.get(userRef);
+      const credits = (doc.data()?.credits as number) ?? 0;
+      if (credits <= 0) return false;
+      remainingCredits = credits - 1;
+      tx.update(userRef, {
+        credits: remainingCredits,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      writeCreditHistory(tx, uid, {
+        type: "spent",
+        amount: -1,
+        reason: "generate_sticker_image_v2",
+      });
+      return true;
+    });
+
+    if (!deducted) {
+      throw new HttpsError("resource-exhausted", "Insufficient credits.");
+    }
+
+    log("generateStickerImageV2: prompt_sent", {uid, prompt: finalPrompt});
+
+    // ── 呼叫 Gemini Image API ────────────────────────────────────────────────
+    const apiKey = geminiApiKey.value();
+    const imgModel = geminiImageModel.value();
+    const endpoint =
+      "https://generativelanguage.googleapis.com/v1beta" +
+      `/models/${imgModel}:generateContent?key=${apiKey}`;
+
+    const body = {
+      contents: [
+        {
+          parts: [
+            {text: finalPrompt},
+            {
+              inlineData: {
+                mimeType: "image/jpeg",
+                data: photoBase64,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseModalities: ["IMAGE", "TEXT"],
+      },
+    };
+
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(110000),
+      });
+
+      if (res.status === 429) {
+        await db.runTransaction(async (tx) => {
+          tx.update(userRef, {
+            credits: admin.firestore.FieldValue.increment(1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          writeCreditHistory(tx, uid, {
+            type: "refund",
+            amount: 1,
+            reason: "rate_limited",
+          });
+        });
+        const retryAfter = res.headers.get("Retry-After") ?? "30";
+        throw new HttpsError(
+          "resource-exhausted",
+          `Rate limited. Retry after ${retryAfter}s.`
+        );
+      }
+
+      if (!res.ok) {
+        const errText = await res.text();
+        await db.runTransaction(async (tx) => {
+          tx.update(userRef, {
+            credits: admin.firestore.FieldValue.increment(1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          writeCreditHistory(tx, uid, {
+            type: "refund",
+            amount: 1,
+            reason: "api_error",
+          });
+        });
+        throw new HttpsError(
+          "internal",
+          `Gemini image API error ${res.status}: ${errText.slice(0, 300)}`
+        );
+      }
+
+      const json = (await res.json()) as {
+        candidates?: Array<{
+          content: {
+            parts: Array<{
+              inlineData?: {mimeType: string; data: string};
+            }>;
+          };
+          finishReason?: string;
+        }>;
+        promptFeedback?: {blockReason?: string};
+      };
+
+      const imgBlockReason = json.promptFeedback?.blockReason
+        ?? json.candidates?.[0]?.finishReason;
+      const isBlocked = !json.candidates?.length
+        || imgBlockReason === "SAFETY"
+        || imgBlockReason === "OTHER"
+        || imgBlockReason === "PROHIBITED_CONTENT"
+        || imgBlockReason === "COPYRIGHT";
+
+      const parts = isBlocked ? [] : (json.candidates?.[0]?.content?.parts ?? []);
+      for (const part of parts) {
+        if (part.inlineData?.mimeType?.startsWith("image/")) {
+          return {imageBase64: part.inlineData.data, remainingCredits};
+        }
+      }
+
+      await db.runTransaction(async (tx) => {
+        tx.update(userRef, {
+          credits: admin.firestore.FieldValue.increment(1),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        writeCreditHistory(tx, uid, {
+          type: "refund",
+          amount: 1,
+          reason: isBlocked ? "content_blocked" : "no_image_returned",
+        });
+      });
+      if (isBlocked) {
+        throw new HttpsError(
+          "invalid-argument",
+          `Gemini blocked the image request (reason: ${imgBlockReason ?? "no candidates"}). ` +
+          "Please avoid copyrighted brand names or sensitive terms."
+        );
+      }
+      throw new HttpsError("internal", "No image returned by Gemini.");
+    } catch (e) {
+      if (e instanceof HttpsError) throw e;
+      warn("generateStickerImageV2: unexpected error after credit deduction, refunding", {
+        uid,
+        error: String(e),
+      });
+      try {
+        await db.runTransaction(async (tx) => {
+          tx.update(userRef, {
+            credits: admin.firestore.FieldValue.increment(1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          writeCreditHistory(tx, uid, {
+            type: "refund",
+            amount: 1,
+            reason: "unexpected_error",
+          });
+        });
+        log("generateStickerImageV2: credit refunded for unexpected error", {uid});
+      } catch (refundErr) {
+        warn("generateStickerImageV2: failed to refund credit after unexpected error", {
           uid,
           error: String(refundErr),
         });
