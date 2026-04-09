@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import * as crypto from "node:crypto";
 import {inflateSync} from "node:zlib";
+import sharp from "sharp";
 import {onCall, HttpsError, CallableRequest} from "firebase-functions/v2/https";
 import {defineSecret, defineString} from "firebase-functions/params";
 import {log, warn} from "firebase-functions/logger";
@@ -23,7 +24,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.3.1";
+const FUNCTIONS_VERSION = "1.3.2";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -528,6 +529,8 @@ function buildPrompt(p: PromptParams): string {
     `  · 角色腳底距畫布下緣留有明顯空白，不緊貼邊緣\n` +
     `  · 嚴禁任何部位（頭頂、手掌末端、腳底）被畫布邊緣截斷或觸碰邊緣\n` +
     `動作姿勢指引：若表情動作涉及舉手揮手，採手肘以下的輕鬆揮動（手臂保持在肩膀高度附近），勿雙臂完全高舉過頭\n` +
+    `- 【參考照片用途】照片僅供外貌特徵（臉部五官、膚色、髮色、髮型、服裝配色）參考；` +
+    `角色在畫面中的比例大小完全遵守上方【構圖規則】，與照片是全身照或半身照無關。\n` +
     `- 根據參考照片，${artStyleOpening}\n` +
     `- 表情 / 動作：${emotionLine}\n` +
     `${proSection}- ${characterDescLine}\n` +
@@ -1057,6 +1060,27 @@ export const generateStickerImageV2 = onCall(
 
     log("generateStickerImageV2: prompt_sent", {uid, prompt: finalPrompt});
 
+    // ── 裁切參考照片上方 80%（Server 端預處理）────────────────────────────────
+    // 目的：去除全身照中的腿腳部位，防止 Gemini 以「看到完整全身」為構圖錨點
+    // 放大角色導致頭頂截斷。半身照與大頭照臉部通常在頂部 60% 以內，不受影響。
+    let processedPhotoBase64 = photoBase64;
+    try {
+      const photoBuf = Buffer.from(photoBase64, "base64");
+      const meta = await sharp(photoBuf).metadata();
+      const origH = meta.height ?? 0;
+      if (origH > 0) {
+        const cropH = Math.max(1, Math.round(origH * 0.8));
+        const cropped = await sharp(photoBuf)
+          .extract({left: 0, top: 0, width: meta.width ?? 1, height: cropH})
+          .jpeg({quality: 90})
+          .toBuffer();
+        processedPhotoBase64 = cropped.toString("base64");
+        log("generateStickerImageV2: photo_cropped", {uid, origH, cropH});
+      }
+    } catch (cropErr) {
+      warn("generateStickerImageV2: photo crop failed, using original", {uid, error: String(cropErr)});
+    }
+
     // ── 呼叫 Gemini Image API ────────────────────────────────────────────────
     const apiKey = geminiApiKey.value();
     const imgModel = geminiImageModel.value();
@@ -1072,7 +1096,7 @@ export const generateStickerImageV2 = onCall(
             {
               inlineData: {
                 mimeType: "image/jpeg",
-                data: photoBase64,
+                data: processedPhotoBase64,
               },
             },
           ],
@@ -1169,7 +1193,7 @@ export const generateStickerImageV2 = onCall(
                   contents: [{
                     parts: [
                       {text: retryPrompt},
-                      {inlineData: {mimeType: "image/jpeg", data: photoBase64}},
+                      {inlineData: {mimeType: "image/jpeg", data: processedPhotoBase64}},
                     ],
                   }],
                   generationConfig: {responseModalities: ["IMAGE", "TEXT"]},

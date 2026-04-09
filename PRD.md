@@ -4,7 +4,7 @@
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
 | 目前 App 版本 | v3.18.30 |
-| 目前 Functions 版本 | v1.3.1 |
+| 目前 Functions 版本 | v1.3.2 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -330,6 +330,7 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| CF v1.3.2 | 2026-04-09 | **fix(cf): 全身照角色截頭根因修正（CF 端雙管齊下）**：① `generateStickerImageV2` 新增 Server 端 `sharp` 圖片預處理：接收到參考照片後裁切至上方 80%，去除全身照腳踝以下部位，Gemini 不再以「完整全身」為構圖錨點而放大角色；大頭照臉部通常在頂部 60% 以內不受影響。App 無需更新（CF 端直接處理）。② `buildPrompt` 新增「參考照片僅供外貌特徵（臉部、膚色、髮色、服裝配色）參考，角色比例遵守構圖規則，與照片是否為全身照無關」說明。新增 `sharp` dependency。 |
 | CF v1.3.0 | 2026-04-09 | **fix(cf): 頂部截斷自動偵測 & retry（CF v1.3.0）**：`generateStickerImageV2` 新增純 Node.js PNG 解析器 `checkTopEdgeCut()`，偵測頂部 8% 行是否有非白色像素（還原所有 5 種 PNG filter type）。若偵測到截斷，自動追加「大幅縮小角色、高度不超過畫布三分之一」的修正 prompt 重試一次 Gemini（不額外扣點）；retry 失敗時仍回傳原圖。function timeoutSeconds 從 120 → 200s，首次 Gemini 呼叫 timeout 從 110s → 90s，retry 呼叫 timeout 80s。 |
 | v3.18.30 | 2026-04-09 | **refactor(cf): 新增 `generateStickerImageV2` 版本化入口（CF v1.2.0→v1.2.1）**：新增獨立 CF function `generateStickerImageV2`，App ≥ v3.18.30 改呼叫 V2；V1 凍結保留。v1.2.1 修正動態姿勢截手臂：`buildPrompt` 構圖留白規則上移最前（⚠️ 最高優先），上緣留白 20%→25%（含舉高手臂末端），整體高度上限 55%→45%；yuruDoodle STYLE_CHAR_DESC 同步更新。 |
 | v3.18.29 | 2026-04-09 | **refactor: Prompt 邏輯移至 CF，雙協議相容**（CF v1.1.9）：`generateStickerImage` 新增雙協議支援；App 改傳 metadata（不含 prompt 字串），刪除 Dart 端 `_buildSinglePrompt` / `_buildProSection`。 |
