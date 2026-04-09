@@ -1,4 +1,4 @@
-# 🤖 Claude 開發指令集 (CLAUDE.md) - v1.7
+# 🤖 Claude 開發指令集 (CLAUDE.md) - v1.8
 
 > 🌐 **語言規定（必須遵守）：所有回覆一律使用繁體中文。**
 
@@ -21,9 +21,11 @@
 > - **新增風格**（`StickerStyle` enum 加新項目）：
 >   - ✅ 需同時修改 `lib/core/models/sticker_style.dart`（UI label）與 `functions/src/index.ts`（style tables）
 >   - ✅ 兩邊版本都要遞增
-> - **雙協議相容**：CF 同時支援：
->   - 舊版 App（傳 `prompt` 字串）→ 直接使用
->   - 新版 App（傳 `styleIndex + specEmotion` 等 metadata）→ CF 自行組 prompt
+> - **CF 版本化入口**（v3.18.30+ 起）：
+>   - 舊版 App（< v3.18.30）→ 呼叫 `generateStickerImage`（V1，凍結不動）
+>   - 新版 App（≥ v3.18.30）→ 呼叫 `generateStickerImageV2`（V2，純 metadata 協議）
+>   - ⚠️ **每次調整 App-CF 傳輸協議，必須新增 CF versioned 入口（V2、V3...），而非修改舊 function。舊 function 凍結不動，確保舊版 App 不中斷。**
+>   - **部署順序**：先部署新 CF function → 再發佈新 App（無窗口風險，無需等審核）
 
 ## 📌 角色定位
 

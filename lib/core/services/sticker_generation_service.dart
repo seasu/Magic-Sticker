@@ -53,7 +53,7 @@ class StickerGenerationService {
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         final callable = _fn.httpsCallable(
-          'generateStickerImage',
+          'generateStickerImageV2',
           options: HttpsCallableOptions(timeout: const Duration(seconds: 125)),
         );
 
