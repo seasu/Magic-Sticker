@@ -22,7 +22,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.1.7";
+const FUNCTIONS_VERSION = "1.1.8";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -415,6 +415,9 @@ export const generateStickerImage = onCall(
     if (!deducted) {
       throw new HttpsError("resource-exhausted", "Insufficient credits.");
     }
+
+    // ── 記錄實際送出的 prompt（方便 debug 截圖截頭等構圖問題）────────────────
+    log("generateStickerImage: prompt_sent", {uid, prompt});
 
     // ── 呼叫 Gemini Image API ────────────────────────────────────────────────
     const apiKey = geminiApiKey.value();
