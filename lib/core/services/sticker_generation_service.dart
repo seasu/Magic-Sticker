@@ -57,27 +57,35 @@ class StickerGenerationService {
           options: HttpsCallableOptions(timeout: const Duration(seconds: 125)),
         );
 
-        final prompt = _buildSinglePrompt(
-          spec, style, shape,
-          customStyleDesc: customStyleDesc,
-          customEmotionDesc: customEmotionDesc,
-          personFeatures: personFeatures,
-        );
-
         if (kDebugMode) {
           debugPrint(
             '\n══════════════════════════════════\n'
-            '🎨 Sticker Prompt [index=$index style=${style.name}]\n'
-            '══════════════════════════════════\n'
-            '$prompt'
+            '🎨 Sticker Metadata [index=$index style=${style.name}]\n'
+            '  styleIndex=$styleIndex shape=${shape.name} chromaKey=$kStickerBgChromaKey\n'
+            '  emotion=${spec.emotion}\n'
+            '  customStyle=$customStyleDesc customEmotion=$customEmotionDesc\n'
             '══════════════════════════════════\n',
           );
         }
 
-        final result = await callable.call<Map<String, dynamic>>({
+        // 新協議（v2）：傳 metadata，由 CF 組 prompt。
+        // 舊版 App 仍傳 prompt 字串（雙協議相容）。
+        final payload = <String, dynamic>{
           'photoBase64': base64Encode(photoBytes),
-          'prompt': prompt,
-        });
+          'styleIndex': styleIndex.clamp(0, StickerStyle.values.length - 1),
+          'shape': shape == StickerShape.circle ? 'circle' : 'square',
+          'specEmotion': spec.emotion,
+          'specBgColor': spec.bgColor,
+          'chromaKey': kStickerBgChromaKey,
+          if (customStyleDesc?.trim().isNotEmpty == true)
+            'customStyleDesc': customStyleDesc!.trim(),
+          if (customEmotionDesc?.trim().isNotEmpty == true)
+            'customEmotionDesc': customEmotionDesc!.trim(),
+          if (personFeatures?.trim().isNotEmpty == true)
+            'personFeatures': personFeatures!.trim(),
+        };
+
+        final result = await callable.call<Map<String, dynamic>>(payload);
 
         final imageBase64 = result.data['imageBase64'] as String;
         final bytes = base64Decode(imageBase64);
@@ -228,174 +236,6 @@ class StickerGenerationService {
         return false;
       }
     }
-  }
-
-  // ─── private ────────────────────────────────────────────────────────────
-
-  String _buildSinglePrompt(
-    StickerSpec spec,
-    StickerStyle style,
-    StickerShape shape, {
-    String? customStyleDesc,
-    String? customEmotionDesc,
-    String? personFeatures,
-  }) {
-    // Pro 自訂描述注入段落（最高優先級）
-    final proSection = _buildProSection(customStyleDesc, customEmotionDesc, personFeatures);
-    // 有自訂風格時直接取代預設 promptSuffix，避免預設風格在 prompt 末尾覆蓋自訂輸入
-    final styleSuffix = (customStyleDesc != null && customStyleDesc.trim().isNotEmpty)
-        ? '${customStyleDesc.trim()}風格，請忽略上方預設風格描述，以此為準。'
-        : style.promptSuffix;
-    // 有自訂情緒時，直接取代 spec.emotion，避免 CATEGORY_HINTS 強制值覆蓋用戶輸入
-    final emotionLine = (customEmotionDesc != null && customEmotionDesc.trim().isNotEmpty)
-        ? customEmotionDesc.trim()
-        : spec.emotion;
-    // 有自訂風格時，取代 style.characterDesc（含 Q版/Chibi 特定描述），改用中性描述
-    final characterDescLine = (customStyleDesc != null && customStyleDesc.trim().isNotEmpty)
-        ? '以${customStyleDesc.trim()}風格呈現角色，頭頂（含髮型）至腳底完整呈現；角色高度 ≤ 畫布 60%，頭頂距上緣 ≥ 20% 空白，此留白規則適用於所有風格，不可忽略'
-        : style.characterDesc;
-    // 有自訂風格時，取代 prompt 開場白的「Q版卡通」字樣
-    final artStyleOpening = (customStyleDesc != null && customStyleDesc.trim().isNotEmpty)
-        ? '繪製${customStyleDesc.trim()}風格人物'
-        : '繪製可愛 Q 版卡通人物';
-
-    if (shape == StickerShape.circle) {
-      if (kStickerBgChromaKey) {
-        return '''
-你是一位專業的 LINE 貼圖插畫師。請根據參考照片，繪製一張正方形貼圖。
-
-【畫布規格 — Chroma Key 去背模式】
-背景是純技術用遮罩色，與插畫風格完全無關，必須嚴格遵守以下規則：
-- 所有背景區域（角色與裝飾以外的全部畫面）一律以電腦純色平塗填充為純白色 #FFFFFF（R=255, G=255, B=255）
-- 背景禁止任何藝術加工：無光暈、無漸層、無反光、無筆觸、無紋理、無陰影投射、無霧感
-- 角色或裝飾的陰影禁止落在背景上
-- 四個角落像素必須為精確的 #FFFFFF
-
-【角色設計】
-- 根據參考照片，$artStyleOpening
-- 表情 / 動作：$emotionLine
-$proSection- $characterDescLine
-- 將角色完整置於畫布正中央（水平、垂直皆置中），角色含動態姿勢（舉起的手、伸展的手臂末端等）的整體邊界高度不超過畫布的 55%
-- 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
-- 角色左右兩側各保留 ≥ 10% 空白
-- 嚴禁角色的任何部位（頭頂、耳朵、手臂、手掌末端、腳）被畫布邊緣截斷；動態姿勢（如舉手揮手）的手臂末端距畫布邊緣 ≥ 15%
-- 【禁止文字】畫面任何位置禁止出現任何文字、中文字、英文字母、數字、符號、Logo 或品牌名稱；若參考照片的服裝或配件上有文字圖案，請以純色或簡單幾何紋樣取代，切勿照實重現
-
-【裝飾】在角色周圍點綴 2–4 個小閃光或星星（集中在角色周邊，不接觸背景邊緣）
-【輸出】單一正方形 PNG，背景為純平塗 #FFFFFF，無任何光影處理。
-風格：$styleSuffix
-''';
-      } else {
-        return '''
-你是一位專業的 LINE 貼圖插畫師。請根據參考照片，繪製一張正方形貼圖。
-
-【畫布規格】
-- 整個正方形畫布以 ${spec.bgColor} 填色作為背景（含四個角落，不得有透明像素）
-- 禁止出現任何透明區域、白色邊框或描邊
-
-【角色設計】
-- 根據參考照片，$artStyleOpening
-- 表情 / 動作：$emotionLine
-$proSection- $characterDescLine
-- 將角色完整置於畫布正中央（水平、垂直皆置中），角色含動態姿勢（舉起的手、伸展的手臂末端等）的整體邊界高度不超過畫布的 55%
-- 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
-- 角色左右兩側各保留 ≥ 10% 空白
-- 嚴禁角色的任何部位（頭頂、耳朵、手臂、手掌末端、腳）被畫布邊緣截斷；動態姿勢（如舉手揮手）的手臂末端距畫布邊緣 ≥ 15%
-- 【禁止文字】畫面任何位置禁止出現任何文字、中文字、英文字母、數字、符號、Logo 或品牌名稱；若參考照片的服裝或配件上有文字圖案，請以純色或簡單幾何紋樣取代，切勿照實重現
-
-【裝飾】在角色周圍點綴 2–4 個小閃光或星星（集中在畫布中央區域）
-
-【配色】背景色：${spec.bgColor}
-【輸出】單一正方形 PNG，背景完全不透明。
-風格：$styleSuffix
-''';
-      }
-    } else {
-      if (kStickerBgChromaKey) {
-        return '''
-你是一位專業的 LINE 貼圖插畫師。請根據參考照片，繪製一張方形貼圖。
-
-【畫布規格 — Chroma Key 去背模式】
-背景是純技術用遮罩色，與插畫風格完全無關，必須嚴格遵守以下規則：
-- 所有背景區域（角色與裝飾以外的全部畫面）一律以電腦純色平塗填充為純白色 #FFFFFF（R=255, G=255, B=255）
-- 背景禁止任何藝術加工：無光暈、無漸層、無反光、無筆觸、無紋理、無陰影投射、無霧感
-- 角色或裝飾的陰影禁止落在背景上
-- 四個角落像素必須為精確的 #FFFFFF
-
-【角色設計】
-- 根據參考照片，$artStyleOpening
-- 表情 / 動作：$emotionLine
-$proSection- $characterDescLine
-- 將角色完整置於畫布正中央（水平、垂直皆置中），角色含動態姿勢（舉起的手、伸展的手臂末端等）的整體邊界高度不超過畫布的 55%
-- 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
-- 角色左右兩側各保留 ≥ 10% 空白
-- 嚴禁角色的任何部位（頭頂、耳朵、手臂、手掌末端、腳）被畫布邊緣截斷；動態姿勢（如舉手揮手）的手臂末端距畫布邊緣 ≥ 15%
-- 【禁止文字】畫面任何位置禁止出現任何文字、中文字、英文字母、數字、符號、Logo 或品牌名稱；若參考照片的服裝或配件上有文字圖案，請以純色或簡單幾何紋樣取代，切勿照實重現
-- 角色周圍點綴 3–5 個小閃光或星星（集中在角色周邊，不接觸背景邊緣）
-【輸出】單一正方形 PNG，背景為純平塗 #FFFFFF，無任何光影處理。
-風格：$styleSuffix
-''';
-      } else {
-        return '''
-你是一位專業的 LINE 貼圖插畫師。請根據參考照片，繪製一張方形貼圖。
-
-【設計規格】
-- 整個正方形畫布以 ${spec.bgColor} 填色作為背景
-- 角色表情 / 動作：$emotionLine
-$proSection- $characterDescLine
-- 將角色完整置於畫布正中央（水平、垂直皆置中），角色含動態姿勢（舉起的手、伸展的手臂末端等）的整體邊界高度不超過畫布的 55%
-- 頭頂（含髮型、耳朵、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，任何風格效果或速度線均不得壓縮此空間）；雙腳底部距下緣保留 ≥ 12% 空白
-- 角色左右兩側各保留 ≥ 10% 空白
-- 嚴禁角色的任何部位（頭頂、耳朵、手臂、手掌末端、腳）被畫布邊緣截斷；動態姿勢（如舉手揮手）的手臂末端距畫布邊緣 ≥ 15%
-- 【禁止文字】畫面任何位置禁止出現任何文字、中文字、英文字母、數字、符號、Logo 或品牌名稱；若參考照片的服裝或配件上有文字圖案，請以純色或簡單幾何紋樣取代，切勿照實重現
-- 背景中點綴 3–5 個小閃光或星星
-- 禁止出現任何白色邊框或白色描邊
-【輸出】單一正方形 PNG，無白色背景。
-風格：$styleSuffix
-''';
-      }
-    }
-  }
-
-  /// Pro 自訂描述注入段落，空字串則回傳空字串（不影響非 Pro 流程）。
-  String _buildProSection(
-    String? customStyleDesc,
-    String? customEmotionDesc,
-    String? personFeatures,
-  ) {
-    final hints = <String>[];
-    if (customStyleDesc != null && customStyleDesc.trim().isNotEmpty) {
-      hints.add(
-        '🎨 視覺風格（取代預設視覺風格，但構圖邊界留白規則絕對不可變動）：「${customStyleDesc.trim()}」',
-      );
-    }
-    if (customEmotionDesc != null && customEmotionDesc.trim().isNotEmpty) {
-      hints.add(
-        '🎭 情緒氛圍（最高優先，貫穿整張貼圖）：「${customEmotionDesc.trim()}」',
-      );
-    }
-
-    String featureSection = '';
-    if (personFeatures != null && personFeatures.trim().isNotEmpty) {
-      featureSection =
-          '\n【構圖絕對規則 — 最先執行，任何指令不得覆蓋】\n'
-          '• 角色全身必須完整顯示於畫布內，不得有任何部位超出邊緣\n'
-          '• 頭頂（含髮型、髮飾、帽子、裝飾物）距上緣保留 ≥ 20% 空白（最高優先，速度線等效果不得壓縮此空間）\n'
-          '• 腳底距下緣保留 ≥ 12% 空白\n'
-          '• 左右兩側各保留 ≥ 10% 空白\n'
-          '• 違反以上規則視為生成失敗，請重新構圖\n'
-          '\n【✨ 眼神特徵強化】\n'
-          '請在 Q 版設計中，將以下眼部特徵以誇張手法放大呈現，讓眼神成為角色最鮮明的辨識點：\n'
-          '${personFeatures.trim()}\n'
-          '重點：眼睛形狀、眼神表情、眼部細節（如眼距、眼皮、眼珠大小）需誇大強調。\n'
-          '其他五官與體型依 Q 版比例自然呈現即可，不需過度強調。\n';
-    }
-
-    if (hints.isEmpty && featureSection.isEmpty) return '';
-    final proHints = hints.isEmpty
-        ? ''
-        : '\n【✨ Pro 使用者指定（最高優先級，務必遵循）】\n${hints.join("\n")}\n';
-    return proHints + featureSection;
   }
 
   /// 基礎設施層拒絕的特徵：錯誤碼 unauthenticated，且訊息不含 function 層自訂文字。

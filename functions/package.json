@@ -1,6 +1,6 @@
 {
   "name": "functions",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "description": "Magic Morning Firebase Cloud Functions",
   "scripts": {
     "build": "tsc",
