@@ -4,7 +4,7 @@
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
 | 目前 App 版本 | v3.18.30 |
-| 目前 Functions 版本 | v1.2.0 |
+| 目前 Functions 版本 | v1.2.1 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -330,7 +330,7 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
-| v3.18.30 | 2026-04-09 | **refactor(cf): 新增 `generateStickerImageV2` 版本化入口**：新增獨立 CF function `generateStickerImageV2`（CF v1.2.0），App ≥ v3.18.30 改呼叫 V2；V1（`generateStickerImage`）凍結保留，確保舊版 App 不中斷。V2 僅接受 metadata 協議（`styleIndex + specEmotion`），由 CF 端 `buildPrompt()` 組 prompt，不支援舊版 `prompt` 字串欄位。`CLAUDE.md` v1.8 補充 CF 版本化入口部署規則。 |
+| v3.18.30 | 2026-04-09 | **refactor(cf): 新增 `generateStickerImageV2` 版本化入口（CF v1.2.0→v1.2.1）**：新增獨立 CF function `generateStickerImageV2`，App ≥ v3.18.30 改呼叫 V2；V1 凍結保留。v1.2.1 修正動態姿勢截手臂：`buildPrompt` 構圖留白規則上移最前（⚠️ 最高優先），上緣留白 20%→25%（含舉高手臂末端），整體高度上限 55%→45%；yuruDoodle STYLE_CHAR_DESC 同步更新。 |
 | v3.18.29 | 2026-04-09 | **refactor: Prompt 邏輯移至 CF，雙協議相容**（CF v1.1.9）：`generateStickerImage` 新增雙協議支援；App 改傳 metadata（不含 prompt 字串），刪除 Dart 端 `_buildSinglePrompt` / `_buildProSection`。 |
 | v3.18.15 | 2026-04-07 | **fix(android): App Links domain 改為 magic-sticker-8eaf4.web.app**：AndroidManifest `intent-filter` 的 `android:host` 從 `magicsticker.app` 改為 `magic-sticker-8eaf4.web.app`，與 Cloud Functions 產生的 deepLink URL 及 Firebase Hosting 的 `assetlinks.json` 位置一致，修正 Play Console「Failed domain checks」錯誤。 |
 | v3.18.14 | 2026-04-07 | **fix(ci): deploy_hosting — keystore 未設時改為 exit 1 阻止部署**：原 `exit 0` 會讓 CI 靜默跳過注入、繼續部署含 TODO placeholder 的 `assetlinks.json`，導致 Android App Links domain 驗證永遠失敗；改為 `exit 1` 讓 CI 明確失敗並顯示錯誤訊息，強制設定 `ANDROID_KEYSTORE_BASE64 / ANDROID_STORE_PASSWORD / ANDROID_KEY_ALIAS` secrets 後才能部署。⚠️ 須同時在 Firebase Console → Hosting 設定 `magicsticker.app` 為 custom domain，使 `assetlinks.json` 可從該 domain 讀取。 |
