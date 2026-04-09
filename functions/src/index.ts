@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import * as crypto from "node:crypto";
+import {inflateSync} from "node:zlib";
 import {onCall, HttpsError, CallableRequest} from "firebase-functions/v2/https";
 import {defineSecret, defineString} from "firebase-functions/params";
 import {log, warn} from "firebase-functions/logger";
@@ -22,7 +23,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.2.3";
+const FUNCTIONS_VERSION = "1.3.0";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -858,6 +859,112 @@ export const generateStickerImage = onCall(
   }
 );
 
+// ── checkTopEdgeCut ──────────────────────────────────────────────────────────
+
+/**
+ * 偵測 PNG 圖片頂部是否有角色像素（非白色），判斷角色是否被畫布上緣截斷。
+ *
+ * 方法：解析 PNG IHDR 取得寬高，用 inflateSync 解壓 IDAT chunk，
+ * 還原各行 PNG filter，掃描頂部 pct（預設 8%）的行。
+ * 若任一行出現非白色像素（RGB < 250），代表角色頂部被截斷。
+ *
+ * 支援 8-bit RGB（colorType=2）與 RGBA（colorType=6）PNG；
+ * 其他格式一律回傳 false（不觸發 retry）。
+ */
+function checkTopEdgeCut(imageBase64: string, pct = 0.08): boolean {
+  try {
+    const buf = Buffer.from(imageBase64, "base64");
+
+    // PNG 簽名驗證（89 50 4E 47 0D 0A 1A 0A）
+    if (buf.length < 33) return false;
+    if (
+      buf[0] !== 0x89 || buf[1] !== 0x50 ||
+      buf[2] !== 0x4e || buf[3] !== 0x47
+    ) return false;
+
+    // IHDR chunk（固定在 offset 8，chunk data 從 offset 16 開始）
+    if (buf.toString("ascii", 12, 16) !== "IHDR") return false;
+
+    const width     = buf.readUInt32BE(16);
+    const height    = buf.readUInt32BE(20);
+    const bitDepth  = buf.readUInt8(24);
+    const colorType = buf.readUInt8(25);
+
+    // 只支援 8-bit RGB(2) 或 RGBA(6)
+    if (bitDepth !== 8 || (colorType !== 2 && colorType !== 6)) return false;
+    const channels = colorType === 6 ? 4 : 3;
+
+    // 收集所有 IDAT chunk 資料
+    const idatChunks: Buffer[] = [];
+    let offset = 8;
+    while (offset + 12 <= buf.length) {
+      const chunkLen  = buf.readUInt32BE(offset);
+      const chunkType = buf.toString("ascii", offset + 4, offset + 8);
+      if (chunkType === "IDAT") {
+        idatChunks.push(buf.subarray(offset + 8, offset + 8 + chunkLen));
+      } else if (chunkType === "IEND") {
+        break;
+      }
+      offset += 12 + chunkLen;
+    }
+    if (idatChunks.length === 0) return false;
+
+    // 解壓縮 zlib/deflate IDAT 資料
+    const raw       = inflateSync(Buffer.concat(idatChunks));
+    const checkRows = Math.max(1, Math.floor(height * pct));
+    const stride    = 1 + width * channels; // 1 filter byte + pixel data per row
+
+    let prevRow = Buffer.alloc(width * channels, 0xff); // 上一行初始全白
+
+    for (let row = 0; row < checkRows; row++) {
+      const base = row * stride;
+      if (base + stride > raw.length) return false;
+
+      const filterType = raw[base];
+      const recon      = Buffer.allocUnsafe(width * channels);
+
+      // 還原 PNG filter（5 種類型：None/Sub/Up/Average/Paeth）
+      for (let i = 0; i < width * channels; i++) {
+        const x = raw[base + 1 + i];
+        const a = i >= channels ? recon[i - channels]   : 0; // left
+        const b = prevRow[i];                                 // above
+        const c = i >= channels ? prevRow[i - channels] : 0; // upper-left
+
+        let val: number;
+        switch (filterType) {
+          case 0: val = x; break;
+          case 1: val = (x + a) & 0xff; break;
+          case 2: val = (x + b) & 0xff; break;
+          case 3: val = (x + ((a + b) >>> 1)) & 0xff; break;
+          case 4: {
+            const p  = a + b - c;
+            const pa = Math.abs(p - a);
+            const pb = Math.abs(p - b);
+            const pc = Math.abs(p - c);
+            val = (x + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)) & 0xff;
+            break;
+          }
+          default: val = x;
+        }
+        recon[i] = val;
+      }
+
+      // 掃描這行：任一像素 RGB < 250 → 非白色 → 角色被截斷
+      for (let px = 0; px < width; px++) {
+        const p = px * channels;
+        if (recon[p] < 250 || recon[p + 1] < 250 || recon[p + 2] < 250) {
+          return true;
+        }
+      }
+
+      prevRow = recon;
+    }
+    return false;
+  } catch {
+    return false; // 解析失敗，不觸發 retry
+  }
+}
+
 // ── generateStickerImageV2 ───────────────────────────────────────────────────
 //
 // 版本化入口（v2）：僅接受新協議（App ≥ v3.18.30），不支援舊版 prompt 字串。
@@ -871,7 +978,7 @@ export const generateStickerImage = onCall(
 export const generateStickerImageV2 = onCall(
   {
     region: "asia-east1",
-    timeoutSeconds: 120,
+    timeoutSeconds: 200,
     memory: "1GiB",
     secrets: [geminiApiKey],
     invoker: "public",
@@ -981,7 +1088,7 @@ export const generateStickerImageV2 = onCall(
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(110000),
+        signal: AbortSignal.timeout(90000),
       });
 
       if (res.status === 429) {
@@ -1045,7 +1152,51 @@ export const generateStickerImageV2 = onCall(
       const parts = isBlocked ? [] : (json.candidates?.[0]?.content?.parts ?? []);
       for (const part of parts) {
         if (part.inlineData?.mimeType?.startsWith("image/")) {
-          return {imageBase64: part.inlineData.data, remainingCredits};
+          const firstImg = part.inlineData.data;
+
+          // ── 頂部截斷自動偵測 & 一次 retry ──────────────────────────────
+          if (checkTopEdgeCut(firstImg)) {
+            log("generateStickerImageV2: top-edge cut detected, retrying with size correction", {uid});
+            const retryPrompt = finalPrompt +
+              "\n\n⚠️ 前次生成的角色太大，頭頂超出畫布上緣被截斷。" +
+              "此次必須大幅縮小角色：角色（含動態姿勢最高點）" +
+              "的高度不超過畫布高度的三分之一，四周保留大量空白，不充滿畫面。";
+            try {
+              const retryRes = await fetch(endpoint, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                  contents: [{
+                    parts: [
+                      {text: retryPrompt},
+                      {inlineData: {mimeType: "image/jpeg", data: photoBase64}},
+                    ],
+                  }],
+                  generationConfig: {responseModalities: ["IMAGE", "TEXT"]},
+                }),
+                signal: AbortSignal.timeout(80000),
+              });
+              if (retryRes.ok) {
+                const retryJson = await retryRes.json() as {
+                  candidates?: Array<{
+                    content: {parts: Array<{inlineData?: {mimeType: string; data: string}}>};
+                  }>;
+                };
+                for (const rp of (retryJson.candidates?.[0]?.content?.parts ?? [])) {
+                  if (rp.inlineData?.mimeType?.startsWith("image/")) {
+                    log("generateStickerImageV2: size-correction retry succeeded", {uid});
+                    return {imageBase64: rp.inlineData.data, remainingCredits};
+                  }
+                }
+              }
+            } catch (retryErr) {
+              warn("generateStickerImageV2: size-correction retry failed", {uid, error: String(retryErr)});
+            }
+            // retry 失敗 → 回傳原始圖（有截斷但不退點，使用者仍拿到圖片）
+            log("generateStickerImageV2: retry failed, returning original image", {uid});
+          }
+
+          return {imageBase64: firstImg, remainingCredits};
         }
       }
 
