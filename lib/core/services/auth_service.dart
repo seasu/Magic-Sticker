@@ -450,21 +450,38 @@ class AuthService {
     await _db.runTransaction((tx) async {
       final doc = await tx.get(ref);
       final data = doc.data() ?? {};
-      if (data['isAnonymous'] != true) return; // 已升級過，不重複
+
+      // 文件已存在且已是正式帳號 → 不重複給點
+      if (doc.exists && data['isAnonymous'] != true) return;
 
       promoted = true;
-      // 在現有點數基礎上累加登入獎勵
-      final currentCredits = (data['credits'] as int?) ?? previousCredits;
-      tx.update(ref, {
-        'credits': currentCredits + kLoginBonusCredits,
-        'isAnonymous': false,
-        'promotedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+
+      if (!doc.exists) {
+        // 文件不存在：代表 CF initUserSession 尚未完成（race condition）
+        // 或初始化失敗，視為全新帳號建立文件，給予初始點數確保用戶不丟點
+        FirebaseService.log(
+            'AuthService: _promoteUser doc missing for uid=$uid, creating with $kNewAccountCredits credits');
+        tx.set(ref, {
+          'credits': kNewAccountCredits,
+          'isAnonymous': false,
+          'promotedAt': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        // 文件存在且 isAnonymous == true → 正常升級路徑，在現有點數上累加
+        final currentCredits = (data['credits'] as int?) ?? previousCredits;
+        tx.update(ref, {
+          'credits': currentCredits + kLoginBonusCredits,
+          'isAnonymous': false,
+          'promotedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
     });
     if (promoted) {
       FirebaseService.log(
-          'AuthService: user promoted uid=$uid +$kLoginBonusCredits credits');
+          'AuthService: user promoted uid=$uid +credits');
       await _writeHistoryEntry(uid,
           type: 'earned',
           amount: kLoginBonusCredits,

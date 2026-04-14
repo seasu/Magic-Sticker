@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.18.30 |
+| 目前 App 版本 | v3.18.31 |
 | 目前 Functions 版本 | v1.3.2 |
 | 目前 App 版本 | v3.18.15 |
 | 目前 Functions 版本 | v1.1.5 |
@@ -332,6 +332,7 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.18.31 | 2026-04-14 | **fix(auth): 修正首次 Google/Apple 登入未收到點數的 race condition**：`_promoteUser()` 原本在 Firestore 文件不存在時靜默跳過（`doc.data() ?? {}` 取到空 map，`isAnonymous != true` 直接 return），導致 CF initUserSession 尚未完成或初始化失敗時用戶不會收到任何點數。修正：加入 `!doc.exists` 判斷，文件不存在時視為全新帳號，以 `tx.set` 建立文件並給予 `kNewAccountCredits (5)` 點，確保用戶不丟點。 |
 | CF v1.3.2 | 2026-04-09 | **fix(cf): 全身照角色截頭根因修正（CF 端雙管齊下）**：① `generateStickerImageV2` 新增 Server 端 `sharp` 圖片預處理：接收到參考照片後裁切至上方 80%，去除全身照腳踝以下部位，Gemini 不再以「完整全身」為構圖錨點而放大角色；大頭照臉部通常在頂部 60% 以內不受影響。App 無需更新（CF 端直接處理）。② `buildPrompt` 新增「參考照片僅供外貌特徵（臉部、膚色、髮色、服裝配色）參考，角色比例遵守構圖規則，與照片是否為全身照無關」說明。新增 `sharp` dependency。 |
 | CF v1.3.0 | 2026-04-09 | **fix(cf): 頂部截斷自動偵測 & retry（CF v1.3.0）**：`generateStickerImageV2` 新增純 Node.js PNG 解析器 `checkTopEdgeCut()`，偵測頂部 8% 行是否有非白色像素（還原所有 5 種 PNG filter type）。若偵測到截斷，自動追加「大幅縮小角色、高度不超過畫布三分之一」的修正 prompt 重試一次 Gemini（不額外扣點）；retry 失敗時仍回傳原圖。function timeoutSeconds 從 120 → 200s，首次 Gemini 呼叫 timeout 從 110s → 90s，retry 呼叫 timeout 80s。 |
 | v3.18.30 | 2026-04-09 | **refactor(cf): 新增 `generateStickerImageV2` 版本化入口（CF v1.2.0→v1.2.1）**：新增獨立 CF function `generateStickerImageV2`，App ≥ v3.18.30 改呼叫 V2；V1 凍結保留。v1.2.1 修正動態姿勢截手臂：`buildPrompt` 構圖留白規則上移最前（⚠️ 最高優先），上緣留白 20%→25%（含舉高手臂末端），整體高度上限 55%→45%；yuruDoodle STYLE_CHAR_DESC 同步更新。 |
