@@ -381,7 +381,16 @@ class AuthService {
         // Force token refresh: linkWithCredential fires userChanges() but
         // the updated token may not yet be in the Firestore SDK's cache.
         await _auth.currentUser?.getIdToken(true);
-        // 升級成功：同一 UID，給登入獎勵（若已升級過不重複給）
+        // CF 端補做 _deletedProviders 檢查（Case 1 路徑保護）：
+        // linkWithCredential 後 UID 不變，CF initUserSession 看到 doc 已存在但
+        // 用戶現在有 provider，若命中黑名單會在 doc 上寫入 promotionBlocked: true。
+        try {
+          await _callInitUserSession(currentUser.uid);
+        } catch (e, stack) {
+          await FirebaseService.recordError(e, stack,
+              reason: 'post_link_init_session_failed');
+        }
+        // 升級成功：同一 UID，給登入獎勵（若已升級過或黑名單命中不重複給）
         bool didPromote = false;
         try {
           didPromote = await _promoteUser(currentUser.uid, previousCredits: anonCredits);
@@ -453,6 +462,8 @@ class AuthService {
 
       // 文件已存在且已是正式帳號 → 不重複給點
       if (doc.exists && data['isAnonymous'] != true) return;
+      // 曾刪除帳號的 provider 重新登入（CF 已標記黑名單）→ 不給點
+      if (doc.exists && data['promotionBlocked'] == true) return;
 
       promoted = true;
 

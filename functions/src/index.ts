@@ -2191,6 +2191,34 @@ export const initUserSession = onCall(
           }
         }
 
+        // Case 1 保護（linkWithCredential 路徑）：
+        // 文件為匿名帳號（isAnonymous: true），但當前 Firebase Auth 用戶已有 provider
+        // （表示 linkWithCredential 剛完成），需檢查 _deletedProviders 黑名單。
+        // 若命中，在文件上標記 promotionBlocked: true，
+        // 阻止 _promoteUser() 發放升級點數。
+        if (doc.data()?.isAnonymous === true) {
+          const userRecord = await admin.auth().getUser(uid);
+          const hasProvider = (userRecord.providerData ?? []).some(
+            (p) => p.providerId !== "anonymous",
+          );
+          if (hasProvider) {
+            for (const provider of userRecord.providerData ?? []) {
+              const key = Buffer.from(`${provider.providerId}:${provider.uid}`)
+                .toString("base64url");
+              const snap = await tx.get(
+                db.collection("_deletedProviders").doc(key),
+              );
+              if (snap.exists) {
+                updateFields.promotionBlocked = true;
+                updateFields.updatedAt =
+                  admin.firestore.FieldValue.serverTimestamp();
+                log("initUserSession: promotionBlocked set", {uid});
+                break;
+              }
+            }
+          }
+        }
+
         if (Object.keys(updateFields).length > 0) {
           tx.update(userRef, updateFields);
         }
