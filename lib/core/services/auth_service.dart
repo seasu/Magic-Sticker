@@ -14,9 +14,8 @@ import '../../features/billing/models/credit_history_entry.dart';
 import '../../features/sticker_history/services/sticker_archive_service.dart';
 
 /// 點數常數
-const int kGuestInitialCredits = 1;      // 訪客初始點數（刻意給少，降低重裝誘因）
-const int kLoginBonusCredits = 3;        // 登入獎勵（升級訪客 → 正式帳號）
-const int kNewAccountCredits = 5;        // 全新帳號初始點數
+const int kGuestInitialCredits = 0;      // 訪客初始點數（不再贈點，防止重裝濫用）
+const int kNewAccountCredits = 5;        // 登入獎勵：Google/Apple 首次登入給 5 點
 
 
 const String _appleServiceId = String.fromEnvironment('APPLE_SERVICE_ID');
@@ -381,7 +380,16 @@ class AuthService {
         // Force token refresh: linkWithCredential fires userChanges() but
         // the updated token may not yet be in the Firestore SDK's cache.
         await _auth.currentUser?.getIdToken(true);
-        // 升級成功：同一 UID，給登入獎勵（若已升級過不重複給）
+        // CF 端補做 _deletedProviders 檢查（Case 1 路徑保護）：
+        // linkWithCredential 後 UID 不變，CF initUserSession 看到 doc 已存在但
+        // 用戶現在有 provider，若命中黑名單會在 doc 上寫入 promotionBlocked: true。
+        try {
+          await _callInitUserSession(currentUser.uid);
+        } catch (e, stack) {
+          await FirebaseService.recordError(e, stack,
+              reason: 'post_link_init_session_failed');
+        }
+        // 升級成功：同一 UID，給登入獎勵（若已升級過或黑名單命中不重複給）
         bool didPromote = false;
         try {
           didPromote = await _promoteUser(currentUser.uid, previousCredits: anonCredits);
@@ -450,24 +458,43 @@ class AuthService {
     await _db.runTransaction((tx) async {
       final doc = await tx.get(ref);
       final data = doc.data() ?? {};
-      if (data['isAnonymous'] != true) return; // 已升級過，不重複
+
+      // 文件已存在且已是正式帳號 → 不重複給點
+      if (doc.exists && data['isAnonymous'] != true) return;
+      // 曾刪除帳號的 provider 重新登入（CF 已標記黑名單）→ 不給點
+      if (doc.exists && data['promotionBlocked'] == true) return;
 
       promoted = true;
-      // 在現有點數基礎上累加登入獎勵
-      final currentCredits = (data['credits'] as int?) ?? previousCredits;
-      tx.update(ref, {
-        'credits': currentCredits + kLoginBonusCredits,
-        'isAnonymous': false,
-        'promotedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+
+      if (!doc.exists) {
+        // 文件不存在：代表 CF initUserSession 尚未完成（race condition）
+        // 或初始化失敗，視為全新帳號建立文件，給予初始點數確保用戶不丟點
+        FirebaseService.log(
+            'AuthService: _promoteUser doc missing for uid=$uid, creating with $kNewAccountCredits credits');
+        tx.set(ref, {
+          'credits': kNewAccountCredits,
+          'isAnonymous': false,
+          'promotedAt': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        // 文件存在且 isAnonymous == true → 正常升級路徑，在現有點數上累加
+        final currentCredits = (data['credits'] as int?) ?? previousCredits;
+        tx.update(ref, {
+          'credits': currentCredits + kNewAccountCredits,
+          'isAnonymous': false,
+          'promotedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
     });
     if (promoted) {
       FirebaseService.log(
-          'AuthService: user promoted uid=$uid +$kLoginBonusCredits credits');
+          'AuthService: user promoted uid=$uid +credits');
       await _writeHistoryEntry(uid,
           type: 'earned',
-          amount: kLoginBonusCredits,
+          amount: kNewAccountCredits,
           reason: CreditHistoryReason.loginBonus);
     }
     return promoted;

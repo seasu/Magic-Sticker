@@ -24,7 +24,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.3.4";
+const FUNCTIONS_VERSION = "1.3.5";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -2130,7 +2130,7 @@ export const rewardAdCredit = onCall(
 // 2. 若 users/{uid} 不存在，建立並給初始點數
 // 3. 回傳 {credits, created}
 
-const kGuestInitialCredits = 1;
+const kGuestInitialCredits = 0;
 const kNewAccountCredits = 5;
 
 export const initUserSession = onCall(
@@ -2188,6 +2188,34 @@ export const initUserSession = onCall(
           if (anonUid && anonUid !== uid) {
             const anonRef = db.collection("users").doc(anonUid);
             tx.set(anonRef, {credits: 0, updatedAt: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+          }
+        }
+
+        // Case 1 保護（linkWithCredential 路徑）：
+        // 文件為匿名帳號（isAnonymous: true），但當前 Firebase Auth 用戶已有 provider
+        // （表示 linkWithCredential 剛完成），需檢查 _deletedProviders 黑名單。
+        // 若命中，在文件上標記 promotionBlocked: true，
+        // 阻止 _promoteUser() 發放升級點數。
+        if (doc.data()?.isAnonymous === true) {
+          const userRecord = await admin.auth().getUser(uid);
+          const hasProvider = (userRecord.providerData ?? []).some(
+            (p) => p.providerId !== "anonymous",
+          );
+          if (hasProvider) {
+            for (const provider of userRecord.providerData ?? []) {
+              const key = Buffer.from(`${provider.providerId}:${provider.uid}`)
+                .toString("base64url");
+              const snap = await tx.get(
+                db.collection("_deletedProviders").doc(key),
+              );
+              if (snap.exists) {
+                updateFields.promotionBlocked = true;
+                updateFields.updatedAt =
+                  admin.firestore.FieldValue.serverTimestamp();
+                log("initUserSession: promotionBlocked set", {uid});
+                break;
+              }
+            }
           }
         }
 

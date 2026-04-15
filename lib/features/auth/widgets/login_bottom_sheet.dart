@@ -139,7 +139,7 @@ class _LoginBottomSheetState extends ConsumerState<LoginBottomSheet>
       _state = _SheetState.success;
       _userName = user?.displayName ?? user?.email?.split('@').first ?? '使用者';
       _userPhotoUrl = user?.photoURL;
-      _bonusCredits = result.wasPromoted ? kLoginBonusCredits : 0;
+      _bonusCredits = result.wasPromoted ? kNewAccountCredits : 0;
     });
     _successCtrl.forward();
   }
