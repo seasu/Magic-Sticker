@@ -3,10 +3,8 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.18.31 |
-| 目前 Functions 版本 | v1.3.2 |
-| 目前 App 版本 | v3.18.15 |
-| 目前 Functions 版本 | v1.1.5 |
+| 目前 App 版本 | v3.18.44 |
+| 目前 Functions 版本 | v1.3.5 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
 | 核心技術 | Gemini 2.0 Flash Exp Image Generation（圖片生成）|
@@ -332,6 +330,10 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.18.44 | 2026-04-15 | **fix(auth): 移除匿名帳號初始贈點，修正 kLoginBonusCredits 殘留**（CF v1.3.5）：① `kGuestInitialCredits` 從 `1` 改為 `0`（CF + App 同步），匿名帳號建立時不再贈點，封堵「登出後重啟 App 可無限循環領點」漏洞；② 移除已廢棄的 `kLoginBonusCredits = 3` 常數，`_promoteUser()` 及 `_writeHistoryEntry()` 改為統一使用 `kNewAccountCredits (5)`；③ `LoginBottomSheet._handleSuccess()` 同步改用 `kNewAccountCredits`，升級成功後 UI 顯示「+5 已入帳」。 |
+| v3.18.43 | 2026-04-15 | **fix(auth): 補上刪帳後重新登入 linkWithCredential 路徑的黑名單缺口**（CF v1.3.4）：① CF `initUserSession` 在 `doc.exists && isAnonymous:true` 且帳號有 real provider 時，查詢 `_deletedProviders` 黑名單，命中則寫入 `promotionBlocked:true`；② App `_promoteUser()` 讀到 `promotionBlocked:true` 直接 return；③ Case 1（`linkWithCredential` 同 UID 路徑）在 `_promoteUser()` 前先呼叫 `_callInitUserSession()`，確保 CF 黑名單檢查先於點數發放。 |
+| v3.18.42 | 2026-04-15 | **fix(auth): 首次登入改為累加 5 點，保留原有匿名點數**：`_promoteUser()` 升級路徑改為 `currentCredits + kNewAccountCredits`（原為 `currentCredits + kLoginBonusCredits`），確保無論匿名帳號剩餘幾點，登入後一律在現有點數上加 5，避免匿名 1 點 + 登入 5 點 = 6 點 vs 直接登入 5 點的不一致問題。 |
+| v3.18.41 | 2026-04-15 | **fix(auth): 移除 kLoginBonusCredits，登入改累加 kNewAccountCredits**：移除舊有 `kLoginBonusCredits = 3` 設計，統一以 `kNewAccountCredits = 5` 作為首次 Google/Apple 登入的獎勵點數。 |
 | v3.18.31 | 2026-04-14 | **fix(auth): 修正首次 Google/Apple 登入未收到點數的 race condition**：`_promoteUser()` 原本在 Firestore 文件不存在時靜默跳過（`doc.data() ?? {}` 取到空 map，`isAnonymous != true` 直接 return），導致 CF initUserSession 尚未完成或初始化失敗時用戶不會收到任何點數。修正：加入 `!doc.exists` 判斷，文件不存在時視為全新帳號，以 `tx.set` 建立文件並給予 `kNewAccountCredits (5)` 點，確保用戶不丟點。 |
 | CF v1.3.2 | 2026-04-09 | **fix(cf): 全身照角色截頭根因修正（CF 端雙管齊下）**：① `generateStickerImageV2` 新增 Server 端 `sharp` 圖片預處理：接收到參考照片後裁切至上方 80%，去除全身照腳踝以下部位，Gemini 不再以「完整全身」為構圖錨點而放大角色；大頭照臉部通常在頂部 60% 以內不受影響。App 無需更新（CF 端直接處理）。② `buildPrompt` 新增「參考照片僅供外貌特徵（臉部、膚色、髮色、服裝配色）參考，角色比例遵守構圖規則，與照片是否為全身照無關」說明。新增 `sharp` dependency。 |
 | CF v1.3.0 | 2026-04-09 | **fix(cf): 頂部截斷自動偵測 & retry（CF v1.3.0）**：`generateStickerImageV2` 新增純 Node.js PNG 解析器 `checkTopEdgeCut()`，偵測頂部 8% 行是否有非白色像素（還原所有 5 種 PNG filter type）。若偵測到截斷，自動追加「大幅縮小角色、高度不超過畫布三分之一」的修正 prompt 重試一次 Gemini（不額外扣點）；retry 失敗時仍回傳原圖。function timeoutSeconds 從 120 → 200s，首次 Gemini 呼叫 timeout 從 110s → 90s，retry 呼叫 timeout 80s。 |

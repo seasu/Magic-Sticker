@@ -14,9 +14,8 @@ import '../../features/billing/models/credit_history_entry.dart';
 import '../../features/sticker_history/services/sticker_archive_service.dart';
 
 /// 點數常數
-const int kGuestInitialCredits = 1;      // 訪客初始點數（刻意給少，降低重裝誘因）
-const int kLoginBonusCredits = 3;        // 登入獎勵（升級訪客 → 正式帳號）
-const int kNewAccountCredits = 5;        // 全新帳號初始點數
+const int kGuestInitialCredits = 0;      // 訪客初始點數（不再贈點，防止重裝濫用）
+const int kNewAccountCredits = 5;        // 登入獎勵：Google/Apple 首次登入給 5 點
 
 
 const String _appleServiceId = String.fromEnvironment('APPLE_SERVICE_ID');
@@ -483,7 +482,7 @@ class AuthService {
         // 文件存在且 isAnonymous == true → 正常升級路徑，在現有點數上累加
         final currentCredits = (data['credits'] as int?) ?? previousCredits;
         tx.update(ref, {
-          'credits': currentCredits + kLoginBonusCredits,
+          'credits': currentCredits + kNewAccountCredits,
           'isAnonymous': false,
           'promotedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -495,7 +494,7 @@ class AuthService {
           'AuthService: user promoted uid=$uid +credits');
       await _writeHistoryEntry(uid,
           type: 'earned',
-          amount: kLoginBonusCredits,
+          amount: kNewAccountCredits,
           reason: CreditHistoryReason.loginBonus);
     }
     return promoted;

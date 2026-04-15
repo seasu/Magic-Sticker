@@ -24,7 +24,7 @@ const geminiImageModel = defineString("GEMINI_IMAGE_MODEL", {
 });
 
 /** 後端版本，每次修改 functions 時同步遞增（與 package.json version 保持一致） */
-const FUNCTIONS_VERSION = "1.3.4";
+const FUNCTIONS_VERSION = "1.3.5";
 
 // ── auth helper ──────────────────────────────────────────────────────────────
 
@@ -2130,7 +2130,7 @@ export const rewardAdCredit = onCall(
 // 2. 若 users/{uid} 不存在，建立並給初始點數
 // 3. 回傳 {credits, created}
 
-const kGuestInitialCredits = 1;
+const kGuestInitialCredits = 0;
 const kNewAccountCredits = 5;
 
 export const initUserSession = onCall(
