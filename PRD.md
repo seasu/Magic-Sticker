@@ -3,7 +3,7 @@
 |---|---|
 | 專案名稱 | Magic Sticker（AI 一鍵產 LINE 貼圖） |
 | 版本號規範 | App: SemVer (Major.Minor.Patch+Build)；Functions: SemVer (Major.Minor.Patch) |
-| 目前 App 版本 | v3.18.44 |
+| 目前 App 版本 | v3.18.46 |
 | 目前 Functions 版本 | v1.3.5 |
 | 開發平台 | Flutter (Android & iOS) |
 | 監控系統 | Firebase Crashlytics & Analytics |
@@ -330,6 +330,8 @@ lib/
 ## 6. 版本歷史
 
 | 版本 | 日期 | 摘要 |
+| v3.18.46 | 2026-04-17 | **fix(theme): 依 Design Guide 校正品牌色 Token（撤回暖色誤改）**：對齊 `docs/DESIGN_GUIDE.md` 與 `public/css/brand.css`，`AppColors.gradient` 恢復品牌粉紅漸層（`#FD297B → #FF5864 → #FF655B`）、`AppColors.background` 恢復 `#FFFFFF`、`AppColors.nope` 恢復 `#FF3B30`，並將 `AppColors.surface` 校正為規範值 `#F2F2F7`。 |
+| v3.18.45 | 2026-04-17 | **fix(theme): 全域基底配色改為暖色系以符合設計規範**：`AppColors.background` 從純白改為 warm cream `#FFF7ED`，品牌主漸層改為暖橘系（`#F4A261 → #F08A4B → #E76F51`），`AppColors.nope` 由純紅調整為深橘紅 `#E76F51`，統一整體視覺語言並避免警示色過於刺眼。 |
 | v3.18.44 | 2026-04-15 | **fix(auth): 移除匿名帳號初始贈點，修正 kLoginBonusCredits 殘留**（CF v1.3.5）：① `kGuestInitialCredits` 從 `1` 改為 `0`（CF + App 同步），匿名帳號建立時不再贈點，封堵「登出後重啟 App 可無限循環領點」漏洞；② 移除已廢棄的 `kLoginBonusCredits = 3` 常數，`_promoteUser()` 及 `_writeHistoryEntry()` 改為統一使用 `kNewAccountCredits (5)`；③ `LoginBottomSheet._handleSuccess()` 同步改用 `kNewAccountCredits`，升級成功後 UI 顯示「+5 已入帳」。 |
 | v3.18.43 | 2026-04-15 | **fix(auth): 補上刪帳後重新登入 linkWithCredential 路徑的黑名單缺口**（CF v1.3.4）：① CF `initUserSession` 在 `doc.exists && isAnonymous:true` 且帳號有 real provider 時，查詢 `_deletedProviders` 黑名單，命中則寫入 `promotionBlocked:true`；② App `_promoteUser()` 讀到 `promotionBlocked:true` 直接 return；③ Case 1（`linkWithCredential` 同 UID 路徑）在 `_promoteUser()` 前先呼叫 `_callInitUserSession()`，確保 CF 黑名單檢查先於點數發放。 |
 | v3.18.42 | 2026-04-15 | **fix(auth): 首次登入改為累加 5 點，保留原有匿名點數**：`_promoteUser()` 升級路徑改為 `currentCredits + kNewAccountCredits`（原為 `currentCredits + kLoginBonusCredits`），確保無論匿名帳號剩餘幾點，登入後一律在現有點數上加 5，避免匿名 1 點 + 登入 5 點 = 6 點 vs 直接登入 5 點的不一致問題。 |
