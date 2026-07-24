@@ -23,9 +23,9 @@ description: >
 ### 若不存在，安裝 Flutter SDK
 
 ```bash
-# 下載（約 730MB，需要等待）
+# 下載（約 1.5GB，需要等待；版本需與 .github/workflows/*.yml 的 flutter-version 一致）
 wget -qO /tmp/flutter.tar.xz \
-  https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.29.1-stable.tar.xz
+  https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.44.7-stable.tar.xz
 
 # 解壓縮
 tar -xf /tmp/flutter.tar.xz -C /opt/
